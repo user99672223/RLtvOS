@@ -1,15 +1,27 @@
 # 000-setup — laptop setup S0–S8
 
-**Verdict: IN PROGRESS**
+**Verdict: IN PROGRESS** (S0–S3, S5, S6 PASS; S7 running; S4 needs new JIT work; S8 next)
 
-| Step | Status | Notes |
-|------|--------|-------|
-| S0 GitHub login + push | PASS | gh 2.101.0 (official release in ~/.local/bin), logged in as user99672223, `gh auth setup-git`, this commit is the push proof |
-| S1 laptop/config.env | pending | |
-| S2 atvloadly | pending | |
-| S3 pyatv | pending | |
-| S4 JIT | pending | user has no JIT method yet — must be built |
-| S5 assets server | pending | |
-| S6 rootfs | pending | |
-| S7 game known-good | pending | |
+**HOLD from the user (2026-09-27): do not touch the Apple TV** (no installs, launches, JIT, screenshots)
+until they say go. Laptop-only work continues.
+
+| Step | Status | What was actually done / seen |
+|------|--------|-------------------------------|
+| S0 GitHub | PASS | gh 2.101.0 (official release, ~/.local/bin), device-code login as user99672223, `gh auth setup-git`, git identity = GitHub no-reply address, repo cloned on `claude/rocket-league-apple-tv-zek0mi`, first `[laptop]` commit pushed. |
+| S1 config.env | PASS | laptop/config.env written (no secrets; repo is public). TV 192.168.1.7, tvOS 27.0 (24J361), AppleTV14,1 J255AP MN873 (128 GB), UDID 00008110-000A118821E1801E, atvloadly 192.168.1.133:5533, GAME_DIR ~/Games/Heroic/rocketleague. JIT_CMD still empty (S4). |
+| S2 atvloadly | PASS | v0.4.8 in docker (~/docker-compose.yml, data /etc/atvloadly). Added a read-only shared folder: host `~/rltvos/ipa` → container `/share/ipa` (atvloadly accepts local .ipa paths). `claude mcp add --transport http atvloadly http://192.168.1.133:5533/mcp` → ✔ Connected. MCP tools: get_account_list, get_app_list, get_device_list, get_install_status, get_refresh_status, install_app, refresh_app. Proof 1: `refresh_app` of atvcast → completed_success in ~12 s. Proof 2: `laptop/install.sh ~/rltvos/ipa/test/atvcast.ipa` (MCP install_app with /share/ipa path) → success in 8 s. Web API mapped too (`/api/devices/:id/screenshot`, `/mountimage`, `/install`); installed bundle ids get the team suffix `.GBCWA7VWJ3`. |
+| S3 pyatv | PASS | pyatv 0.18.0 in ~/.venvs/rltvos. Scan: "Living Room", Apple TV 4K (gen 3), tvOS 27.0. Paired Companion (PIN 1 from the TV) and AirPlay (PIN 2), credentials in ~/.pyatv.conf (`laptop/atv_pair.py`, PIN relayed through chat). `launch_app=com.atvcast.tvapp.GBCWA7VWJ3` opened atvcast (s3-launch-atvcast.jpg); `down` moved focus from the address field to "Open Library" (s3-button-down.jpg). |
+| S4 JIT | BLOCKED → building | The user has **no** JIT method (brief assumed one). Research: tvOS 26+/A15 (TXM) needs the "prepare region" debugger protocol, not RWX mmap → handoff/issues/001-jit-tvos27-txm.md for REPO (app side). LAPTOP builds the laptop helper (idevice, rootless tunnel). Testing waits for the user's go. |
+| S5 assets server | PASS | Official caddy 2.11.4 as systemd **user** service `rltvos-assets` (linger on → starts at boot), :8090, Range OK (`206`, `Content-Range`), no listings, 404 elsewhere. Routes: /rootfs/ /prefix/ /home/ /game/ /manifest/. Manifests by `laptop/assets_manifest.py` (path,type,mode,size,sha256,target; sha cache): rootfs 48,189 entries / 3.68 GB, game 20,959 entries / 43.67 GB (hashed in 91 s). Clients must resolve symlinks from the manifest (server follows them on disk). |
+| S6 rootfs + prefix | PASS | Rootless: `mmdebstrap --mode=unshare` (trixie, minbase + REPO's package list + imagemagick) → tar → extracted as the user (s6-rootfs-rootless.sh). WineHQ **11.0** stable, 64-bit only via a dummy `wine-stable-i386` package (WineHQ 11's `wine-stable` hard-depends on i386). Wine 11 has no `wine64` binary: `wine` is the 64-bit loader. /opt/rl/bin: hello-static, hello-dyn, threads-test run; d3d11tri.exe builds with `-ldxguid -luuid`. Prefix (s6-prefix.sh): wineboot under Xvfb (MIT-SHM off), Gcenx DXVK-macOS v1.10.3-20230507-repack (d3d11 + d3d10core only, native overrides; Wine's builtin dxgi). GAME_DIR bind-mounted read-only at /game (`laptop/rootfs_exec.sh`, bwrap). |
+| S7 game | IN PROGRESS | See "S7 notes" below. Title screen, first-run intro, EULA (accepted with the user's OK), vehicle pick, and a **bot match running at 47–59 fps**. |
 | S8 strace refs | pending | |
+
+## S7 notes (so far)
+- `legendary launch Sugar --dry-run` fails on this laptop: Heroic's legendary has **no Epic login** (no user.json), and legendary needs the account id even with `--offline`. `legendary info Sugar` shows Launch EXE `Binaries/Win64/Launcher.exe` (a .NET wrapper choosing `RocketLeague_EAC.exe` or `RocketLeague.exe`) and the manifest's official extra option **"Launch without Anti-Cheat", Parameters: `-noeac`**. Epic's help page says the same: "Under 'Launch options' type: -noeac".
+- Known-good command (= `legendary launch Sugar --offline --override-exe Binaries/Win64/RocketLeague.exe -nomovie -noeac`, minus username/userid):
+  `wine /game/Binaries/Win64/RocketLeague.exe -nomovie -noeac -AUTH_LOGIN=unused -AUTH_PASSWORD=0 -AUTH_TYPE=exchangecode -epicapp=Sugar -epicenv=Prod -EpicPortal -epiclocale=en -epicsandboxid=9773aa1aa54f4f7b80e44bef04986cea`
+  Without the `-EpicPortal…` args EOS's LauncherCheck quits the game ("Failed to init online subsystem"). EAC files are never loaded.
+- **Offline must mean no network.** With network but no valid Epic session the game sits forever on "PRESS ANY BUTTON TO START" (input arrives: Wine trace shows VK_RETURN, the window is foreground). With the sandbox in its own network namespace (`NONET=1`, EOS gets EOS_NoConnection) Enter works and the game runs offline.
+- Display: Xvfb 1280x720x24 `-extension MIT-SHM`, no window manager; XTEST input (xdotool) works. Vulkan: Intel ANV needs `/dev/dri` **and** `/sys` in the sandbox, and `MESA_VK_WSI_DEBUG=sw` (Xvfb has no DRI3; without it vkcube falls back to llvmpipe). DXVK logs "Adapter is not a DXVK adapter" (Wine dxgi) but works: swapchain 1280x720, IMMEDIATE.
+- Driver: s7-game.sh (start/shot/xdo/stop). Screenshots in ~/rltvos/build/s7/shots (copied here at the end).

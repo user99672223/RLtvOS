@@ -35,12 +35,21 @@
 
 ## laptop
 
-- 2026-09-26 LAPTOP session online (Debian 13 laptop 192.168.1.133, repo cloned at
-  ~/local_RLtvOS on branch `claude/rocket-league-apple-tv-zek0mi`, pushing as
-  user99672223 via gh).
-- Doing setup S1–S8 now; progress in handoff/results/000-setup/verdict.md.
-- Known so far: TV 192.168.1.7, tvOS 27.0, AppleTV14,1; atvloadly v0.4.8 with MCP at :5533/mcp.
-- JIT: the user has NO working JIT method yet (brief said otherwise). LAPTOP is
-  researching one for tvOS 27 / A15 (TXM); app-side needs will come as an issue.
-- No sudo available non-interactively: rootfs is built rootless
-  (mmdebstrap --mode=unshare + bwrap) instead of laptop/setup/10-rootfs.sh's sudo path.
+- **HOLD (user, 2026-09-27): do not touch the Apple TV until the user says go.** If a request
+  arrives, leave it queued and tell the user.
+- State: setup S0–S3, S5, S6 PASS; S7 bot match reached on the laptop reference; S8 next;
+  S4 (JIT) needs new work — see handoff/issues/001-jit-tvos27-txm.md. Details in
+  handoff/results/000-setup/verdict.md.
+- Where things are: repo ~/local_RLtvOS; config laptop/config.env; pyatv ~/.venvs/rltvos
+  (paired, ~/.pyatv.conf); gh/caddy in ~/.local/bin; assets server = systemd --user
+  `rltvos-assets` (:8090, ~/rltvos/assets-server/Caddyfile); assets ~/rltvos/assets/{rootfs,prefix,home,manifests};
+  IPAs ~/rltvos/ipa (atvloadly sees it as /share/ipa).
+- LAPTOP tools (mine): laptop/install.sh (INSTALL_CMD, atvloadly MCP), laptop/atvloadly.py
+  (install/apps/refresh/shot/mount), laptop/atv_pair.py, laptop/assets_manifest.py,
+  laptop/rootfs_exec.sh (bwrap; --gpu --nonet --rw), results/000-setup/s6-*.sh, s7-game.sh.
+- Rootfs is built rootless (no sudo available): mmdebstrap --mode=unshare → see
+  results/000-setup/s6-rootfs-rootless.sh (REPO: fold into 10-rootfs.sh if you want).
+- Game on the laptop: Xvfb + wine 11 + DXVK-macOS + ANV (MESA_VK_WSI_DEBUG=sw), **no network**
+  (otherwise it waits for an Epic session on the title screen). Launch line in the verdict.
+- Next: finish S7 (exhibition vs bots from the main menu), S8 strace refs, build the JIT helper
+  (laptop/jit.sh + Rust/idevice), then `handoff/wait.sh requests`.
