@@ -13,7 +13,7 @@ gcc -O2 -o /opt/rl/bin/hello-dyn hello_dyn.c
 gcc -O2 -pthread -o /opt/rl/bin/threads-test threads_test.c
 if command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
   x86_64-w64-mingw32-gcc -O2 -municode -o /opt/rl/bin/d3d11tri.exe d3d11tri.c \
-    -ld3d11 -ldxgi -ld3dcompiler -luser32 -lgdi32 || echo "WARN: d3d11tri build failed"
+    -ld3d11 -ldxgi -ld3dcompiler -ldxguid -luuid -luser32 -lgdi32 || echo "WARN: d3d11tri build failed"
 else
   echo "WARN: mingw-w64 missing; d3d11tri.exe not built"
 fi

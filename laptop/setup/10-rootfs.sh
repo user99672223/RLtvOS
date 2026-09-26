@@ -22,9 +22,32 @@ libsdl2-2.0-0 libfreetype6 libgnutls30 libxcomposite1 libxcursor1 libxi6 libxran
 libxfixes3 libxext6 libxinerama1 libfontconfig1 fonts-dejavu-core \
 libgstreamer1.0-0 libgstreamer-plugins-base1.0-0 \
 ca-certificates gnupg curl wget procps python3-minimal file less nano"
+# WineHQ 11.x: `wine-stable` hard-depends on `wine-stable-i386`; a 64-bit-only
+# rootfs satisfies it with an empty dummy package (built below with equivs-
+# style control file), as LAPTOP did. Wine 11 has no `wine64`: `wine` is the
+# 64-bit loader.
 WINE_PKGS="wine-$WINE_BRANCH wine-$WINE_BRANCH-amd64"
 DL="$ASSETS_DIR/downloads"
 mkdir -p "$DL"
+WINE_DUMMY_DEB="$DL/wine-$WINE_BRANCH-i386-dummy.deb"
+make_wine_dummy_deb() {
+  [ -s "$WINE_DUMMY_DEB" ] && return 0
+  need dpkg-deb
+  d=$(mktemp -d)
+  mkdir -p "$d/DEBIAN"
+  cat > "$d/DEBIAN/control" <<EOF
+Package: wine-$WINE_BRANCH-i386
+Version: 99:0-rltvos
+Section: misc
+Priority: optional
+Architecture: all
+Maintainer: rltvos <nobody@localhost>
+Description: dummy to satisfy wine-$WINE_BRANCH's i386 dependency in a 64-bit-only rootfs
+EOF
+  dpkg-deb -b "$d" "$WINE_DUMMY_DEB" >/dev/null
+  rm -rf "$d"
+}
+make_wine_dummy_deb
 
 mode=${ROOTFS_MODE:-auto}
 if [ "$mode" = auto ]; then
@@ -57,6 +80,8 @@ if [ "$mode" = rootless ]; then
       --aptopt='Acquire::Retries "3"' \
       --dpkgopt='path-exclude=/usr/share/doc/*' --dpkgopt='path-exclude=/usr/share/man/*' \
       --setup-hook="upload $DL/winehq-archive.key /etc/apt/keyrings/winehq-archive.key" \
+      --essential-hook="upload $WINE_DUMMY_DEB /tmp/wine-dummy.deb" \
+      --essential-hook='chroot "$1" dpkg -i /tmp/wine-dummy.deb' \
       --customize-hook="copy-in $REPO_ROOT/laptop/refs/guest/src /opt/rl" \
       --customize-hook="upload $REPO_ROOT/laptop/setup/rootfs-customize.sh /opt/rl/customize.sh" \
       --customize-hook='chroot "$1" sh /opt/rl/customize.sh' \
@@ -73,8 +98,9 @@ if [ "$mode" = rootless ]; then
     cp "$DL/winehq-archive.key" "$ROOTFS_DIR/etc/apt/keyrings/winehq-archive.key"
     echo "$SRC_WINE" > "$ROOTFS_DIR/etc/apt/sources.list.d/winehq.list"
     cp -L /etc/resolv.conf "$ROOTFS_DIR/etc/resolv.conf" 2>/dev/null || true
+    cp "$WINE_DUMMY_DEB" "$ROOTFS_DIR/tmp/wine-dummy.deb"
     # shellcheck disable=SC2086
-    rootfs_fakeroot_run sh -c "apt-get update -qq && apt-get install -y --no-install-recommends $PKGS $WINE_PKGS"
+    rootfs_fakeroot_run sh -c "dpkg -i /tmp/wine-dummy.deb; apt-get update -qq && apt-get install -y --no-install-recommends $PKGS $WINE_PKGS"
     rm -rf "$ROOTFS_DIR/opt/rl/src"; mkdir -p "$ROOTFS_DIR/opt/rl"
     cp -r "$REPO_ROOT/laptop/refs/guest/src" "$ROOTFS_DIR/opt/rl/src"
     cp "$REPO_ROOT/laptop/setup/rootfs-customize.sh" "$ROOTFS_DIR/opt/rl/customize.sh"
@@ -95,8 +121,9 @@ if [ "$mode" = sudo ]; then
   sudo mkdir -p "$ROOTFS_DIR/etc/apt/keyrings" "$ROOTFS_DIR/etc/apt/sources.list.d"
   sudo cp "$DL/winehq-archive.key" "$ROOTFS_DIR/etc/apt/keyrings/winehq-archive.key"
   echo "$SRC_WINE" | sudo tee "$ROOTFS_DIR/etc/apt/sources.list.d/winehq.list" >/dev/null
+  sudo cp "$WINE_DUMMY_DEB" "$ROOTFS_DIR/tmp/wine-dummy.deb"
   # shellcheck disable=SC2086
-  rootfs_root_run sh -c "apt-get update -qq && apt-get install -y --no-install-recommends $PKGS $WINE_PKGS"
+  rootfs_root_run sh -c "dpkg -i /tmp/wine-dummy.deb; apt-get update -qq && apt-get install -y --no-install-recommends $PKGS $WINE_PKGS"
   sudo rm -rf "$ROOTFS_DIR/opt/rl/src"; sudo mkdir -p "$ROOTFS_DIR/opt/rl"
   sudo cp -r "$REPO_ROOT/laptop/refs/guest/src" "$ROOTFS_DIR/opt/rl/src"
   sudo cp "$REPO_ROOT/laptop/setup/rootfs-customize.sh" "$ROOTFS_DIR/opt/rl/customize.sh"

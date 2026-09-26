@@ -59,8 +59,10 @@ def load_env(path):
         v = v.strip()
         if len(v) >= 2 and v[0] == v[-1] and v[0] in "\"'":
             v = v[1:-1]
+        elif v.startswith("#"):
+            v = ""  # `KEY=   # comment`
         else:
-            v = v.split(" #", 1)[0].strip()
+            v = v.split(" #", 1)[0].split("\t#", 1)[0].strip()
         v = os.path.expanduser(os.path.expandvars(v))
         env[k] = v
     return env

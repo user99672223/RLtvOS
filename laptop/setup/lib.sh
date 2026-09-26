@@ -3,8 +3,13 @@
 # POSIX sh. Sourced, not executed. LAPTOP runs these on the Debian laptop.
 # Paths in config.env must not contain spaces.
 
-REPO_ROOT=$(cd "$(dirname "$0")/../.." 2>/dev/null && pwd)
-[ -n "$REPO_ROOT" ] || REPO_ROOT=$(pwd)
+# Repo root: from git if possible (works when sourced from anywhere), else
+# from the caller's location (laptop/setup or laptop/refs).
+REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || true)
+if [ -z "$REPO_ROOT" ] || [ ! -d "$REPO_ROOT/laptop" ]; then
+  REPO_ROOT=$(cd "$(dirname "$0")/../.." 2>/dev/null && pwd)
+fi
+[ -d "$REPO_ROOT/laptop" ] || REPO_ROOT=$(pwd)
 CONFIG_ENV=${CONFIG_ENV:-$REPO_ROOT/laptop/config.env}
 
 die() { echo "ERROR: $*" >&2; exit 1; }
@@ -28,11 +33,11 @@ WINEPREFIX_DIR=${WINEPREFIX_DIR:-$ASSETS_DIR/prefix}
 HOME_DIR=${HOME_DIR:-$ASSETS_DIR/home}
 REFS_DIR=${REFS_DIR:-$HOME/rltvos/refs}
 OUT_DIR=${OUT_DIR:-$HOME/rltvos/out}
-DEBIAN_SUITE=${DEBIAN_SUITE:-bookworm}
+DEBIAN_SUITE=${DEBIAN_SUITE:-trixie}
 DEBIAN_MIRROR=${DEBIAN_MIRROR:-http://deb.debian.org/debian}
 WINE_BRANCH=${WINE_BRANCH:-stable}
 ASSETS_PORT=${ASSETS_PORT:-8090}
-GUEST_PATH=/opt/wine-$WINE_BRANCH/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+GUEST_PATH=/opt/wine-$WINE_BRANCH/bin:/opt/rl/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
 mkdir -p "$ASSETS_DIR" "$REFS_DIR" "$OUT_DIR" "$HOME_DIR" 2>/dev/null || true
 
@@ -61,22 +66,27 @@ for g in json.load(sys.stdin):
   return 1
 }
 
-# rootfs_run [--rw-rootfs] [--display real|none] [--env K=V ...] [--] cmd args...
+# rootfs_run [--rw-rootfs] [--display real|none] [--gpu] [--nonet] [--env K=V ...] [--] cmd args...
 # Runs a command inside the rootfs with bubblewrap (rootless, current uid):
 #   /            rootfs (read-only unless --rw-rootfs)
 #   /prefix      Wine prefix (rw)          /game        Rocket League (ro, if found)
 #   /home/user   writable home             /refs        $REFS_DIR (rw)
 #   /refs/guest  laptop/refs/guest (ro)    /tmp,/run    tmpfs;  /dev,/proc fresh
-# --display real binds the laptop's X socket (+ /dev/dri) so hardware Vulkan
-# works for the E1/E2 reference runs; the default is no display (scripts
-# start their own Xvfb, as the TV does).
+# --gpu binds /dev/dri and /sys (Mesa enumerates DRM devices through /sys) and
+#   sets MESA_VK_WSI_DEBUG=sw so ANV can present on Xvfb (no DRI3). Default for
+#   d1/d2/e1/e2 in refs/run.sh.
+# --nonet gives the sandbox its own network namespace (loopback only): Rocket
+#   League only accepts input past the title screen with no network at all.
+# --display real binds the laptop's X socket (+ /dev/dri) instead of Xvfb.
 rootfs_run() {
   need bwrap
-  rw=ro; disp=none; envs=""
+  rw=--ro-bind; disp=none; envs=""; extra=""
   while [ $# -gt 0 ]; do
     case "$1" in
-      --rw-rootfs) rw=rw; shift ;;
+      --rw-rootfs) rw=--bind; shift ;;
       --display) disp=$2; shift 2 ;;
+      --gpu) extra="$extra --dev-bind /dev/dri /dev/dri --ro-bind /sys /sys --setenv MESA_VK_WSI_DEBUG sw"; shift ;;
+      --nonet) extra="$extra --unshare-net"; shift ;;
       --env) envs="$envs --setenv ${2%%=*} ${2#*=}"; shift 2 ;;
       --) shift; break ;;
       *) break ;;
@@ -91,17 +101,17 @@ rootfs_run() {
   if [ "$disp" = real ]; then
     [ -n "$DISPLAY" ] || die "--display real but \$DISPLAY is empty"
     dispopts="--ro-bind /tmp/.X11-unix /tmp/.X11-unix --setenv DISPLAY $DISPLAY"
-    [ -d /dev/dri ] && dispopts="$dispopts --dev-bind /dev/dri /dev/dri"
+    [ -d /dev/dri ] && dispopts="$dispopts --dev-bind /dev/dri /dev/dri --ro-bind /sys /sys"
     if [ -n "$XAUTHORITY" ] && [ -f "$XAUTHORITY" ]; then
       dispopts="$dispopts --ro-bind $XAUTHORITY /home/user/.Xauthority --setenv XAUTHORITY /home/user/.Xauthority"
     fi
   fi
   # shellcheck disable=SC2086
-  bwrap --"$rw"-bind "$ROOTFS_DIR" / \
+  bwrap $rw "$ROOTFS_DIR" / \
     --dev /dev --proc /proc --tmpfs /tmp --tmpfs /run --tmpfs /var/tmp \
     --bind "$WINEPREFIX_DIR" /prefix --bind "$HOME_DIR" /home/user --bind "$REFS_DIR" /refs \
     --ro-bind "$REPO_ROOT/laptop/refs/guest" /refs/guest \
-    $gameopts $dispopts ${EXTRA_BWRAP:-} \
+    $gameopts $dispopts $extra ${EXTRA_BWRAP:-} \
     --setenv HOME /home/user --setenv USER user --setenv LOGNAME user \
     --setenv PATH "$GUEST_PATH" --setenv WINEPREFIX /prefix --setenv WINEARCH win64 \
     --setenv LANG C.UTF-8 --setenv TERM xterm \

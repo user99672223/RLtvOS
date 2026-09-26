@@ -51,8 +51,8 @@ $WINE reg add "HKCU\\Software\\Wine\\Drivers" /v Audio /t REG_SZ /d "" /f
 $WINE reg add "HKCU\\Software\\Wine\\WineDbg" /v ShowCrashDialog /t REG_DWORD /d 0 /f
 $WINE reg add "HKCU\\Software\\Wine\\DllOverrides" /v winemenubuilder.exe /t REG_SZ /d "" /f
 $WINE reg add "HKCU\\Software\\Wine\\DllOverrides" /v d3d11 /t REG_SZ /d native /f
-$WINE reg add "HKCU\\Software\\Wine\\DllOverrides" /v dxgi /t REG_SZ /d native /f
 $WINE reg add "HKCU\\Software\\Wine\\DllOverrides" /v d3d10core /t REG_SZ /d native /f
+# dxgi: DXVK-macOS ships no dxgi.dll; Wine's builtin dxgi works with it (LAPTOP S6).
 $WINE reg add "HKCU\\Software\\Wine\\Direct3D" /v renderer /t REG_SZ /d vulkan /f
 $WINE reg add "HKCU\\Software\\Wine\\X11 Driver" /v Decorated /t REG_SZ /d N /f
 $WINE reg add "HKCU\\Software\\Wine\\X11 Driver" /v Managed /t REG_SZ /d N /f
@@ -67,8 +67,11 @@ log "installing DXVK DLLs into system32"
 for dll in d3d11 dxgi d3d10core; do
   if [ -f "$DXVK_X64/$dll.dll" ]; then
     cp -f "$DXVK_X64/$dll.dll" "$WINEPREFIX_DIR/drive_c/windows/system32/$dll.dll"
+    if [ "$dll" = dxgi ]; then
+      rootfs_run -- sh -c '$(command -v wine64 || command -v wine) reg add "HKCU\\Software\\Wine\\DllOverrides" /v dxgi /t REG_SZ /d native /f; wineserver -w' || true
+    fi
   else
-    log "warning: $dll.dll missing in $DXVK_X64"
+    log "note: $dll.dll not in $DXVK_X64 (DXVK-macOS ships d3d11/d3d10core only; Wine's builtin $dll is used)"
   fi
 done
 
