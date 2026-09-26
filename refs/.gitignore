@@ -1,0 +1,5 @@
+# big game traces live in the refs-laptop-1 pre-release (see README.md)
+e1.trace.gz
+e2.trace.gz
+*.trace
+guest/

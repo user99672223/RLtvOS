@@ -1,0 +1,8 @@
+[22:55:58] Xvfb up on :0 (pid 7)
+[22:55:58] wineserver pid 14
+[22:55:58] wine: /opt/wine-stable/bin/wine wine-11.0
+     0xa00003 (has no name): ("notepad.exe" "notepad.exe")  1x1+0+0  +0+0
+     0xa00001 "Untitled - Notepad": ("notepad.exe" "notepad.exe")  676x479+4+30  +4+30
+     0xa00002 "Default IME": ("notepad.exe" "notepad.exe")  1x1+0+0  +0+0
+[22:56:19] snapshot /refs/out/c5/c5.xwd
+C5 done

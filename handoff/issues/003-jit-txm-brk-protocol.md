@@ -1,6 +1,15 @@
-# 001 — JIT on tvOS 27 / A15 needs the TXM "prepare region" protocol, not RWX mmap
+# 003 — JIT on tvOS 27 / A15: the StikDebug "prepare region" (brk #0xf00d) protocol — complements 001-jit.md
 
-Opened by LAPTOP, 2026-09-27. Blocks: request 001's "JIT ok", Phase B onward.
+Opened by LAPTOP, 2026-09-27 (first pushed as 001-jit-tvos27-txm.md; renumbered to avoid clashing
+with REPO's 001-jit.md, which it complements).
+
+**Relation to REPO's 001-jit.md:** REPO's arena approach (app maps an arena, tv.py writes
+every 16 KB page through debugserver, then the app writes code into the arena and executes it)
+is the same TXM "one debugger write per page" rule. What every working TXM app does in
+addition is keep the region **RX** and write code through a **vm_remap'd RW alias**, with the
+debugger doing the allocation/blessing on request (below). If request 001 shows that arena
+pages can't be written and executed by the app after authorization (SIGKILL on W→X, or
+`rwx_errno` set), switch to this contract. The laptop side supports both.
 
 ## Facts (laptop, 2026-09-26)
 - TV: AppleTV14,1 (J255AP, MN873), **tvOS 27.0 (24J361)**, DeveloperModeStatus=true.
@@ -48,15 +57,20 @@ Legacy form `brk #0x69` with x0/x1 exists too (UTM, DolphiniOS); the helper will
    the RX side; serialize brk calls across threads; set no Mach exception ports for
    breakpoints. x18 stays reserved as before.
 
-## Laptop half (LAPTOP builds it: `laptop/jit.sh` → Rust helper on jkcoxson/idevice)
-- Rootless: RemotePairing tunnel over Wi-Fi using atvloadly's existing pairing record
-  (idevice `RpPairingFile` format; userspace TLS-PSK + jktcp, no TUN/root).
-- DDI: atvloadly's `plumesign mount` (bitxeno tvOS_DDI; its manifest lists j255ap).
-- Two modes: `--launch <bundle>` (DVT launch **suspended**, vAttach, continue) or
-  `--pid <pid>`. Then it services brk requests and exits after the app's detach
-  (stays in the background if the app never detaches).
-- tools/tv.py: with `--launch` LAPTOP will set `JIT_LAUNCHES_APP=1` in config.env; `jit`
-  then runs the in-app `jittest` as today.
+## Laptop half (LAPTOP builds it)
+REPO's tools/tv.py `jit` (gdbremote backend) speaks gdb-remote itself; LAPTOP's job is a
+debugserver address it can reach without root (`DEBUGSERVER_ADDR` / `DEBUGSERVER_CMD`):
+- pymobiledevice3's rootless `--userspace` tunnel starts from a lockdown/USB connection per
+  its source, so it probably cannot reach a USB-less Apple TV; `remote start-tunnel` /
+  `tunneld` refuse to run without root. (To be confirmed when the user allows TV use.)
+- Plan: a small Rust tool on jkcoxson/idevice: RemotePairing tunnel over Wi-Fi with atvloadly's
+  existing pairing record (`RpPairingFile` format; userspace TLS-PSK + jktcp, no TUN/root),
+  RSD → `com.apple.internal.dt.remote.debugproxy`, exposed on `127.0.0.1:<port>` and printed as
+  `connect://127.0.0.1:<port>` for `DEBUGSERVER_CMD`; heartbeat kept alive meanwhile.
+  DDI via atvloadly's `plumesign mount` (bitxeno tvOS_DDI; manifest lists j255ap; atvloadly's
+  screenshot already works on this TV).
+- For the brk protocol the same port serves a small stay-attached loop (x16=1 → `_M`/bless,
+  x16=0 → detach); tv.py or the tool can run it.
 
 ## References
 - StikJIT INTEGRATION.md: https://github.com/StikDebug/StikJIT/blob/main/INTEGRATION.md

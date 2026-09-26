@@ -1,0 +1,273 @@
+trace: e1.trace.gz  lines=24511288 processes=180 time=22:57:30.155352..23:01:24.999998
+unique syscalls: 102   ENOSYS: none
+execve: 16:/usr/bin/sh; 18:/usr/bin/sleep; 17:/opt/wine-stable/bin/wineserver; 16:/opt/wine-stable/bin/wine; 16:/opt/wine-stable/lib/wine/i386-unix/wine-preloader; 16:/opt/wine-stable/lib/wine/i386-unix/wine; 16:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 20:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 22:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 24:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 28:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 37:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 43:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 49:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 87:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 95:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader
+exits: 18=0, 19=0, 21=0, 22=53, 23=0, 27=0, 35=0, 36=0, 42=0, 48=0, 61=0, 20=0, 86=0, 94=0, 59=0, 134=0, 133=0, 136=0, 135=0, 115=0, 114=0, 141=0, 139=0, 140=0, 138=0, 137=0, 30=0, 97=0, 103=0, 143=0, 208=0, 226=0, 250=0, 251=0, 224=0, 223=0, 258=0, 262=0, 266=0, 270=0
+signals: SIGCHLDx10, SIGUSR1x24
+
+syscall counts:
+   2524531  read
+   2149642  rt_sigprocmask
+   1628569  write
+   1467590  getrusage
+    795212  epoll_pwait2
+    733795  sched_yield
+    675893  newfstatat
+    427426  writev
+    349137  close
+    340394  getxattr
+    315621  getdents64
+    246188  ioctl
+    194392  fstat
+    190699  clock_nanosleep
+    156141  fcntl
+     97823  fstatfs
+     95368  futex
+     42851  lseek
+     42614  munmap
+     33356  flock
+     31874  mprotect
+     30656  mmap
+     29826  pread64
+      9376  readlink
+      7004  fchdir
+      6118  recvmsg
+      3939  getpid
+      3185  openat
+      2064  statx
+      1343  sendmsg
+      1322  access
+      1103  faccessat2
+       956  readlinkat
+       789  uname
+       759  epoll_ctl
+       674  brk
+       519  setsockopt
+       424  getsockopt
+       409  pipe2
+       326  times
+       325  connect
+       192  set_robust_list
+       173  rseq
+       159  clone3
+       157  arch_prctl
+       145  gettid
+       141  sched_setaffinity
+       134  sigaltstack
+       133  rt_sigaction
+       112  fgetxattr
+       111  getsockname
+       110  fadvise64
+       109  unlink
+        79  prlimit64
+        74  prctl
+        61  mkdir
+        55  exit
+        45  bind
+        42  sysinfo
+        39  getpeername
+        35  listen
+        34  recvfrom
+        31  getrandom
+        30  getuid
+        30  ftruncate
+        30  umask
+        25  rt_sigreturn
+        24  tgkill
+        23  geteuid
+        19  clone
+        18  getgid
+        18  fchmod
+        18  fremovexattr
+        17  getegid
+        16  execve
+        14  set_tid_address
+        13  setpriority
+        12  exit_group
+        11  wait4
+        11  getcwd
+        11  sched_setscheduler
+        10  socketpair
+        10  madvise
+         9  setsid
+         8  sendto
+         6  sched_getaffinity
+         4  chdir
+         4  rename
+         3  pwrite64
+         2  kill
+         2  getresuid
+         2  getresgid
+         2  shmget
+         2  shmat
+         2  shmdt
+         2  shmctl
+         1  getppid
+         1  vfork
+         1  shutdown
+         1  chmod
+         1  statfs
+         1  pselect6
+
+errors (syscall errno count):
+    340384  getxattr ENODATA
+    232473  newfstatat ENOENT
+     57946  ioctl ENOTTY
+      7918  readlink EINVAL
+      3984  futex EAGAIN
+      3024  openat ENOENT
+      1795  recvmsg EAGAIN
+       276  connect ENETUNREACH
+       190  faccessat2 ENOENT
+       170  mmap ENOMEM
+       155  openat EROFS
+       131  access ENOENT
+       112  fgetxattr ENODATA
+       105  unlink ENOENT
+        86  close EBADF
+        54  mkdir EEXIST
+        52  readlinkat ENOENT
+        34  connect EINPROGRESS
+        26  readlink ENOENT
+        18  fremovexattr ENODATA
+        14  pread64 EISDIR
+        12  prctl EINVAL
+         9  munmap EINVAL
+         9  connect ENOENT
+         8  fstat EBADF
+         8  pread64 EBADF
+         7  ioctl ETIME
+         6  openat EACCES
+         4  setsockopt EPERM
+         4  ioctl EPERM
+         4  futex ETIMEDOUT
+         2  execve ENOENT
+         2  kill ESRCH
+         2  mkdir ENOENT
+         1  setpriority EACCES
+         1  recvfrom EAGAIN
+         1  futex EPERM
+         1  pselect6 ERESTARTNOHAND
+         1  rt_sigreturn EINTR
+         1  ioctl EBADF
+
+paths (top):
+   38572  newfstatat ok       /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League
+   38560  newfstatat ok       /prefix/dosdevices/c:/users/user
+   38560  newfstatat ok       /prefix/dosdevices/c:/users/user/Documents
+   38558  newfstatat ok       /prefix/dosdevices/c:/users
+   38558  newfstatat ok       /prefix/dosdevices/c:/users/user/Documents/My Games
+   38529  newfstatat ok       /prefix/dosdevices/z:/game
+   19375  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/ProjectX
+   19375  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/ProjectX?
+   19375  newfstatat ENOENT   /prefix/dosdevices/z:/game/ProjectX
+   19375  newfstatat ENOENT   /prefix/dosdevices/z:/game/ProjectX?
+   18763  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/Engine
+   18763  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/Engine?
+   18747  newfstatat ok       /prefix/dosdevices/z:/game/Engine
+   18741  newfstatat ENOENT   /prefix/dosdevices/z:/game/Engine/Localization
+   18741  newfstatat ENOENT   /prefix/dosdevices/z:/game/Engine/Localization?
+   18127  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/ProjectX/Localization/INT/TAGame.INT
+   18127  newfstatat ENOENT   /prefix/dosdevices/z:/game/ProjectX/Localization/INT/TAGame.INT
+   18127  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/Engine/Localization/INT/TAGame.INT
+   18127  newfstatat ENOENT   /prefix/dosdevices/z:/game/Engine/Localization/INT/TAGame.INT
+   17841  newfstatat ok       /etc/localtime
+    2060  statx      ok       
+     840  faccessat2 ok       uevent
+     756  openat     ENOENT   /home/user/.Xdefaults
+     756  openat     ENOENT   /home/user/.Xdefaults-laptop
+     584  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/ProjectX/Localization/INT/Engine.INT
+     584  newfstatat ENOENT   /prefix/dosdevices/z:/game/ProjectX/Localization/INT/Engine.INT
+     528  readlink   EINVAL   /sys/devices/pci0000:00/0000:00:02.0
+     509  readlink   EINVAL   /prefix
+     508  readlink   EINVAL   /prefix/dosdevices
+     426  newfstatat ok       /
+     420  newfstatat ok       /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame
+     360  readlink   ok       /prefix/dosdevices/c:
+     359  readlink   EINVAL   /prefix/drive_c
+     340  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/ProjectX/Localization/INT/ProjectX.INT
+     340  newfstatat ENOENT   /prefix/dosdevices/z:/game/ProjectX/Localization/INT/ProjectX.INT
+     340  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/Engine/Localization/INT/ProjectX.INT
+     340  newfstatat ENOENT   /prefix/dosdevices/z:/game/Engine/Localization/INT/ProjectX.INT
+     338  newfstatat ok       /prefix/dosdevices/z:
+     326  readlink   EINVAL   /opt
+     326  readlink   EINVAL   /opt/wine-stable
+     317  readlink   EINVAL   /opt/wine-stable/lib
+     317  readlink   EINVAL   /opt/wine-stable/lib/wine
+     314  newfstatat ENOENT   /prefix/dosdevices/z:/game/Binaries/Win64/RocketLeague.dxvk-cache
+     291  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole
+     291  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole?
+     289  readlink   EINVAL   /prefix/drive_c/windows
+     269  readlink   EINVAL   /opt/wine-stable/lib/wine/x86_64-windows
+     265  readlink   EINVAL   /sys
+     265  readlink   EINVAL   /sys/devices
+     264  readlink   EINVAL   /sys/dev
+     264  readlink   EINVAL   /sys/dev/char
+     264  readlink   EINVAL   /sys/devices/pci0000:00
+     264  readlink   EINVAL   /sys/devices/pci0000:00/0000:00:02.0/drm
+     249  readlink   EINVAL   /prefix/drive_c/windows/system32
+     218  newfstatat ok       /prefix/dosdevices/z:/game/Binaries
+     218  newfstatat ok       /prefix/dosdevices/z:/game/Binaries/Win64
+     190  faccessat2 ENOENT   uevent
+     189  newfstatat ok       /prefix/dosdevices/z:/game/TAGame
+     184  newfstatat ok       /prefix/dosdevices/c:/windows
+     157  newfstatat ENOENT   /prefix/dosdevices/z:/game/Binaries/Win64/RocketLeague.dxvk-cache?
+     155  openat     EROFS    /prefix/dosdevices/z:/game/Binaries/Win64/RocketLeague.dxvk-cache
+     150  readlink   ok       /prefix/dosdevices/z:
+     140  readlink   EINVAL   /game
+     133  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/ProjectX/Localization/INT/Controls.INT
+     133  newfstatat ENOENT   /prefix/dosdevices/z:/game/ProjectX/Localization/INT/Controls.INT
+     133  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/Engine/Localization/INT/Controls.INT
+     133  newfstatat ENOENT   /prefix/dosdevices/z:/game/Engine/Localization/INT/Controls.INT
+     132  readlink   ok       /sys/dev/char/226:0
+     132  readlink   EINVAL   /sys/devices/pci0000:00/0000:00:02.0/drm/card0
+     132  readlink   ok       /sys/devices/pci0000:00/0000:00:02.0/drm/card0/device
+     132  readlink   ok       /sys/dev/char/226:128
+     132  readlink   EINVAL   /sys/devices/pci0000:00/0000:00:02.0/drm/renderD128
+     132  readlink   ok       /sys/devices/pci0000:00/0000:00:02.0/drm/renderD128/device
+     124  readlink   EINVAL   /game/TAGame
+     114  readlink   EINVAL   /game/TAGame/CookedPCConsole
+     108  newfstatat ok       /prefix/dosdevices/c:/windows/system32/tzres.dll
+      98  newfstatat ok       /prefix/dosdevices/z:/game/TAGame/CookedPCConsole
+      79  newfstatat ok       /dev/dri/card0
+      79  newfstatat ok       /dev/dri/renderD128
+      76  newfstatat ok       /sys/dev/char/226:128/device/drm
+      75  readlink   ok       /sys/dev/char/226:128/device/subsystem
+      74  newfstatat ok       /prefix/dosdevices/c:/windows/system32
+      72  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/Localization
+      72  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/Localization?
+      72  newfstatat ENOENT   /prefix/dosdevices/z:/game/TAGame/Localization
+      72  newfstatat ENOENT   /prefix/dosdevices/z:/game/TAGame/Localization?
+      66  newfstatat ok       /sys/dev/char/226:0/device/drm
+      66  readlink   ok       /sys/dev/char/226:0/device/subsystem
+      62  newfstatat ENOENT   /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/English(US)
+      62  newfstatat ENOENT   /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/English(US)?
+      60  readlinkat ok       /sys/devices/pci0000:00/0000:00:1f.3/skl_hda_dsp_generic/sound/card0/subsystem
+      60  readlink   EINVAL   /prefix/drive_c/users
+      60  readlink   EINVAL   /prefix/drive_c/users/user
+      60  readlink   EINVAL   /prefix/drive_c/users/user/Documents
+      60  readlink   EINVAL   /prefix/drive_c/users/user/Documents/My Games
+      60  readlink   EINVAL   /prefix/drive_c/users/user/Documents/My Games/Rocket League
+      60  readlink   EINVAL   /prefix/drive_c/users/user/Documents/My Games/Rocket League/TAGame
+      53  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/ProjectX/Localization/INT/Keys.INT
+      53  newfstatat ENOENT   /prefix/dosdevices/z:/game/ProjectX/Localization/INT/Keys.INT
+      53  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/Engine/Localization/INT/Keys.INT
+      53  newfstatat ENOENT   /prefix/dosdevices/z:/game/Engine/Localization/INT/Keys.INT
+      50  newfstatat ok       /usr/share/fonts
+      50  newfstatat ok       /usr/share/fonts/truetype
+      50  newfstatat ok       /usr/share/fonts/truetype/dejavu
+      50  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/Localization/INT/Core.INT
+      50  newfstatat ENOENT   /prefix/dosdevices/z:/game/TAGame/Localization/INT/Core.INT
+      50  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/ProjectX/Localization/INT/Core.INT
+      50  newfstatat ENOENT   /prefix/dosdevices/z:/game/ProjectX/Localization/INT/Core.INT
+      48  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/ProjectX/Localization/INT/ProductSlots.INT
+      48  newfstatat ENOENT   /prefix/dosdevices/z:/game/ProjectX/Localization/INT/ProductSlots.INT
+      48  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/Engine/Localization/INT/ProductSlots.INT
+      48  newfstatat ENOENT   /prefix/dosdevices/z:/game/Engine/Localization/INT/ProductSlots.INT
+      45  newfstatat ENOENT   /prefix/dosdevices/c:/windows/fonts
+      43  readlinkat ENOENT   /sys/devices/pci0000:00/subsystem
+      42  newfstatat ok       /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/Config
+      40  newfstatat ok       /usr/share
+      40  newfstatat ok       /usr
+      38  newfstatat ok       /prefix/dosdevices/c:/windows/syswow64
+      38  newfstatat ok       /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/Config/TASystemSettings.ini
+      37  newfstatat ok       /home/user

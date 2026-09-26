@@ -1,0 +1,13 @@
+[22:56:29] Xvfb up on :0 (pid 7)
+[22:56:29] wineserver pid 14
+     0xa00003 (has no name): ("d3d11tri.exe" "d3d11tri.exe")  1x1+0+0  +0+0
+     0xa00001 "d3d11tri": ("d3d11tri.exe" "d3d11tri.exe")  792x566+44+70  +44+70
+     0xa00002 "Default IME": ("d3d11tri.exe" "d3d11tri.exe")  1x1+0+0  +0+0
+[22:56:35] snapshot /refs/out/d2/d2.xwd
+d3d11tri exit=0
+info:    Buffer size:  800x600
+info:    Image count:  4
+info:    Exclusive FS: 2
+frame 300
+d3d11tri: 300 frames in 3.37s = 89.1 fps
+D2 done

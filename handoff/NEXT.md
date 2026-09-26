@@ -35,21 +35,21 @@
 
 ## laptop
 
-- **HOLD (user, 2026-09-27): do not touch the Apple TV until the user says go.** If a request
-  arrives, leave it queued and tell the user.
-- State: setup S0–S3, S5, S6 PASS; S7 bot match reached on the laptop reference; S8 next;
-  S4 (JIT) needs new work — see handoff/issues/001-jit-tvos27-txm.md. Details in
-  handoff/results/000-setup/verdict.md.
-- Where things are: repo ~/local_RLtvOS; config laptop/config.env; pyatv ~/.venvs/rltvos
-  (paired, ~/.pyatv.conf); gh/caddy in ~/.local/bin; assets server = systemd --user
-  `rltvos-assets` (:8090, ~/rltvos/assets-server/Caddyfile); assets ~/rltvos/assets/{rootfs,prefix,home,manifests};
-  IPAs ~/rltvos/ipa (atvloadly sees it as /share/ipa).
-- LAPTOP tools (mine): laptop/install.sh (INSTALL_CMD, atvloadly MCP), laptop/atvloadly.py
-  (install/apps/refresh/shot/mount), laptop/atv_pair.py, laptop/assets_manifest.py,
-  laptop/rootfs_exec.sh (bwrap; --gpu --nonet --rw), results/000-setup/s6-*.sh, s7-game.sh.
-- Rootfs is built rootless (no sudo available): mmdebstrap --mode=unshare → see
-  results/000-setup/s6-rootfs-rootless.sh (REPO: fold into 10-rootfs.sh if you want).
-- Game on the laptop: Xvfb + wine 11 + DXVK-macOS + ANV (MESA_VK_WSI_DEBUG=sw), **no network**
-  (otherwise it waits for an Epic session on the title screen). Launch line in the verdict.
-- Next: finish S7 (exhibition vs bots from the main menu), S8 strace refs, build the JIT helper
-  (laptop/jit.sh + Rust/idevice), then `handoff/wait.sh requests`.
+- **HOLD (user, 2026-09-27): do not touch the Apple TV until the user says go.** Request 001
+  (build-8+) is queued, not started. REPO: please don't expect TV results until then.
+- Done (handoff/results/000-setup/verdict.md): S0–S3, S5–S8 PASS. Rocket League runs on the
+  laptop reference (offline = **no network**, `-noeac`, Xvfb, wine 11, DXVK-macOS, ANV):
+  main menu + bot matches; strace refs c1–e2 in refs/ (e1/e2 in pre-release refs-laptop-1).
+- S4 JIT open: tools/tv.py gdbremote needs a debugserver address; LAPTOP is building a
+  rootless idevice (Rust) tunnel + debugproxy forward → `DEBUGSERVER_CMD`. See issues
+  001-jit.md (REPO) and 003-jit-txm-brk-protocol.md (LAPTOP; RX pool + RW alias fallback).
+- Issue 002-laptop-script-fixes.md: bugs in REPO's laptop scripts + the validated menu path.
+- Services/paths: assets server = systemd --user `rltvos-assets` running REPO's
+  laptop/assets_server.py on :8090 (manifest ~/rltvos/assets/manifest.jsonl.gz; rebuild with
+  `--manifest-only --rebuild` after prefix changes); atvloadly MCP :5533 with /share/ipa;
+  pyatv paired (~/.venvs/rltvos, ~/.pyatv.conf); gh/strace in ~/.local/bin.
+- LAPTOP tools: laptop/install.sh + atvloadly.py (INSTALL_CMD via MCP), atv_pair.py,
+  rootfs_exec.sh (bwrap: --gpu --nonet --rw, clean env, own hostname),
+  results/000-setup/{s6-rootfs-rootless.sh, s6-prefix.sh, s7-game.sh, s7-lowsettings.py, s8-game-traces.sh}.
+- Next: JIT tunnel tool (no TV contact until go) → `handoff/wait.sh requests` loop; run
+  request 001 as soon as the user says go.

@@ -1,0 +1,20 @@
+hello from x86-64 glibc (argc=1)
+uname: Linux 6.12.107+deb13-amd64 #1 SMP PREEMPT_DYNAMIC Debian 6.12.107-1 (2026-08-29) x86_64
+monotonic: 6230.872526788
+pid=6 ppid=5 uid=1000 cwd=/home/user
+exe=/opt/rl/bin/hello-dyn
+HOME=/home/user
+malloc 64MB ok 63
+hello-dyn exit=0
+total 536
+drwxrwxr-x 2 user user   4096 Sep 26 22:22 .
+drwxrwxr-x 4 user user   4096 Sep 26 22:10 ..
+-rwxrwxr-x 1 user user 486115 Sep 26 22:22 d3d11tri.exe
+-rwxrwxr-x 1 user user  16680 Sep 26 22:21 hello-dyn
+-rwxrwxr-x 1 user user   9144 Sep 26 22:21 hello-static
+-rwxrwxr-x 1 user user  16840 Sep 26 22:21 threads-test
+AI_AGENT=claude-code_2-1-280_agent
+ANTHROPIC_BASE_URL=https://api.anthropic.com
+API_TIMEOUT_MS=900000
+APPLE_ID=
+APP_BUNDLE_ID=dev.rltvos.app

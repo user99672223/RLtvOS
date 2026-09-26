@@ -1,0 +1,109 @@
+trace: /home/user/local_RLtvOS/refs/c2.trace.gz  lines=1094 processes=6 time=22:54:23.962428..22:54:24.013247
+unique syscalls: 49   ENOSYS: none
+execve: 5:/usr/bin/sh; 6:/opt/rl/bin/hello-dyn; 7:/bin/ls; 8:/usr/bin/env; 10:/usr/bin/head; 9:/usr/bin/sort
+exits: 6=0, 7=0, 8=0, 10=0, 9=0, 5=0
+signals: SIGCHLDx5
+
+syscall counts:
+       116  mmap
+       106  close
+        87  fstat
+        56  openat
+        30  rt_sigaction
+        21  read
+        21  mprotect
+        18  brk
+        15  newfstatat
+        15  rt_sigprocmask
+        12  pread64
+         9  set_robust_list
+         9  prlimit64
+         8  munmap
+         8  write
+         8  wait4
+         7  access
+         7  statx
+         7  llistxattr
+         6  execve
+         6  arch_prctl
+         6  set_tid_address
+         6  rseq
+         6  getrandom
+         6  exit_group
+         6  prctl
+         5  rt_sigreturn
+         5  lseek
+         4  futex
+         4  connect
+         3  clone
+         2  getuid
+         2  getpid
+         2  geteuid
+         2  getppid
+         2  vfork
+         2  statfs
+         2  getdents64
+         2  pipe2
+         2  sysinfo
+         1  getgid
+         1  fcntl
+         1  getegid
+         1  uname
+         1  getcwd
+         1  readlink
+         1  ioctl
+         1  sched_getaffinity
+         1  fadvise64
+
+errors (syscall errno count):
+        56  openat ENOENT
+         8  newfstatat ENOENT
+         7  access ENOENT
+         4  prctl EINVAL
+         4  connect ENOENT
+         3  wait4 ECHILD
+         2  statfs ENOENT
+         2  lseek ESPIPE
+         1  ioctl ENOTTY
+         1  close EBADF
+         1  fadvise64 ESPIPE
+
+paths (top):
+       6  access     ENOENT   /etc/ld.so.preload
+       4  openat     ENOENT   /usr/lib/locale/locale-archive
+       4  openat     ENOENT   /usr/share/locale/locale.alias
+       4  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_IDENTIFICATION
+       4  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_MEASUREMENT
+       4  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_TELEPHONE
+       4  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_ADDRESS
+       4  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_NAME
+       4  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_PAPER
+       4  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_MESSAGES
+       4  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_MONETARY
+       4  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_COLLATE
+       4  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_TIME
+       4  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_NUMERIC
+       4  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_CTYPE
+       2  newfstatat ok       /etc/nsswitch.conf
+       1  newfstatat ok       /home/user
+       1  newfstatat ok       .
+       1  readlink   ok       /proc/self/exe
+       1  access     ENOENT   /etc/selinux/config
+       1  statx      ok       /opt/rl/bin
+       1  newfstatat ok       /
+       1  statx      ok       /opt/rl/bin/threads-test
+       1  statx      ok       /opt/rl/bin/d3d11tri.exe
+       1  statx      ok       /opt/rl/bin/hello-static
+       1  statx      ok       /opt/rl/bin/hello-dyn
+       1  statx      ok       /opt/rl/bin/.
+       1  statx      ok       /opt/rl/bin/..
+       1  newfstatat ENOENT   /opt/wine-stable/bin/sort
+       1  newfstatat ENOENT   /usr/local/sbin/sort
+       1  newfstatat ENOENT   /usr/local/bin/sort
+       1  newfstatat ENOENT   /usr/sbin/sort
+       1  newfstatat ok       /usr/bin/sort
+       1  newfstatat ENOENT   /opt/wine-stable/bin/head
+       1  newfstatat ENOENT   /usr/local/sbin/head
+       1  newfstatat ENOENT   /usr/local/bin/head
+       1  newfstatat ENOENT   /usr/sbin/head
+       1  newfstatat ok       /usr/bin/head

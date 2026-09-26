@@ -1,0 +1,42 @@
+trace: /home/user/local_RLtvOS/refs/c1.trace.gz  lines=58 processes=1 time=22:54:23.924405..22:54:23.927062
+unique syscalls: 27   ENOSYS: none
+execve: 5:/usr/bin/sh; 5:/opt/rl/bin/hello-static
+exits: 5=0
+signals: 
+
+syscall counts:
+         8  mmap
+         7  rt_sigaction
+         3  brk
+         3  close
+         3  mprotect
+         2  execve
+         2  fstat
+         2  read
+         2  pread64
+         2  geteuid
+         2  newfstatat
+         2  write
+         1  access
+         1  arch_prctl
+         1  set_tid_address
+         1  set_robust_list
+         1  rseq
+         1  prlimit64
+         1  munmap
+         1  getuid
+         1  getgid
+         1  getpid
+         1  getrandom
+         1  getppid
+         1  fcntl
+         1  getegid
+         1  exit_group
+
+errors (syscall errno count):
+         1  access ENOENT
+
+paths (top):
+       1  access     ENOENT   /etc/ld.so.preload
+       1  newfstatat ok       /home/user
+       1  newfstatat ok       .

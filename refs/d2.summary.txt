@@ -1,0 +1,284 @@
+trace: /home/user/local_RLtvOS/refs/d2.trace.gz  lines=848568 processes=731 time=22:56:29.136122..22:56:40.074921
+unique syscalls: 109   ENOSYS: none
+execve: 5:/usr/bin/sh; 6:/usr/bin/mkdir; 8:/usr/bin/sleep; 7:/usr/bin/Xvfb; 9:/bin/sh; 10:/usr/bin/xkbcomp; 12:/usr/bin/date; 13:/usr/bin/mkdir; 15:/usr/bin/sleep; 14:/opt/wine-stable/bin/wineserver; 17:/usr/bin/date; 20:/usr/bin/sleep; 19:/opt/wine-stable/bin/wine; 19:/opt/wine-stable/lib/wine/i386-unix/wine-preloader; 19:/opt/wine-stable/lib/wine/i386-unix/wine; 19:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 22:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 24:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 26:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 29:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 38:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 44:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 50:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 68:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 74:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 125:/usr/bin/xwininfo; 126:/usr/bin/grep; 127:/usr/bin/head; 128:/usr/bin/xwd; 130:/usr/bin/date; 729:/usr/bin/tail; 730:/usr/bin/ls; 732:/usr/bin/head; 731:/usr/bin/grep; 733:/opt/wine-stable/bin/wineserver; 734:/usr/bin/sleep; 735:/opt/wine-stable/bin/wineserver
+exits: 6=0, 10=0, 9=0, 8=0, 12=0, 11=0, 13=0, 15=0, 17=0, 16=0, 18=0, 21=0, 23=0, 24=53, 25=0, 28=0, 36=0, 37=0, 43=0, 49=0, 57=0, 22=0, 67=0, 73=0, 121=0, 120=0, 20=0, 125=0, 126=0, 127=0, 128=0, 130=0, 129=0, 122=0, 123=0, 131=0, 132=0, 133=0, 134=0, 135=0
+signals: SIGCHLDx36, SIGQUITx14, SIGPIPEx1, SIGINTx1, SIGCONTx1, SIGTERMx1
+
+syscall counts:
+    100109  read
+     79396  futex
+     66647  rt_sigprocmask
+     40581  write
+     27831  writev
+     23362  lseek
+     23220  epoll_pwait2
+     18424  flock
+     17807  fstat
+     14418  close
+     14293  recvmsg
+     10405  mmap
+      6971  mprotect
+      6373  clock_nanosleep
+      5864  setitimer
+      5360  epoll_wait
+      4473  newfstatat
+      4020  readlink
+      3513  getpid
+      2621  munmap
+      1959  pread64
+      1941  openat
+      1311  fcntl
+      1215  access
+       922  ftruncate
+       844  getdents64
+       776  getxattr
+       751  set_robust_list
+       719  rseq
+       684  clone3
+       682  sendmsg
+       678  prctl
+       644  exit
+       639  brk
+       606  getrusage
+       606  madvise
+       597  mremap
+       538  uname
+       494  ioctl
+       341  fstatfs
+       303  sched_yield
+       203  recvfrom
+       188  epoll_ctl
+       184  pipe2
+       169  rt_sigaction
+       113  unlink
+       104  fchdir
+       102  prlimit64
+       100  arch_prctl
+        62  mkdir
+        58  wait4
+        58  sigaltstack
+        58  gettid
+        57  sched_setaffinity
+        56  faccessat2
+        48  getrandom
+        47  exit_group
+        39  setsockopt
+        37  execve
+        35  set_tid_address
+        33  getuid
+        32  clone
+        30  sysinfo
+        28  umask
+        28  rt_sigreturn
+        17  getsockopt
+        17  connect
+        15  geteuid
+        15  fadvise64
+        14  vfork
+        14  tgkill
+        13  chdir
+        13  kill
+        12  getgid
+        12  statx
+        11  getegid
+        11  getcwd
+        10  socketpair
+        10  shutdown
+        10  fgetxattr
+         9  statfs
+         9  bind
+         9  setsid
+         7  getpeername
+         5  getsockname
+         4  setpriority
+         4  sched_getaffinity
+         3  getppid
+         3  listen
+         3  pwrite64
+         3  rename
+         2  chmod
+         2  getresuid
+         2  getresgid
+         2  sched_setscheduler
+         1  setresuid
+         1  getpgrp
+         1  setpgid
+         1  fchmod
+         1  link
+         1  setgid
+         1  setuid
+         1  sendto
+         1  shmget
+         1  shmat
+         1  shmdt
+         1  shmctl
+         1  rt_sigsuspend
+         1  poll
+
+errors (syscall errno count):
+     11539  futex EAGAIN
+      4252  recvmsg EAGAIN
+      3487  readlink EINVAL
+      1941  openat ENOENT
+      1119  newfstatat ENOENT
+       776  getxattr ENODATA
+       279  ioctl ENOTTY
+       170  mmap ENOMEM
+       140  access ENOENT
+       105  unlink ENOENT
+        79  close EBADF
+        59  mkdir EEXIST
+        26  readlink ENOENT
+        16  prctl EINVAL
+        11  pread64 EISDIR
+        10  fgetxattr ENODATA
+        10  kill ESRCH
+        10  recvfrom EAGAIN
+         9  munmap EINVAL
+         8  statfs ENOENT
+         8  fstat EBADF
+         7  read ERESTARTSYS
+         6  pread64 EBADF
+         5  wait4 ECHILD
+         5  connect ENOENT
+         4  setsockopt EPERM
+         4  futex ETIMEDOUT
+         3  lseek ESPIPE
+         3  rt_sigreturn EINTR
+         2  access EROFS
+         2  execve ENOENT
+         2  connect ENETUNREACH
+         2  connect EADDRNOTAVAIL
+         2  futex ERESTARTSYS
+         2  epoll_ctl EBADF
+         1  setresuid EINVAL
+         1  read EAGAIN
+         1  setpriority EACCES
+         1  ioctl EBADF
+         1  rt_sigsuspend ERESTARTNOHAND
+         1  writev EPIPE
+         1  epoll_pwait2 EINTR
+         1  recvfrom ERESTARTSYS
+         1  epoll_wait EINTR
+
+paths (top):
+     505  openat     ENOENT   /home/user/.Xdefaults
+     505  openat     ENOENT   /home/user/.Xdefaults-laptop
+     423  newfstatat ok       /
+     341  newfstatat ok       /prefix/dosdevices/z:
+     299  newfstatat ok       /etc/localtime
+     276  readlink   EINVAL   /opt
+     275  readlink   EINVAL   /opt/wine-stable
+     268  readlink   EINVAL   /prefix
+     267  readlink   EINVAL   /prefix/dosdevices
+     266  readlink   EINVAL   /opt/wine-stable/lib
+     266  readlink   EINVAL   /opt/wine-stable/lib/wine
+     256  readlink   ok       /prefix/dosdevices/c:
+     255  readlink   EINVAL   /prefix/drive_c
+     248  readlink   EINVAL   /prefix/drive_c/windows
+     220  readlink   EINVAL   /opt/wine-stable/lib/wine/x86_64-windows
+     214  readlink   EINVAL   /prefix/drive_c/windows/system32
+     122  newfstatat ok       /prefix/dosdevices/c:/windows
+     108  newfstatat ok       /prefix/dosdevices/c:/windows/system32/tzres.dll
+      50  newfstatat ok       /usr/share/fonts
+      50  newfstatat ok       /usr/share/fonts/truetype
+      50  newfstatat ok       /usr/share/fonts/truetype/dejavu
+      45  newfstatat ENOENT   /prefix/dosdevices/c:/windows/fonts
+      43  openat     ENOENT   /dev/dri
+      40  newfstatat ok       /usr/share
+      40  newfstatat ok       /usr
+      38  newfstatat ok       /prefix/dosdevices/c:/windows/syswow64
+      36  readlink   EINVAL   /prefix/drive_c/windows/system32/tzres.dll
+      35  access     ENOENT   /etc/ld.so.preload
+      33  newfstatat ok       /prefix/dosdevices/c:/windows/system32
+      31  readlink   EINVAL   /opt/wine-stable/lib/wine/x86_64-unix
+      31  newfstatat ok       /opt
+      27  newfstatat ok       /home/user
+      26  openat     ENOENT   /usr/lib/locale/locale-archive
+      26  openat     ENOENT   /usr/share/locale/locale.alias
+      26  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_IDENTIFICATION
+      26  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_MEASUREMENT
+      26  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_TELEPHONE
+      26  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_ADDRESS
+      26  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_NAME
+      26  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_PAPER
+      26  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_MESSAGES
+      26  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_MONETARY
+      26  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_COLLATE
+      26  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_TIME
+      26  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_NUMERIC
+      26  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_CTYPE
+      24  readlink   ok       /proc/self/exe
+      23  newfstatat ok       /home
+      23  newfstatat ok       /prefix/dosdevices/z:/opt/wine-stable/share/wine/fonts/tahoma.ttf
+      22  readlink   EINVAL   /proc
+      22  readlink   ok       /proc/self
+      22  readlink   EINVAL   /opt/wine-stable/share
+      22  readlink   EINVAL   /opt/wine-stable/share/wine
+      22  newfstatat ok       /prefix/dosdevices/z:/opt
+      20  readlink   EINVAL   /opt/wine-stable/lib/wine/x86_64-unix/wine-preloader
+      20  newfstatat ok       /prefix
+      20  newfstatat ok       /opt/wine-stable/lib/wine
+      20  newfstatat ok       /opt/wine-stable/lib
+      20  newfstatat ok       /opt/wine-stable
+      20  newfstatat ok       /prefix/dosdevices/c:/windows/
+      20  faccessat2 ok       /prefix/drive_c/windows/
+      20  newfstatat ENOENT   /home/user/.local/share/fonts
+      20  newfstatat ENOENT   /usr/share/gnome/fonts
+      20  newfstatat ENOENT   /home/user/.local/share/flatpak/exports/share/fonts
+      20  newfstatat ENOENT   /var/lib/flatpak/exports/share/fonts
+      20  newfstatat ENOENT   /home/user/.fonts
+      19  openat     ENOENT   /home/user/.config/vulkan/implicit_layer.d
+      19  openat     ENOENT   /etc/xdg/vulkan/implicit_layer.d
+      19  access     ok       /etc/vulkan/implicit_layer.d/.
+      19  access     ok       /etc/vulkan/implicit_layer.d/..
+      19  openat     ENOENT   /home/user/.local/share/vulkan/implicit_layer.d
+      19  openat     ENOENT   /usr/share/gnome/vulkan/implicit_layer.d
+      19  openat     ENOENT   /home/user/.local/share/flatpak/exports/share/vulkan/implicit_layer.d
+      19  openat     ENOENT   /var/lib/flatpak/exports/share/vulkan/implicit_layer.d
+      19  openat     ENOENT   /usr/local/share/vulkan/implicit_layer.d
+      19  access     ok       /usr/share/vulkan/implicit_layer.d/.
+      19  access     ok       /usr/share/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json
+      19  access     ok       /usr/share/vulkan/implicit_layer.d/..
+      18  readlink   EINVAL   /opt/wine-stable/lib/wine/x86_64-windows/tzres.dll
+      16  readlink   EINVAL   /opt/wine-stable/share/wine/nls
+      16  newfstatat ENOENT   /prefix/dosdevices/a:
+      16  newfstatat ENOENT   /prefix/dosdevices/b:
+      16  newfstatat ok       /prefix/dosdevices/c:
+      16  newfstatat ENOENT   /prefix/dosdevices/d:
+      16  newfstatat ENOENT   /prefix/dosdevices/e:
+      16  newfstatat ENOENT   /prefix/dosdevices/f:
+      16  newfstatat ENOENT   /prefix/dosdevices/g:
+      16  newfstatat ENOENT   /prefix/dosdevices/h:
+      16  newfstatat ENOENT   /prefix/dosdevices/i:
+      16  newfstatat ENOENT   /prefix/dosdevices/j:
+      16  newfstatat ENOENT   /prefix/dosdevices/k:
+      16  newfstatat ENOENT   /prefix/dosdevices/l:
+      16  newfstatat ENOENT   /prefix/dosdevices/m:
+      16  newfstatat ENOENT   /prefix/dosdevices/n:
+      16  newfstatat ENOENT   /prefix/dosdevices/o:
+      16  newfstatat ENOENT   /prefix/dosdevices/p:
+      16  newfstatat ENOENT   /prefix/dosdevices/q:
+      16  newfstatat ENOENT   /prefix/dosdevices/r:
+      16  newfstatat ENOENT   /prefix/dosdevices/s:
+      16  newfstatat ENOENT   /prefix/dosdevices/t:
+      16  newfstatat ENOENT   /prefix/dosdevices/u:
+      16  newfstatat ENOENT   /prefix/dosdevices/v:
+      16  newfstatat ENOENT   /prefix/dosdevices/w:
+      16  newfstatat ENOENT   /prefix/dosdevices/x:
+      16  newfstatat ENOENT   /prefix/dosdevices/y:
+      16  newfstatat ENOENT   /prefix/dosdevices/pipe
+      16  newfstatat ok       /prefix/dosdevices/z:/opt/wine-stable/share/wine/fonts/vgasys.fon
+      15  openat     ENOENT   /sys/devices/system/cpu/online
+      15  faccessat2 ok       /opt/wine-stable/lib/wine/
+      15  readlink   EINVAL   /prefix/drive_c/windows/system32/drivers
+      15  access     ok       /etc/fonts/conf.d
+      15  newfstatat ok       /prefix/dosdevices/z:/opt/wine-stable/share/wine/fonts
+      15  newfstatat ok       /prefix/dosdevices/z:/opt/wine-stable/share/wine/fonts/tahomabd.ttf
+      14  newfstatat ok       .
+      14  newfstatat ok       windows
+      14  newfstatat ok       system32
+      14  openat     ENOENT   /etc/drirc
+      14  openat     ENOENT   /home/user/.drirc
+      13  readlink   ok       /prefix/dosdevices/z:
+      13  openat     ENOENT   /home/user/.config/vulkan/icd.d

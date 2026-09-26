@@ -1,0 +1,237 @@
+trace: /home/user/local_RLtvOS/refs/d1.trace.gz  lines=117471 processes=55 time=22:56:23.526981..22:56:28.758544
+unique syscalls: 83   ENOSYS: none
+execve: 5:/usr/bin/sh; 6:/usr/bin/mkdir; 8:/usr/bin/sleep; 7:/usr/bin/Xvfb; 9:/bin/sh; 10:/usr/bin/xkbcomp; 12:/usr/bin/date; 14:/usr/bin/head; 13:/usr/bin/vulkaninfo; 34:/usr/bin/sleep; 33:/usr/bin/timeout; 35:/opt/wine-stable/bin/vkcube; 35:/usr/local/sbin/vkcube; 35:/usr/local/bin/vkcube; 35:/usr/sbin/vkcube; 35:/usr/bin/vkcube; 56:/usr/bin/xwd; 58:/usr/bin/date; 59:/usr/bin/tail
+exits: 6=0, 10=0, 9=0, 8=0, 12=0, 11=0, 15=0, 29=0, 26=0, 31=0, 30=0, 28=0, 27=0, 25=0, 24=0, 17=0, 16=0, 18=0, 19=0, 20=0, 21=0, 22=0, 23=0, 32=0, 14=0, 13=0, 55=0, 54=0, 36=0, 48=0, 52=0, 51=0, 50=0, 49=0, 47=0, 45=0, 46=0, 38=0, 37=0, 39=0
+signals: SIGCHLDx15, SIGTERMx1
+
+syscall counts:
+     41555  futex
+      3967  recvmsg
+      3218  writev
+      2552  epoll_wait
+      1165  read
+      1067  mmap
+       838  setitimer
+       711  close
+       688  fstat
+       502  brk
+       467  mprotect
+       406  openat
+       313  lseek
+       294  rt_sigprocmask
+       244  access
+       216  munmap
+       140  getdents64
+       124  flock
+       102  newfstatat
+        61  set_robust_list
+        54  write
+        53  rseq
+        50  rt_sigaction
+        45  recvfrom
+        40  madvise
+        38  clone3
+        38  exit
+        36  fcntl
+        30  pread64
+        30  prctl
+        27  wait4
+        27  epoll_ctl
+        19  execve
+        17  prlimit64
+        17  getrandom
+        17  exit_group
+        17  readlink
+        16  getpid
+        15  arch_prctl
+        15  set_tid_address
+        15  rt_sigreturn
+        14  shutdown
+        13  geteuid
+        13  ftruncate
+        11  getuid
+        11  connect
+        10  getgid
+        10  unlink
+        10  uname
+         9  getegid
+         9  getsockopt
+         8  vfork
+         8  clone
+         7  sysinfo
+         7  getpeername
+         6  umask
+         6  mkdir
+         5  pipe2
+         4  statfs
+         3  getppid
+         3  chdir
+         2  setpgid
+         2  bind
+         2  listen
+         2  clock_nanosleep
+         2  sched_getaffinity
+         2  sched_setscheduler
+         2  sched_setaffinity
+         2  gettid
+         2  setpriority
+         1  fstatfs
+         1  setresuid
+         1  getpgrp
+         1  fchmod
+         1  link
+         1  chmod
+         1  setgid
+         1  setuid
+         1  timer_create
+         1  timer_settime
+         1  ioctl
+         1  rt_sigsuspend
+         1  kill
+
+errors (syscall errno count):
+      7770  futex EAGAIN
+       754  recvmsg EAGAIN
+       406  openat ENOENT
+        56  newfstatat ENOENT
+        44  access ENOENT
+        14  close EBADF
+         7  recvfrom EAGAIN
+         6  unlink ENOENT
+         5  mkdir EEXIST
+         4  statfs ENOENT
+         4  wait4 ECHILD
+         4  prctl EINVAL
+         4  connect ENOENT
+         4  execve ENOENT
+         2  access EROFS
+         2  lseek ESPIPE
+         2  rt_sigreturn EINTR
+         2  epoll_ctl EBADF
+         1  setresuid EINVAL
+         1  read EAGAIN
+         1  ioctl EBADF
+         1  rt_sigsuspend ERESTARTNOHAND
+         1  epoll_wait EINTR
+
+paths (top):
+      24  openat     ENOENT   /dev/dri
+      17  openat     ENOENT   /home/user/.config/vulkan/implicit_layer.d
+      17  openat     ENOENT   /etc/xdg/vulkan/implicit_layer.d
+      17  access     ok       /etc/vulkan/implicit_layer.d/.
+      17  access     ok       /etc/vulkan/implicit_layer.d/..
+      17  openat     ENOENT   /home/user/.local/share/vulkan/implicit_layer.d
+      17  openat     ENOENT   /usr/share/gnome/vulkan/implicit_layer.d
+      17  openat     ENOENT   /home/user/.local/share/flatpak/exports/share/vulkan/implicit_layer.d
+      17  openat     ENOENT   /var/lib/flatpak/exports/share/vulkan/implicit_layer.d
+      17  openat     ENOENT   /usr/local/share/vulkan/implicit_layer.d
+      17  access     ok       /usr/share/vulkan/implicit_layer.d/.
+      17  access     ok       /usr/share/vulkan/implicit_layer.d/VkLayer_MESA_device_select.json
+      17  access     ok       /usr/share/vulkan/implicit_layer.d/..
+      17  readlink   ok       /proc/self/exe
+      15  access     ENOENT   /etc/ld.so.preload
+      10  newfstatat ok       /home/user
+      10  access     ENOENT   /home/user/.local/share/vulkan/loader_settings.d/vk_loader_settings.json
+      10  access     ENOENT   /etc/vulkan/loader_settings.d/vk_loader_settings.json
+       8  openat     ENOENT   /usr/lib/locale/locale-archive
+       8  openat     ENOENT   /usr/share/locale/locale.alias
+       8  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_IDENTIFICATION
+       8  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_MEASUREMENT
+       8  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_TELEPHONE
+       8  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_ADDRESS
+       8  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_NAME
+       8  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_PAPER
+       8  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_MESSAGES
+       8  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_MONETARY
+       8  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_COLLATE
+       8  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_TIME
+       8  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_NUMERIC
+       8  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_CTYPE
+       8  openat     ENOENT   /etc/drirc
+       8  openat     ENOENT   /home/user/.drirc
+       8  newfstatat ok       /home
+       8  newfstatat ok       /home/user/.cache
+       7  openat     ENOENT   /home/user/.config/vulkan/icd.d
+       7  openat     ENOENT   /etc/xdg/vulkan/icd.d
+       7  access     ok       /etc/vulkan/icd.d/.
+       7  access     ok       /etc/vulkan/icd.d/..
+       7  openat     ENOENT   /home/user/.local/share/vulkan/icd.d
+       7  openat     ENOENT   /usr/share/gnome/vulkan/icd.d
+       7  openat     ENOENT   /home/user/.local/share/flatpak/exports/share/vulkan/icd.d
+       7  openat     ENOENT   /var/lib/flatpak/exports/share/vulkan/icd.d
+       7  openat     ENOENT   /usr/local/share/vulkan/icd.d
+       7  access     ok       /usr/share/vulkan/icd.d/virtio_icd.json
+       7  access     ok       /usr/share/vulkan/icd.d/intel_hasvk_icd.json
+       7  access     ok       /usr/share/vulkan/icd.d/intel_icd.json
+       7  access     ok       /usr/share/vulkan/icd.d/.
+       7  access     ok       /usr/share/vulkan/icd.d/gfxstream_vk_icd.json
+       7  access     ok       /usr/share/vulkan/icd.d/..
+       7  access     ok       /usr/share/vulkan/icd.d/radeon_icd.json
+       7  access     ok       /usr/share/vulkan/icd.d/lvp_icd.json
+       7  access     ok       /usr/share/vulkan/icd.d/nouveau_icd.json
+       7  access     ENOENT   /run/user/1000/.mutter-Xwaylandauth.QVIFW3
+       6  openat     ENOENT   /home/user/.config/vulkan/explicit_layer.d
+       6  openat     ENOENT   /etc/xdg/vulkan/explicit_layer.d
+       6  access     ok       /etc/vulkan/explicit_layer.d/.
+       6  access     ok       /etc/vulkan/explicit_layer.d/..
+       6  openat     ENOENT   /home/user/.local/share/vulkan/explicit_layer.d
+       6  openat     ENOENT   /usr/share/gnome/vulkan/explicit_layer.d
+       6  openat     ENOENT   /home/user/.local/share/flatpak/exports/share/vulkan/explicit_layer.d
+       6  openat     ENOENT   /var/lib/flatpak/exports/share/vulkan/explicit_layer.d
+       6  openat     ENOENT   /usr/local/share/vulkan/explicit_layer.d
+       6  access     ok       /usr/share/vulkan/explicit_layer.d/VkLayer_MESA_overlay.json
+       6  access     ok       /usr/share/vulkan/explicit_layer.d/.
+       6  access     ok       /usr/share/vulkan/explicit_layer.d/..
+       6  access     ok       /usr/share/vulkan/explicit_layer.d/VkLayer_INTEL_nullhw.json
+       6  openat     ENOENT   /sys/devices/system/cpu/online
+       3  openat     ENOENT   /lib/x86_64-linux-gnu/../lib/glibc-hwcaps/x86-64-v4/libedit.so.2
+       3  newfstatat ENOENT   /lib/x86_64-linux-gnu/../lib/glibc-hwcaps/x86-64-v4/
+       3  openat     ENOENT   /lib/x86_64-linux-gnu/../lib/glibc-hwcaps/x86-64-v3/libedit.so.2
+       3  newfstatat ENOENT   /lib/x86_64-linux-gnu/../lib/glibc-hwcaps/x86-64-v3/
+       3  openat     ENOENT   /lib/x86_64-linux-gnu/../lib/glibc-hwcaps/x86-64-v2/libedit.so.2
+       3  newfstatat ENOENT   /lib/x86_64-linux-gnu/../lib/glibc-hwcaps/x86-64-v2/
+       3  openat     ENOENT   /lib/x86_64-linux-gnu/../lib/libedit.so.2
+       3  newfstatat ENOENT   /lib/x86_64-linux-gnu/../lib/
+       3  openat     ENOENT   /sys/class/drm/card0/device/boot_vga
+       2  newfstatat ok       .
+       2  access     ENOENT   /etc/selinux/config
+       2  openat     ENOENT   /usr/share/fonts/X11/100dpi/fonts.dir
+       2  openat     ENOENT   /usr/share/fonts/X11/100dpi/fonts.alias
+       2  openat     ENOENT   /usr/share/fonts/X11/75dpi/fonts.dir
+       2  openat     ENOENT   /usr/share/fonts/X11/75dpi/fonts.alias
+       2  access     EROFS    /var/lib/xkb/
+       2  newfstatat ENOENT   /opt/wine-stable/bin/date
+       2  newfstatat ENOENT   /usr/local/sbin/date
+       2  newfstatat ENOENT   /usr/local/bin/date
+       2  newfstatat ENOENT   /usr/sbin/date
+       2  newfstatat ok       /usr/bin/date
+       2  openat     ENOENT   /sys/devices/system/cpu/possible
+       2  openat     ENOENT   /sys/devices/system/cpu/cpu0/cpu_capacity
+       2  openat     ENOENT   /dev/udmabuf
+       2  newfstatat ok       /home/user/.cache/mesa_shader_cache
+       2  newfstatat ENOENT   /home/user/.cache/mesa_shader_cache/marker
+       2  newfstatat ok       /home/user/.cache/mesa_shader_cache_db
+       2  newfstatat ok       /home/user/.cache/mesa_shader_cache_db/marker
+       1  newfstatat ENOENT   /opt/wine-stable/bin/mkdir
+       1  newfstatat ENOENT   /usr/local/sbin/mkdir
+       1  newfstatat ENOENT   /usr/local/bin/mkdir
+       1  newfstatat ENOENT   /usr/sbin/mkdir
+       1  newfstatat ok       /usr/bin/mkdir
+       1  newfstatat ok       d1
+       1  newfstatat ENOENT   /tmp/.X11-unix/X0
+       1  newfstatat ENOENT   /opt/wine-stable/bin/sleep
+       1  newfstatat ENOENT   /usr/local/sbin/sleep
+       1  newfstatat ENOENT   /usr/local/bin/sleep
+       1  newfstatat ENOENT   /usr/sbin/sleep
+       1  newfstatat ok       /usr/bin/sleep
+       1  newfstatat ENOENT   /opt/wine-stable/bin/Xvfb
+       1  newfstatat ENOENT   /usr/local/sbin/Xvfb
+       1  newfstatat ENOENT   /usr/local/bin/Xvfb
+       1  newfstatat ENOENT   /usr/sbin/Xvfb
+       1  newfstatat ok       /usr/bin/Xvfb
+       1  newfstatat ENOENT   /tmp/.X11-unix
+       1  openat     ENOENT   /etc/X0.hosts
+       1  openat     ENOENT   /usr/share/fonts/X11/misc/fonts.dir
+       1  openat     ENOENT   /usr/share/fonts/X11/misc/fonts.alias
+       1  openat     ENOENT   /usr/share/fonts/X11/cyrillic/fonts.dir
+       1  openat     ENOENT   /usr/share/fonts/X11/cyrillic/fonts.alias

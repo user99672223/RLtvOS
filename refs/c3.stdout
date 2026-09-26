@@ -1,0 +1,14 @@
+C3 start pid=5
+3
+c
+b
+got-TERM
+after self-kill
+background job done
+false exit status: 1
+Name:	cat
+Umask:	0002
+State:	R (running)
+threads: counter=400000 (expect 400000) joined=60 (expect 60) usr1=1 tid=17
+threads-test exit=0
+C3 done

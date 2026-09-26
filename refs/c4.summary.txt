@@ -1,0 +1,207 @@
+trace: /home/user/local_RLtvOS/refs/c4.trace.gz  lines=6889 processes=19 time=22:55:54.869999..22:55:58.150752
+unique syscalls: 67   ENOSYS: none
+execve: 5:/usr/bin/sh; 6:/usr/bin/mkdir; 8:/usr/bin/sleep; 7:/usr/bin/Xvfb; 9:/bin/sh; 10:/usr/bin/xkbcomp; 12:/usr/bin/date; 13:/usr/bin/xdpyinfo; 14:/usr/bin/head; 16:/usr/bin/sleep; 15:/usr/bin/xeyes; 18:/usr/bin/head; 17:/usr/bin/xwininfo; 19:/usr/bin/xdotool; 20:/usr/bin/sleep; 21:/usr/bin/xwd; 23:/usr/bin/date
+exits: 6=0, 10=0, 9=0, 8=0, 12=0, 11=0, 14=0, 13=SIGPIPE, 16=0, 17=0, 18=0, 19=0, 20=0, 21=0, 23=0, 22=0, 15=SIGTERM, 5=0, 7=0
+signals: SIGCHLDx16, SIGPIPEx1, SIGTERMx2
+
+syscall counts:
+       785  mmap
+       588  read
+       447  close
+       432  recvmsg
+       357  fstat
+       297  writev
+       176  setitimer
+       168  mprotect
+       164  openat
+       108  epoll_wait
+        92  brk
+        70  rt_sigprocmask
+        69  futex
+        68  newfstatat
+        65  recvfrom
+        50  munmap
+        44  access
+        37  rt_sigaction
+        34  pread64
+        34  lseek
+        29  wait4
+        28  fcntl
+        28  write
+        26  set_robust_list
+        26  epoll_ctl
+        19  prlimit64
+        17  execve
+        17  arch_prctl
+        17  set_tid_address
+        17  rseq
+        17  getrandom
+        17  exit_group
+        16  rt_sigreturn
+        14  getpid
+        10  prctl
+        10  uname
+         9  geteuid
+         9  vfork
+         9  clone
+         8  shutdown
+         7  getuid
+         7  getsockopt
+         6  getgid
+         6  umask
+         6  pipe2
+         6  unlink
+         5  getegid
+         5  clock_nanosleep
+         5  connect
+         5  getpeername
+         4  statfs
+         4  mkdir
+         4  getdents64
+         3  getppid
+         3  chdir
+         2  bind
+         2  listen
+         2  kill
+         1  fstatfs
+         1  setresuid
+         1  getpgrp
+         1  setpgid
+         1  fchmod
+         1  link
+         1  chmod
+         1  setgid
+         1  setuid
+
+errors (syscall errno count):
+       240  recvmsg EAGAIN
+       164  openat ENOENT
+        51  newfstatat ENOENT
+        39  access ENOENT
+         7  recvfrom EAGAIN
+         4  statfs ENOENT
+         4  wait4 ECHILD
+         4  prctl EINVAL
+         4  writev EAGAIN
+         3  mkdir EEXIST
+         2  unlink ENOENT
+         2  access EROFS
+         2  close EBADF
+         2  epoll_ctl EBADF
+         1  setresuid EINVAL
+         1  read EAGAIN
+         1  lseek ESPIPE
+         1  write EPIPE
+         1  epoll_wait EINTR
+         1  rt_sigreturn EINTR
+
+paths (top):
+      17  access     ENOENT   /etc/ld.so.preload
+      10  openat     ENOENT   /usr/lib/locale/locale-archive
+      10  openat     ENOENT   /usr/share/locale/locale.alias
+      10  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_IDENTIFICATION
+      10  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_MEASUREMENT
+      10  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_TELEPHONE
+      10  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_ADDRESS
+      10  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_NAME
+      10  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_PAPER
+      10  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_MESSAGES
+      10  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_MONETARY
+      10  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_COLLATE
+      10  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_TIME
+      10  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_NUMERIC
+      10  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_CTYPE
+       5  access     ENOENT   /run/user/1000/.mutter-Xwaylandauth.QVIFW3
+       2  newfstatat ok       /home/user
+       2  newfstatat ok       .
+       2  access     ENOENT   /etc/selinux/config
+       2  openat     ENOENT   /usr/share/fonts/X11/100dpi/fonts.dir
+       2  openat     ENOENT   /usr/share/fonts/X11/100dpi/fonts.alias
+       2  openat     ENOENT   /usr/share/fonts/X11/75dpi/fonts.dir
+       2  openat     ENOENT   /usr/share/fonts/X11/75dpi/fonts.alias
+       2  access     EROFS    /var/lib/xkb/
+       2  newfstatat ENOENT   /opt/wine-stable/bin/date
+       2  newfstatat ENOENT   /usr/local/sbin/date
+       2  newfstatat ENOENT   /usr/local/bin/date
+       2  newfstatat ENOENT   /usr/sbin/date
+       2  newfstatat ok       /usr/bin/date
+       2  access     ok       /usr/share/X11/locale/C/XLC_LOCALE
+       2  openat     ENOENT   /home/user/.Xdefaults
+       2  access     ENOENT   /home/user/C.UTF-8/XEyes
+       2  access     ENOENT   /home/user/C/XEyes
+       2  access     ENOENT   /home/user/XEyes
+       2  access     ENOENT   /etc/X11/C.UTF-8/app-defaults/XEyes
+       2  access     ENOENT   /etc/X11/C/app-defaults/XEyes
+       2  access     ENOENT   /etc/X11/app-defaults/XEyes
+       1  newfstatat ENOENT   /opt/wine-stable/bin/mkdir
+       1  newfstatat ENOENT   /usr/local/sbin/mkdir
+       1  newfstatat ENOENT   /usr/local/bin/mkdir
+       1  newfstatat ENOENT   /usr/sbin/mkdir
+       1  newfstatat ok       /usr/bin/mkdir
+       1  newfstatat ok       c4
+       1  newfstatat ENOENT   /tmp/.X11-unix/X0
+       1  newfstatat ENOENT   /opt/wine-stable/bin/sleep
+       1  newfstatat ENOENT   /usr/local/sbin/sleep
+       1  newfstatat ENOENT   /usr/local/bin/sleep
+       1  newfstatat ENOENT   /usr/sbin/sleep
+       1  newfstatat ok       /usr/bin/sleep
+       1  newfstatat ENOENT   /opt/wine-stable/bin/Xvfb
+       1  newfstatat ENOENT   /usr/local/sbin/Xvfb
+       1  newfstatat ENOENT   /usr/local/bin/Xvfb
+       1  newfstatat ENOENT   /usr/sbin/Xvfb
+       1  newfstatat ok       /usr/bin/Xvfb
+       1  newfstatat ENOENT   /tmp/.X11-unix
+       1  openat     ENOENT   /etc/X0.hosts
+       1  openat     ENOENT   /lib/x86_64-linux-gnu/../lib/glibc-hwcaps/x86-64-v4/libedit.so.2
+       1  newfstatat ENOENT   /lib/x86_64-linux-gnu/../lib/glibc-hwcaps/x86-64-v4/
+       1  openat     ENOENT   /lib/x86_64-linux-gnu/../lib/glibc-hwcaps/x86-64-v3/libedit.so.2
+       1  newfstatat ENOENT   /lib/x86_64-linux-gnu/../lib/glibc-hwcaps/x86-64-v3/
+       1  openat     ENOENT   /lib/x86_64-linux-gnu/../lib/glibc-hwcaps/x86-64-v2/libedit.so.2
+       1  newfstatat ENOENT   /lib/x86_64-linux-gnu/../lib/glibc-hwcaps/x86-64-v2/
+       1  openat     ENOENT   /lib/x86_64-linux-gnu/../lib/libedit.so.2
+       1  newfstatat ENOENT   /lib/x86_64-linux-gnu/../lib/
+       1  openat     ENOENT   /dev/dri
+       1  openat     ENOENT   /usr/share/fonts/X11/misc/fonts.dir
+       1  openat     ENOENT   /usr/share/fonts/X11/misc/fonts.alias
+       1  openat     ENOENT   /usr/share/fonts/X11/cyrillic/fonts.dir
+       1  openat     ENOENT   /usr/share/fonts/X11/cyrillic/fonts.alias
+       1  openat     ENOENT   /usr/share/fonts/X11/Type1/fonts.dir
+       1  openat     ENOENT   /usr/share/fonts/X11/Type1/fonts.alias
+       1  openat     ENOENT   /usr/share/X11/XKeysymDB
+       1  newfstatat ok       /tmp/.X11-unix/X0
+       1  newfstatat ENOENT   /opt/wine-stable/bin/xdpyinfo
+       1  newfstatat ENOENT   /usr/local/sbin/xdpyinfo
+       1  newfstatat ENOENT   /usr/local/bin/xdpyinfo
+       1  newfstatat ENOENT   /usr/sbin/xdpyinfo
+       1  newfstatat ok       /usr/bin/xdpyinfo
+       1  newfstatat ENOENT   /opt/wine-stable/bin/head
+       1  newfstatat ENOENT   /usr/local/sbin/head
+       1  newfstatat ENOENT   /usr/local/bin/head
+       1  newfstatat ENOENT   /usr/sbin/head
+       1  newfstatat ok       /usr/bin/head
+       1  newfstatat ENOENT   /opt/wine-stable/bin/xeyes
+       1  newfstatat ENOENT   /usr/local/sbin/xeyes
+       1  newfstatat ENOENT   /usr/local/bin/xeyes
+       1  newfstatat ENOENT   /usr/sbin/xeyes
+       1  newfstatat ok       /usr/bin/xeyes
+       1  access     ok       /usr/share/X11/locale/en_US.UTF-8/XLC_LOCALE
+       1  openat     ENOENT   /home/user/.Xdefaults-laptop
+       1  access     ENOENT   /usr/lib/X11/C.UTF-8/app-defaults/XEyes
+       1  access     ENOENT   /usr/lib/X11/C/app-defaults/XEyes
+       1  access     ENOENT   /usr/lib/X11/app-defaults/XEyes
+       1  newfstatat ENOENT   /opt/wine-stable/bin/xwininfo
+       1  newfstatat ENOENT   /usr/local/sbin/xwininfo
+       1  newfstatat ENOENT   /usr/local/bin/xwininfo
+       1  newfstatat ENOENT   /usr/sbin/xwininfo
+       1  newfstatat ok       /usr/bin/xwininfo
+       1  newfstatat ENOENT   /opt/wine-stable/bin/xdotool
+       1  newfstatat ENOENT   /usr/local/sbin/xdotool
+       1  newfstatat ENOENT   /usr/local/bin/xdotool
+       1  newfstatat ENOENT   /usr/sbin/xdotool
+       1  newfstatat ok       /usr/bin/xdotool
+       1  newfstatat ENOENT   mousemove
+       1  newfstatat ENOENT   /opt/wine-stable/bin/xwd
+       1  newfstatat ENOENT   /usr/local/sbin/xwd
+       1  newfstatat ENOENT   /usr/local/bin/xwd
+       1  newfstatat ENOENT   /usr/sbin/xwd
+       1  newfstatat ok       /usr/bin/xwd

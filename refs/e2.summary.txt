@@ -1,0 +1,159 @@
+trace: e2.trace.gz  lines=8519081 processes=80 time=01:09:32.142981..01:10:44.140824
+unique syscalls: 53   ENOSYS: none
+execve: 
+exits: 39079=0, 39080=0, 39083=0, 39130=0, 39135=0, 39174=0, 39215=0, 39245=0, 39259=0, 39289=0, 39304=0, 39316=0, 39319=0
+signals: SIGUSR1x9
+
+syscall counts:
+   1361460  read
+   1039043  rt_sigprocmask
+    923860  write
+    368970  epoll_pwait2
+    220267  writev
+    174430  getrusage
+     87215  sched_yield
+     64793  ioctl
+     60030  futex
+     11573  recvmsg
+     10302  newfstatat
+      2094  lseek
+      1749  epoll_ctl
+      1590  close
+      1572  flock
+      1453  fstat
+       664  getdents64
+       560  pread64
+       337  fcntl
+       261  times
+       242  fstatfs
+       189  getsockopt
+       182  setsockopt
+       117  connect
+        95  sendmsg
+        54  getxattr
+        41  munmap
+        39  getsockname
+        39  pipe2
+        34  readlink
+        27  mmap
+        22  openat
+        18  mprotect
+        13  bind
+        13  listen
+        13  getpeername
+        13  rseq
+        13  clone3
+        13  set_robust_list
+        13  sigaltstack
+        13  gettid
+        13  sched_setaffinity
+        13  arch_prctl
+        13  exit
+        12  recvfrom
+         9  tgkill
+         9  rt_sigreturn
+         4  fchdir
+         3  fadvise64
+         3  getrandom
+         2  fgetxattr
+         2  uname
+         1  restart_syscall
+
+errors (syscall errno count):
+      8365  recvmsg EAGAIN
+      2437  futex EAGAIN
+       363  newfstatat ENOENT
+       104  connect ENETUNREACH
+        54  getxattr ENODATA
+        30  readlink EINVAL
+        18  openat EROFS
+        13  connect EINPROGRESS
+        13  close EBADF
+         4  openat ENOENT
+         2  fgetxattr ENODATA
+
+paths (top):
+    9336  newfstatat ok       /etc/localtime
+      64  newfstatat ok       /prefix/dosdevices/c:/users
+      64  newfstatat ok       /prefix/dosdevices/c:/users/user
+      64  newfstatat ok       /prefix/dosdevices/c:/users/user/Documents
+      64  newfstatat ok       /prefix/dosdevices/c:/users/user/Documents/My Games
+      64  newfstatat ok       /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League
+      64  newfstatat ok       /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame
+      57  newfstatat ok       /prefix/dosdevices/z:/game
+      39  newfstatat ok       /prefix/dosdevices/z:/game/TAGame
+      36  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/Localization/INT/Errors.INT
+      36  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/Localization
+      36  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/Localization?
+      36  newfstatat ENOENT   /prefix/dosdevices/z:/game/TAGame/Localization/INT/Errors.INT
+      36  newfstatat ENOENT   /prefix/dosdevices/z:/game/TAGame/Localization
+      36  newfstatat ENOENT   /prefix/dosdevices/z:/game/TAGame/Localization?
+      36  newfstatat ENOENT   /prefix/dosdevices/z:/game/Binaries/Win64/RocketLeague.dxvk-cache
+      28  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole
+      28  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole?
+      18  newfstatat ok       /prefix/dosdevices/z:/game/Binaries
+      18  newfstatat ok       /prefix/dosdevices/z:/game/Binaries/Win64
+      18  newfstatat ENOENT   /prefix/dosdevices/z:/game/Binaries/Win64/RocketLeague.dxvk-cache?
+      18  openat     EROFS    /prefix/dosdevices/z:/game/Binaries/Win64/RocketLeague.dxvk-cache
+      13  newfstatat ok       /etc/resolv.conf
+      13  newfstatat ok       /etc/nsswitch.conf
+       7  newfstatat ok       /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/EngineAudio_Car01_REV_SF.upk
+       7  newfstatat ok       /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/EngineAudio_Car02_REV_SF.upk
+       5  newfstatat ok       /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/Cache/WebCache/LzI0Njc1ODI4Mi9Qcm9kL0VwaWMvSU5ULz9idWlsZFNlY3JldD08cmVkYWN0ZWQ_
+       4  readlink   EINVAL   /prefix
+       4  readlink   EINVAL   /prefix/dosdevices
+       4  newfstatat ok       /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/Core.upk
+       4  newfstatat ok       /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/Engine.upk
+       4  newfstatat ok       /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/GFxUI.upk
+       4  newfstatat ok       /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/AkAudio.upk
+       4  newfstatat ok       /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/ProjectX.upk
+       4  newfstatat ok       /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/TAGame.upk
+       4  newfstatat ok       /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/Farm_GRS_P.upk
+       4  newfstatat ok       /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/Farm_SFX.upk
+       3  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole/EngineAudio_Car01_REV_SF.upk
+       3  newfstatat ok       /prefix/dosdevices/z:/game/TAGame/CookedPCConsole
+       3  readlink   ok       /prefix/dosdevices/z:
+       3  readlink   EINVAL   /game
+       3  readlink   EINVAL   /game/TAGame
+       3  readlink   EINVAL   /game/TAGame/CookedPCConsole
+       3  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole/EngineAudio_Car02_REV_SF.upk
+       3  newfstatat ok       /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/SFX_REV_Car2.bnk
+       2  newfstatat ENOENT   /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/EngineAudio_Car01_REV_SF.upk.uncompressed_size
+       2  openat     ENOENT   /home/user/.Xdefaults
+       2  openat     ENOENT   /home/user/.Xdefaults-laptop
+       2  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole/Core.upk
+       2  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole/Engine.upk
+       2  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole/GFxUI.upk
+       2  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole/AkAudio.upk
+       2  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole/ProjectX.upk
+       2  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole/TAGame.upk
+       2  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole/Farm_GRS_P.upk
+       2  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole/Farm_SFX.upk
+       2  newfstatat ok       /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/GFxShell_SF.upk
+       2  newfstatat ok       /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/GameInfo_Soccar_SF.upk
+       2  newfstatat ENOENT   /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/EngineAudio_Car02_REV_SF.upk.uncompressed_size
+       1  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole/EngineAudio_Car01_REV_SF.upk.uncompressed_size
+       1  newfstatat ENOENT   /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/EngineAudio_Car01_REV_SF.upk.uncompressed_size?
+       1  readlink   EINVAL   /game/TAGame/CookedPCConsole/EngineAudio_Car01_REV_SF.upk
+       1  readlink   ok       /prefix/dosdevices/c:
+       1  readlink   EINVAL   /prefix/drive_c
+       1  readlink   EINVAL   /prefix/drive_c/users
+       1  readlink   EINVAL   /prefix/drive_c/users/user
+       1  readlink   EINVAL   /prefix/drive_c/users/user/Documents
+       1  readlink   EINVAL   /prefix/drive_c/users/user/Documents/My Games
+       1  readlink   EINVAL   /prefix/drive_c/users/user/Documents/My Games/Rocket League
+       1  readlink   EINVAL   /prefix/drive_c/users/user/Documents/My Games/Rocket League/TAGame
+       1  readlink   EINVAL   /prefix/drive_c/users/user/Documents/My Games/Rocket League/TAGame/Cache
+       1  readlink   EINVAL   /prefix/drive_c/users/user/Documents/My Games/Rocket League/TAGame/Cache/WebCache
+       1  readlink   EINVAL   /prefix/drive_c/users/user/Documents/My Games/Rocket League/TAGame/Cache/WebCache/LzI0Njc1ODI4Mi9Qcm9kL0VwaWMvSU5ULz9idWlsZFNlY3JldD08cmVkYWN0ZWQ_
+       1  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole/GFxShell_SF.upk
+       1  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole/GameInfo_Soccar_SF.upk
+       1  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole/EngineAudio_Car02_REV_SF.upk.uncompressed_size
+       1  newfstatat ENOENT   /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/EngineAudio_Car02_REV_SF.upk.uncompressed_size?
+       1  readlink   EINVAL   /game/TAGame/CookedPCConsole/EngineAudio_Car02_REV_SF.upk
+       1  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole/English(US)/SFX_REV_Car2.bnk
+       1  newfstatat ENOENT   /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/English(US)/SFX_REV_Car2.bnk
+       1  newfstatat ENOENT   /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/English(US)
+       1  newfstatat ENOENT   /prefix/dosdevices/z:/game/TAGame/CookedPCConsole/English(US)?
+       1  newfstatat ENOENT   /prefix/dosdevices/c:/users/user/Documents/My Games/Rocket League/TAGame/CookedPCConsole/SFX_REV_Car2.bnk
+       1  readlink   EINVAL   /game/TAGame/CookedPCConsole/SFX_REV_Car2.bnk
