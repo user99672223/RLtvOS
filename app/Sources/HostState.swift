@@ -81,9 +81,19 @@ final class HostState {
     private func runProbes() {
         _ = runJitTest()
         _ = runVaProbe()
+        // C++ core (CMake-built static library) runtime self-test.
+        rlcore_set_log { line in if let line = line { rl_log_str(String(cString: line)) } }
+        rl_log_str("host: rlcore \(String(cString: rlcore_version()))")
+        let c = HostState.fill(1024) { _ = rlcore_selftest($0, 1024) }
+        let cd = HostState.parseJSON(c)
+        lock.lock(); core = cd; lock.unlock()
+        rl_log_str("host: rlcore selftest \(c)")
         let m = memInfo()
         rl_log_str("host: mem \(HostState.compact(m))")
     }
+
+    private var core: [String: Any] = ["stage": "pending"]
+    func coreInfo() -> [String: Any] { lock.lock(); defer { lock.unlock() }; return core }
 
     /// Map-only probe (never executes): reports whether RWX mapping works.
     @discardableResult
@@ -146,6 +156,7 @@ final class HostState {
             "jit": jitInfo(),
             "jit_arena": jitArenaInfo(),
             "last_jit_kill": { lock.lock(); defer { lock.unlock() }; return lastJitKill }(),
+            "core": coreInfo(),
             "va": vaInfo(),
             "mem": memInfo(),
             "frames": renderer?.frameCount ?? 0,
@@ -241,7 +252,9 @@ final class HostState {
         if !kill.isEmpty {
             lines.append("JIT  previous run KILLED during jittest: \(kill.trimmingCharacters(in: .whitespacesAndNewlines))")
         }
-        lines.append("DBG  ptraced=\(si["ptraced"] ?? "?")  cs_debugged=\(j["cs_debugged"] ?? si["cs_debugged"] ?? "?")  crash_report=\(FileManager.default.fileExists(atPath: crashFile.path) ? "yes" : "no")")
+        lines.append("DBG  ptraced=\(si["ptraced"] ?? "?")  cs_debugged=\(j["cs_debugged"] ?? si["cs_debugged"] ?? "?")  sigaltstack=\(si["sigaltstack"] ?? "?")  crash_report=\(FileManager.default.fileExists(atPath: crashFile.path) ? "yes" : "no")")
+        let c = coreInfo()
+        lines.append("CORE \((c["ok"] as? Bool) == true ? "ok" : (c["stage"] as? String ?? "FAIL"))  \(c["version"] ?? "")  threads=\(c["threads"] ?? "?") exceptions=\(c["exceptions"] ?? "?") alloc64mb=\(c["alloc64mb"] ?? "?")")
         lines.append("")
         lines.append("--- log tail ---")
         let next = rl_log_next_seq()

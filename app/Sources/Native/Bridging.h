@@ -5,5 +5,6 @@
 #include "rl_log.h"
 #include "rl_native.h"
 #include "httpd.h"
+#include <rlcore/rlcore.h>
 
 #endif

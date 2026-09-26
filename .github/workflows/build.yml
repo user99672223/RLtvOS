@@ -43,6 +43,20 @@ jobs:
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
           xcodegen --version
 
+      - name: Build core (CMake, tvOS static libs)
+        run: |
+          set -euxo pipefail
+          command -v ninja >/dev/null 2>&1 || brew install ninja
+          cmake --version; ninja --version
+          cmake -S core -B build/core -G Ninja \
+            -DCMAKE_TOOLCHAIN_FILE="$PWD/cmake/tvos.toolchain.cmake" \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0 \
+            -DRL_ENABLE_FEX=${RL_ENABLE_FEX:-OFF}
+          cmake --build build/core --parallel
+          ls -la build/core/*.a
+          lipo -info build/core/librlcore.a
+
       - name: Generate project
         working-directory: app
         run: |

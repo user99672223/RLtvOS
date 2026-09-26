@@ -29,8 +29,15 @@ targets:
     platform: tvOS
     sources:
       - path: Sources
+    dependencies:
+      # CMake-built static libraries (see .github/workflows/build.yml).
+      - framework: ../build/core/librlcore.a
+        embed: false
+      - sdk: libc++.tbd
     settings:
       base:
+        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../core/include"
+        LIBRARY_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../build/core"
         PRODUCT_BUNDLE_IDENTIFIER: dev.rltvos.app
         PRODUCT_NAME: RLtvOS
         INFOPLIST_FILE: Info.plist

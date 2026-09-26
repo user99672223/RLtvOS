@@ -1,9 +1,12 @@
-# 001-harness — Phase A: install build-3, cycle, prove JIT/VA/mem on the TV
+# 001-harness — Phase A: install build-5, cycle, prove JIT/VA/mem on the TV
 
-**Build:** `build-3` (release https://github.com/user99672223/RLtvOS/releases/tag/build-3,
-`app.ipa` sha256 `4ad960691b8984440196d3f0dbbfb04170909a7b80cc8c8c9836e534966be3af`,
+**Build:** `build-5` (release https://github.com/user99672223/RLtvOS/releases/tag/build-5,
+`app.ipa` sha256 `da77761d5bc5bffa6281eacb862fd0caf895efc0477d2435f1ef380075ca9096`,
 `app.dSYM.zip` alongside). Unsigned; atvloadly signs it. Bundle id as built:
 `dev.rltvos.app` (the signer may append a team suffix; `tv.py apps` resolves it).
+Any later green `build-N` is also fine (it only adds to the harness); say
+which one you used in the verdict. Read `handoff/issues/001-jit.md` first:
+on tvOS 26+ JIT needs a debugger write per page, which `tv.py jit` does.
 
 ## What the app does (so you know what to expect)
 
@@ -14,11 +17,14 @@
   (ptraced / cs_debugged / crash report present), log tail.
 - Debug server on `TV_IP:7777` (LAN only): `GET /status /screenshot /log
   /mem /va /jit /crash /ping`, `POST /input /run /kill`, `DELETE /crash`.
-- The JIT test runs once at launch. It maps an RWX page, writes `mov w0,#42;
-  ret`, executes it, rewrites the page to return 43, executes again. It only
-  executes when the process is ptraced or has CS_DEBUGGED; otherwise it
-  reports `exec-skipped` with `rwx_errno`. `POST /run {"argv":["jittest"]}`
-  re-runs it (tv.py `jit` does that after JIT_CMD/MCP).
+- JIT: at launch the app maps a 64 MB JIT arena (`/status.jit_arena`:
+  base, size, prot rwx|rw, rwx_errno) and runs a map-only probe (nothing
+  executes). `tv.py jit` attaches through debugserver, writes every 16 KB
+  page of the arena back to itself (the TXM authorization), detaches, then
+  `POST /run {"argv":["jittest","--trust"]}`: the app writes `mov w0,#42;
+  ret` into an arena page, executes it, rewrites it to return 43, executes
+  again → `JIT ok` on screen. `--madvise` / `--fresh` are experiments (see
+  the issue); `--fresh` is expected to SIGKILL the app — run it last.
 - `sysinfo.sigaltstack` in `/status` says whether `sigaltstack` (SDK-prohibited
   on tvOS) works at runtime.
 
@@ -36,10 +42,20 @@
    field of `build-3`.
 5. `python3 tools/tv.py status > status.json` and `python3 tools/tv.py va`,
    `python3 tools/tv.py mem`.
-6. JIT: if a method exists, `python3 tools/tv.py jit` (runs the method, then
-   re-runs the in-app test and returns `jittest`). If none exists yet, skip;
-   the `/status` `jit` object (with `rwx_errno`, `cs_debugged`, `ptraced`)
-   is the evidence we need either way.
+6. JIT (see `handoff/issues/001-jit.md`): get a debugserver for the TV
+   without root, e.g. `pymobiledevice3 developer debugserver start-server
+   --userspace --udid <UDID>`, put its address in `DEBUGSERVER_ADDR` (or the
+   command in `DEBUGSERVER_CMD`), then:
+   `python3 tools/tv.py mem` (before) → `python3 tools/tv.py jit` →
+   `python3 tools/tv.py mem` (after; the authorized arena becomes resident).
+   Expect `authorized_pages` = 4096 and `jittest.ok = true`. Then the
+   experiments, each followed by `tv.py status` (or `tv.py launch` +
+   `tv.py status` if the app died): `tv.py jit --page 1 --madvise`,
+   and last `tv.py jit --fresh` (expected SIGKILL; `/status.last_jit_kill`
+   after relaunch confirms it). If no debugserver route works, record the
+   exact errors in the issue; the map-only `jit` object in `/status`
+   (`rwx_errno`, `cs_debugged`, `ptraced`, `jit_arena.prot`) is still
+   needed.
 7. `python3 tools/tv.py cycle --tag build-3` → writes
    `$OUT_DIR/cycles/cycle-<ts>/{shot.png,mem.json,status.json,log.txt,report.json}`.
 8. Crash handler check: `python3 tools/tv.py run -- crashtest 0` (app
@@ -61,11 +77,16 @@
 ## Pass criteria
 
 - PASS: the screenshot shows the console with the MEM line (non-zero
-  phys_footprint and available), the VA line with numbers, and `JIT ok`.
-- If no JIT method exists yet: verdict FAIL, but still deliver everything
-  above; the JIT line will read `JIT FAIL {... "stage":"exec-skipped" ...}`
-  and `/status.jit.rwx_errno` tells us whether tvOS 27 even lets an
-  undebugged process map RWX. Open/keep `handoff/issues/001-jit.md` with the
-  JIT research status (this is the skeleton's biggest risk).
+  phys_footprint and available), the VA line with numbers, and `JIT ok`
+  (after `tv.py jit`).
+- If no debugserver route to the TV works yet: verdict FAIL, but still
+  deliver everything above; the JIT line will read `JIT mapped-only ...`
+  and `/status.jit_arena.prot` / `rwx_errno` tell us whether tvOS 27 lets
+  an undebugged process map RWX at all. Update `handoff/issues/001-jit.md`
+  with what was tried and the exact errors (this is the skeleton's biggest
+  risk).
+- Record the mem delta of authorization (`phys_footprint` before/after
+  `tv.py jit`), the `--madvise` and `--fresh` outcomes, and
+  `authorize_seconds` from the `tv.py jit` output.
 - Report `/status.sysinfo.sigaltstack` and `/va` numbers verbatim; they set
   design parameters for Phase B/C.

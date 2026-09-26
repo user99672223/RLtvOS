@@ -2,11 +2,16 @@
 
 ## repo
 
-- State: Phase A shipped. CI green from run 3 (`macos-15`, Xcode 16.4,
-  tvOS 18.5 SDK, ~1 min per build). Release `build-3` has `app.ipa` +
-  `app.dSYM.zip`.
-- Open request: `handoff/requests/001-harness.md` (build-3). Waiting on
-  `handoff/results/001-harness/`.
+- State: Phase A shipped. CI green (`macos-15`, Xcode 16.4, tvOS 18.5 SDK,
+  ~1 min per build). `build-5` = harness + JIT arena protocol; build 6 adds
+  the CMake-built C++ core (`core/`, `librlcore.a`, `/status.core`).
+- Open request: `handoff/requests/001-harness.md` (build-5 or any later
+  green build). Waiting on `handoff/results/001-harness/`. User said the
+  Apple TV is in use for now; LAPTOP resumes later.
+- Issue `handoff/issues/001-jit.md`: tvOS 26+ TXM — JIT needs one debugger
+  write per 16 KB page; `tv.py jit` (gdbremote backend via debugserver,
+  pymobiledevice3 `--userspace` = no root) implements it; LAPTOP must
+  establish the debugserver connection.
 - Shared branch is `claude/rocket-league-apple-tv-zek0mi` until `main`
   exists (see CLAUDE.md "Shared branch" and DECISIONS.md).
 - Laptop-side scripts written: `laptop/setup/00..40`, `laptop/assets_server.py`,
