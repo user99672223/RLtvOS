@@ -2,6 +2,7 @@
 #include "rl_native.h"
 #include "rl_log.h"
 
+#include <dlfcn.h>
 #include <errno.h>
 #include <execinfo.h>
 #include <fcntl.h>
@@ -239,16 +240,53 @@ void rl_sysinfo_json(char *out, size_t cap) {
     sysctl_str("hw.model", model, sizeof model);
     snprintf(out, cap,
              "{\"hw_machine\":\"%s\",\"hw_model\":\"%s\",\"kern_osversion\":\"%s\",\"hw_memsize\":%llu,"
-             "\"hw_pagesize\":%llu,\"ncpu\":%llu,\"pid\":%d,\"ptraced\":%d,\"cs_debugged\":%d}",
+             "\"hw_pagesize\":%llu,\"ncpu\":%llu,\"pid\":%d,\"ptraced\":%d,\"cs_debugged\":%d,"
+             "\"sigaltstack\":\"%s\"}",
              machine, model, osver, (unsigned long long)sysctl_u64("hw.memsize"),
              (unsigned long long)sysctl_u64("hw.pagesize"), (unsigned long long)sysctl_u64("hw.ncpu"),
-             (int)getpid(), rl_is_ptraced(), rl_cs_debugged());
+             (int)getpid(), rl_is_ptraced(), rl_cs_debugged(), rl_altstack_status());
 }
 
 // ---------------------------------------------------------------- crash handler
 
 static char g_crash_path[1024];
 static stack_t g_altstack;
+static char g_altstack_status[64] = "not-tried";
+static int g_altstack_ok;
+
+// sigaltstack is __TVOS_PROHIBITED in the SDK headers (compile-time only).
+// The syscall exists in XNU; resolve the libsystem symbol at runtime and
+// record whether it works on this box — FEX's signal delegator wants it.
+typedef int (*rl_sigaltstack_fn)(const stack_t *, stack_t *);
+
+static int install_altstack(void) {
+    if (g_altstack_ok) return 0;
+    rl_sigaltstack_fn fn = (rl_sigaltstack_fn)dlsym(RTLD_DEFAULT, "sigaltstack");
+    if (!fn) {
+        snprintf(g_altstack_status, sizeof g_altstack_status, "symbol-missing");
+        return -1;
+    }
+    if (!g_altstack.ss_sp) {
+        g_altstack.ss_size = 256 * 1024;
+        g_altstack.ss_sp = malloc(g_altstack.ss_size);
+        g_altstack.ss_flags = 0;
+    }
+    if (!g_altstack.ss_sp) { snprintf(g_altstack_status, sizeof g_altstack_status, "oom"); return -1; }
+    if (fn(&g_altstack, NULL) != 0) {
+        snprintf(g_altstack_status, sizeof g_altstack_status, "errno=%d", errno);
+        return -1;
+    }
+    stack_t cur;
+    memset(&cur, 0, sizeof cur);
+    if (fn(NULL, &cur) == 0 && cur.ss_sp == g_altstack.ss_sp)
+        snprintf(g_altstack_status, sizeof g_altstack_status, "ok");
+    else
+        snprintf(g_altstack_status, sizeof g_altstack_status, "set-but-readback-differs");
+    g_altstack_ok = 1;
+    return 0;
+}
+
+const char *rl_altstack_status(void) { return g_altstack_status; }
 
 static const char *signame(int sig) {
     switch (sig) {
@@ -327,16 +365,11 @@ static void crash_handler(int sig, siginfo_t *si, void *uctx) {
 
 int rl_crash_install(const char *path) {
     snprintf(g_crash_path, sizeof g_crash_path, "%s", path ? path : "/dev/null");
-    if (!g_altstack.ss_sp) {
-        g_altstack.ss_size = 256 * 1024;
-        g_altstack.ss_sp = malloc(g_altstack.ss_size);
-        g_altstack.ss_flags = 0;
-        if (g_altstack.ss_sp && sigaltstack(&g_altstack, NULL) != 0) return -errno;
-    }
+    install_altstack();
     struct sigaction sa;
     memset(&sa, 0, sizeof sa);
     sa.sa_sigaction = crash_handler;
-    sa.sa_flags = SA_SIGINFO | SA_ONSTACK;
+    sa.sa_flags = SA_SIGINFO | (g_altstack_ok ? SA_ONSTACK : 0);
     sigemptyset(&sa.sa_mask);
     const int sigs[] = {SIGSEGV, SIGBUS, SIGILL, SIGFPE, SIGTRAP, SIGABRT};
     for (size_t i = 0; i < sizeof sigs / sizeof sigs[0]; i++)

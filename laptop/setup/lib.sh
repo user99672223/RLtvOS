@@ -101,7 +101,7 @@ rootfs_run() {
     --dev /dev --proc /proc --tmpfs /tmp --tmpfs /run --tmpfs /var/tmp \
     --bind "$WINEPREFIX_DIR" /prefix --bind "$HOME_DIR" /home/user --bind "$REFS_DIR" /refs \
     --ro-bind "$REPO_ROOT/laptop/refs/guest" /refs/guest \
-    $gameopts $dispopts \
+    $gameopts $dispopts ${EXTRA_BWRAP:-} \
     --setenv HOME /home/user --setenv USER user --setenv LOGNAME user \
     --setenv PATH "$GUEST_PATH" --setenv WINEPREFIX /prefix --setenv WINEARCH win64 \
     --setenv LANG C.UTF-8 --setenv TERM xterm \

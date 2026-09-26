@@ -1,0 +1,27 @@
+# e2-keys.txt — xdotool script replayed by e2.sh once the main menu is up.
+# Directives: key <xdotool keys...> | type <text> | sleep <s> | snap <name> | mouse <x> <y>
+# This is the initial guess for the Epic PC build's menu (keyboard navigation);
+# LAPTOP validates it on the laptop (run.sh --display real e2) and edits a
+# copy at $REFS_DIR/e2-keys.txt (RL_E2_KEYS) — never this file.
+# Dismiss any "press any key"/news popups.
+key Return
+sleep 3
+key Escape
+sleep 2
+snap e2-k1
+# Main menu: Play is the first item.
+key Return
+sleep 3
+snap e2-k2
+# Play menu: move to "Exhibition" (offline). Adjust the number of Downs after validation.
+key Down
+key Down
+key Return
+sleep 3
+snap e2-k3
+# Exhibition setup: accept defaults (bots), start.
+key Return
+sleep 2
+key Return
+sleep 5
+snap e2-k4

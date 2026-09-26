@@ -38,10 +38,14 @@ void rl_mem_json(char *out, size_t cap);
 // "hw_pagesize":..,"ncpu":..}.
 void rl_sysinfo_json(char *out, size_t cap);
 
-// Install SIGSEGV/SIGBUS/SIGILL/SIGFPE/SIGTRAP/SIGABRT handlers on an
-// alternate stack that write a backtrace to `path`, then re-raise. `path`
-// is copied. Returns 0 on success.
+// Install SIGSEGV/SIGBUS/SIGILL/SIGFPE/SIGTRAP/SIGABRT handlers (on an
+// alternate stack when sigaltstack works on this box) that write a backtrace
+// to `path`, then re-raise. `path` is copied. Returns 0 on success.
 int rl_crash_install(const char *path);
+
+// "ok", "symbol-missing", "errno=N", ... — whether sigaltstack (SDK-prohibited
+// on tvOS, resolved via dlsym) works. Meaningful after rl_crash_install.
+const char *rl_altstack_status(void);
 
 // Deliberately fault (for testing /crash): kind 0 = NULL write (SIGSEGV),
 // 1 = abort(), 2 = illegal instruction. Does not return.
