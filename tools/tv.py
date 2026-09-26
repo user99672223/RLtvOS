@@ -631,6 +631,14 @@ def do_jit(rerun_test=True, page=0, madvise=False, fresh=False, legacy=False, wa
     t0 = time.time()
     proc = None
     poll_timeout = float(wait if wait is not None else cfg("JIT_READY_TIMEOUT", "120"))
+    if backend != "gdbremote" and not launches and s:
+        # The app waits for P_TRACED only for RLJitWaitS after launch; if that
+        # window is over (stage failed/idle), restart it before attaching.
+        stage, _ = jit_stage(s)
+        if stage in (None, "idle", "failed"):
+            _, jp = app_json("POST", "/run", {"argv": ["jitprep", "--wait", str(int(poll_timeout))], "env": [], "cwd": "/"}, timeout=30)
+            res["jitprep"] = jp
+            time.sleep(0.5)
     if backend == "cmd":
         cmd = fmt(cfg("JIT_CMD", ""), **placeholders(bundle_id=app_id, pid=str(pid), base=arena.get("base", ""),
                                                       size=str(arena.get("size", ""))))

@@ -110,7 +110,7 @@ Queue this request until then.
 - If the helper cannot attach or `PrepareRegion` never returns a region:
   verdict FAIL, still deliver everything above; `/status.jit` (`stage`,
   `error`, `unserviced_traps`, `ptraced`, `waited_s`) and the helper log go
-  into `handoff/issues/001-jit-tvos27-txm.md`.
+  into `handoff/issues/003-jit-txm-brk-protocol.md`.
 - Record: `phys_footprint` before/after, `waited_s`, `prepare_s`,
   `remap_s`, `prepared_by`, `detach_serviced`, `/status.sysinfo.sigaltstack`
   and `/va` verbatim; they set design parameters for Phase B/C.
