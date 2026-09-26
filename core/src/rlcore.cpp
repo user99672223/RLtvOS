@@ -27,10 +27,21 @@ thread_local int tls_counter = 0;
 
 extern "C" const char* rlcore_version(void) {
     static std::string v = [] {
-        std::string s = std::string(RLCORE_VERSION) + " (clang " + std::to_string(__clang_major__) + "." +
-                        std::to_string(__clang_minor__) + ", libc++ " + std::to_string(_LIBCPP_VERSION) +
-                        ", " __DATE__ ")";
-        return s;
+#if defined(_LIBCPP_VERSION)
+        std::string stdlib = "libc++ " + std::to_string(_LIBCPP_VERSION);
+#elif defined(__GLIBCXX__)
+        std::string stdlib = "libstdc++ " + std::to_string(__GLIBCXX__);
+#else
+        std::string stdlib = "unknown stdlib";
+#endif
+#if defined(__clang__)
+        std::string cc = "clang " + std::to_string(__clang_major__) + "." + std::to_string(__clang_minor__);
+#elif defined(__GNUC__)
+        std::string cc = "gcc " + std::to_string(__GNUC__) + "." + std::to_string(__GNUC_MINOR__);
+#else
+        std::string cc = "unknown compiler";
+#endif
+        return std::string(RLCORE_VERSION) + " (" + cc + ", " + stdlib + ", " __DATE__ ")";
     }();
     return v.c_str();
 }

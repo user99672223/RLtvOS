@@ -13,6 +13,14 @@ if(NOT CMAKE_BUILD_TYPE)
 endif()
 
 option(RL_ENABLE_FEX "Build FEXCore and the fake kernel" OFF)
+if(CMAKE_CROSSCOMPILING)
+  set(_rl_tests_default OFF)
+else()
+  set(_rl_tests_default ON)
+endif()
+option(RL_BUILD_TESTS "Build host-side tests (Linux/macOS)" ${_rl_tests_default})
+
+add_subdirectory(vfs)
 
 add_library(rlcore STATIC
   src/rlcore.cpp
@@ -20,9 +28,17 @@ add_library(rlcore STATIC
 target_include_directories(rlcore PUBLIC include)
 target_compile_options(rlcore PRIVATE -Wall -Wextra -Wno-unused-parameter)
 target_compile_definitions(rlcore PRIVATE RLCORE_VERSION="0.1")
+target_link_libraries(rlcore PUBLIC rlvfs)
 
 if(RL_ENABLE_FEX)
   add_subdirectory(fex)
+endif()
+
+if(RL_BUILD_TESTS)
+  add_executable(vfs_test tests/vfs_test.cpp)
+  target_link_libraries(vfs_test PRIVATE rlvfs)
+  enable_testing()
+  add_test(NAME vfs_test COMMAND vfs_test ${CMAKE_SOURCE_DIR}/..)
 endif()
 
 install(TARGETS rlcore ARCHIVE DESTINATION lib)

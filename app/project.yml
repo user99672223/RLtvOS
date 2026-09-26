@@ -33,11 +33,14 @@ targets:
       # CMake-built static libraries (see .github/workflows/build.yml).
       - framework: ../build/core/librlcore.a
         embed: false
+      - framework: ../build/core/vfs/librlvfs.a
+        embed: false
       - sdk: libc++.tbd
+      - sdk: libz.tbd
     settings:
       base:
-        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../core/include"
-        LIBRARY_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../build/core"
+        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../core/include $(SRCROOT)/../core/vfs/include"
+        LIBRARY_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../build/core $(SRCROOT)/../build/core/vfs"
         PRODUCT_BUNDLE_IDENTIFIER: dev.rltvos.app
         PRODUCT_NAME: RLtvOS
         INFOPLIST_FILE: Info.plist
