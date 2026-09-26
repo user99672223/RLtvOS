@@ -1,0 +1,46 @@
+# XcodeGen spec — the runner generates RLtvOS.xcodeproj from this file.
+name: RLtvOS
+options:
+  minimumXcodeGenVersion: "2.38.0"
+  createIntermediateGroups: true
+  generateEmptyDirectories: false
+  deploymentTarget:
+    tvOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    RL_BUILD_TAG: dev
+    ENABLE_BITCODE: "NO"
+    CODE_SIGNING_ALLOWED: "NO"
+    CODE_SIGNING_REQUIRED: "NO"
+    CODE_SIGN_IDENTITY: ""
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
+    GCC_C_LANGUAGE_STANDARD: gnu11
+    CLANG_CXX_LANGUAGE_STANDARD: c++20
+    CLANG_ENABLE_MODULES: "YES"
+    ENABLE_USER_SCRIPT_SANDBOXING: "NO"
+    ASSETCATALOG_COMPILER_APPICON_NAME: ""
+targets:
+  RLtvOS:
+    type: application
+    platform: tvOS
+    sources:
+      - path: Sources
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.rltvos.app
+        PRODUCT_NAME: RLtvOS
+        INFOPLIST_FILE: Info.plist
+        GENERATE_INFOPLIST_FILE: "NO"
+        CODE_SIGN_ENTITLEMENTS: RLtvOS.entitlements
+        SWIFT_OBJC_BRIDGING_HEADER: Sources/Native/Bridging.h
+        TARGETED_DEVICE_FAMILY: "3"
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+        OTHER_CFLAGS: "-Wall -Wno-unused-function"
+        LD_RUNPATH_SEARCH_PATHS: "$(inherited) @executable_path/Frameworks"
+        SWIFT_OPTIMIZATION_LEVEL: "-O"
+        GCC_OPTIMIZATION_LEVEL: "2"
+    scheme: {}

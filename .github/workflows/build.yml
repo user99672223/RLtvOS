@@ -1,0 +1,118 @@
+name: build
+
+on:
+  push:
+    branches:
+      - main
+      - 'claude/**'
+    paths-ignore:
+      - 'handoff/**'
+      - 'laptop/**'
+      - 'tools/**'
+      - '**.md'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: tvOS build (unsigned) → release build-${{ github.run_number }}
+    runs-on: macos-15
+    timeout-minutes: 60
+    env:
+      BUILD_TAG: build-${{ github.run_number }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Toolchain
+        run: |
+          set -euxo pipefail
+          sw_vers
+          xcodebuild -version
+          xcrun --sdk appletvos --show-sdk-version
+          ls /Applications | grep -i xcode || true
+
+      - name: Install XcodeGen
+        run: |
+          set -euxo pipefail
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
+          xcodegen --version
+
+      - name: Generate project
+        working-directory: app
+        run: |
+          set -euxo pipefail
+          xcodegen generate
+          xcodebuild -list -project RLtvOS.xcodeproj
+
+      - name: Build
+        working-directory: app
+        run: |
+          set -uxo pipefail
+          status=0
+          xcodebuild \
+            -project RLtvOS.xcodeproj \
+            -scheme RLtvOS \
+            -configuration Release \
+            -sdk appletvos \
+            -destination 'generic/platform=tvOS' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            RL_BUILD_TAG="$BUILD_TAG" \
+            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+            ONLY_ACTIVE_ARCH=NO \
+            build > ../build.log 2>&1 || status=$?
+          echo "xcodebuild exit status: $status"
+          grep -E 'error:|warning:|BUILD (SUCCEEDED|FAILED)' ../build.log | grep -v 'note:' | head -200 || true
+          if [ "$status" -ne 0 ]; then echo '--- last 150 lines ---'; tail -150 ../build.log; fi
+          exit "$status"
+
+      - name: Package IPA
+        run: |
+          set -euxo pipefail
+          APP=$(find app/build/Build/Products/Release-appletvos -maxdepth 1 -name '*.app' -print -quit)
+          test -n "$APP"
+          # The unsigned .app keeps the entitlements file next to it for the
+          # signer; atvloadly/AltServer add get-task-allow from the profile.
+          cp app/RLtvOS.entitlements "$APP/../RLtvOS.entitlements" || true
+          rm -rf Payload && mkdir Payload && cp -R "$APP" Payload/
+          zip -qry app.ipa Payload
+          # dSYM for symbolicating /crash output offline
+          DSYM=$(find app/build/Build/Products/Release-appletvos -maxdepth 1 -name '*.dSYM' -print -quit)
+          if [ -n "$DSYM" ]; then (cd "$(dirname "$DSYM")" && zip -qry "$GITHUB_WORKSPACE/app.dSYM.zip" "$(basename "$DSYM")"); fi
+          ls -la app.ipa app.dSYM.zip || true
+          unzip -l app.ipa | head -40
+          plutil -p "Payload/$(basename "$APP")/Info.plist" | grep -E 'RLBuildTag|CFBundleIdentifier|CFBundleVersion|MinimumOSVersion'
+          echo "sha256: $(shasum -a 256 app.ipa)"
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log-${{ github.run_number }}
+          path: build.log
+          if-no-files-found: ignore
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.BUILD_TAG }}
+          name: ${{ env.BUILD_TAG }}
+          target_commitish: ${{ github.sha }}
+          body: |
+            Unsigned tvOS build of `${{ github.sha }}` (${{ github.ref_name }}).
+
+            ${{ github.event.head_commit.message }}
+
+            Install with `tools/tv.py install --tag ${{ env.BUILD_TAG }}`.
+          files: |
+            app.ipa
+            app.dSYM.zip
+          fail_on_unmatched_files: false
