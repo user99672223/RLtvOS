@@ -51,10 +51,6 @@ static const uint32_t k_code42[2] = {0x52800540u, 0xD65F03C0u};
 // mov w0,#43 ; ret
 static const uint32_t k_code43[2] = {0x52800560u, 0xD65F03C0u};
 
-static int debugged_enough(void) {
-    return rl_is_ptraced() == 1 || rl_cs_debugged() == 1;
-}
-
 int rl_exec_words(const uint32_t *code_words, size_t n_words, int *err) {
     size_t sz = (n_words * 4 + 16383) & ~(size_t)16383;
     void *p = mmap(NULL, sz, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
@@ -68,7 +64,7 @@ int rl_exec_words(const uint32_t *code_words, size_t n_words, int *err) {
     return r;
 }
 
-int rl_jit_test_json(char *out, size_t cap) {
+int rl_jit_test_json(int execute, char *out, size_t cap) {
     const size_t sz = 16384;
     int ptraced = rl_is_ptraced();
     int csd = rl_cs_debugged();
@@ -103,12 +99,13 @@ int rl_jit_test_json(char *out, size_t cap) {
     }
     sys_icache_invalidate(p, sizeof k_code42);
 
-    if (!debugged_enough()) {
+    if (!execute) {
         munmap(p, sz);
         snprintf(out, cap,
-                 "{\"ok\":false,\"stage\":\"exec-skipped\",\"method\":\"%s\",\"rwx_errno\":%d,"
-                 "\"ptraced\":%d,\"cs_debugged\":%d,\"reason\":\"not debugged: executing unsigned "
-                 "code would be SIGKILLed; enable JIT (debugger attach) and relaunch\"}",
+                 "{\"ok\":false,\"stage\":\"mapped-only\",\"method\":\"%s\",\"rwx_errno\":%d,"
+                 "\"ptraced\":%d,\"cs_debugged\":%d,\"reason\":\"not executed: on tvOS 26+ a page "
+                 "runs only after a debugger wrote to it; use tv.py jit (authorizes the arena, then "
+                 "runs jittest --trust)\"}",
                  method, rwx_errno, ptraced, csd);
         return 0;
     }
@@ -139,6 +136,105 @@ int rl_jit_test_json(char *out, size_t cap) {
              "{\"ok\":%s,\"method\":\"%s\",\"result1\":%d,\"result2\":%d,\"rwx_errno\":%d,"
              "\"rewrite_errno\":%d,\"ptraced\":%d,\"cs_debugged\":%d,\"page\":%zu}",
              ok ? "true" : "false", method, r1, r2, rwx_errno, rewrite_errno, ptraced, csd, sz);
+    return ok;
+}
+
+// ---------------------------------------------------------------- JIT arena
+
+static void *g_arena_base;
+static size_t g_arena_size;
+static int g_arena_rwx;
+static int g_arena_rwx_errno;
+
+int rl_jit_arena_init(size_t size) {
+    if (g_arena_base) return -EEXIST;
+    size = (size + 16383) & ~(size_t)16383;
+    void *p = mmap(NULL, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
+    if (p == MAP_FAILED) {
+        g_arena_rwx_errno = errno;
+        p = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+        if (p == MAP_FAILED) return -errno;
+        g_arena_rwx = 0;
+    } else {
+        g_arena_rwx = 1;
+    }
+    g_arena_base = p;
+    g_arena_size = size;
+    return 0;
+}
+
+void rl_jit_arena_json(char *out, size_t cap) {
+    snprintf(out, cap,
+             "{\"base\":\"0x%llx\",\"size\":%zu,\"size_mb\":%zu,\"prot\":\"%s\",\"rwx_errno\":%d,"
+             "\"page\":16384,\"pages\":%zu}",
+             (unsigned long long)(uintptr_t)g_arena_base, g_arena_size, g_arena_size >> 20,
+             g_arena_base ? (g_arena_rwx ? "rwx" : "rw") : "none", g_arena_rwx_errno,
+             g_arena_size / 16384);
+}
+
+int rl_jit_exec_test_json(int page, int madv, int fresh, char *out, size_t cap) {
+    const size_t PG = 16384;
+    void *p;
+    int rwx;
+    const char *where;
+    int fresh_errno = 0;
+    if (fresh) {
+        p = mmap(NULL, PG, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_PRIVATE | MAP_ANON, -1, 0);
+        rwx = 1;
+        if (p == MAP_FAILED) {
+            fresh_errno = errno;
+            p = mmap(NULL, PG, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, -1, 0);
+            rwx = 0;
+            if (p == MAP_FAILED) {
+                snprintf(out, cap, "{\"ok\":false,\"stage\":\"mmap\",\"errno\":%d,\"rwx_errno\":%d}", errno, fresh_errno);
+                return 0;
+            }
+        }
+        where = "fresh";
+    } else {
+        if (!g_arena_base) { snprintf(out, cap, "{\"ok\":false,\"error\":\"arena not initialised\"}"); return 0; }
+        if (page < 0 || (size_t)page * PG >= g_arena_size) {
+            snprintf(out, cap, "{\"ok\":false,\"error\":\"page out of range\",\"pages\":%zu}", g_arena_size / PG);
+            return 0;
+        }
+        p = (char *)g_arena_base + (size_t)page * PG;
+        rwx = g_arena_rwx;
+        where = "arena";
+    }
+    int madv_rc = 0, madv_errno = 0;
+    if (madv) {
+        madv_rc = madvise(p, PG, MADV_FREE);
+        if (madv_rc != 0) madv_errno = errno;
+    }
+    int (*fn)(void) = (int (*)(void))p;
+    int prot_errno = 0;
+    int r1 = -1, r2 = -1;
+
+    if (!rwx && mprotect(p, PG, PROT_READ | PROT_WRITE) != 0) prot_errno = errno;
+    memcpy(p, k_code42, sizeof k_code42);
+    if (!rwx && prot_errno == 0 && mprotect(p, PG, PROT_READ | PROT_EXEC) != 0) prot_errno = errno;
+    if (prot_errno == 0) {
+        sys_icache_invalidate(p, sizeof k_code42);
+        r1 = fn();
+        if (!rwx && mprotect(p, PG, PROT_READ | PROT_WRITE) != 0) prot_errno = errno;
+        if (prot_errno == 0) {
+            memcpy(p, k_code43, sizeof k_code43);
+            if (!rwx && mprotect(p, PG, PROT_READ | PROT_EXEC) != 0) prot_errno = errno;
+            if (prot_errno == 0) {
+                sys_icache_invalidate(p, sizeof k_code43);
+                r2 = fn();
+            }
+        }
+    }
+    if (fresh) munmap(p, PG);
+    int ok = (r1 == 42 && r2 == 43);
+    snprintf(out, cap,
+             "{\"ok\":%s,\"where\":\"%s\",\"page\":%d,\"addr\":\"0x%llx\",\"prot\":\"%s\",\"result1\":%d,"
+             "\"result2\":%d,\"prot_errno\":%d,\"fresh_rwx_errno\":%d,\"madvise\":%d,\"madvise_rc\":%d,"
+             "\"madvise_errno\":%d,\"ptraced\":%d,\"cs_debugged\":%d}",
+             ok ? "true" : "false", where, fresh ? -1 : page, (unsigned long long)(uintptr_t)p,
+             rwx ? "rwx" : "rw/rx", r1, r2, prot_errno, fresh_errno, madv, madv_rc, madv_errno,
+             rl_is_ptraced(), rl_cs_debugged());
     return ok;
 }
 

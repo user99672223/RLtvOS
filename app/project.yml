@@ -10,6 +10,7 @@ settings:
   base:
     SWIFT_VERSION: "5.0"
     RL_BUILD_TAG: dev
+    RL_JIT_ARENA_MB: "64"
     ENABLE_BITCODE: "NO"
     CODE_SIGNING_ALLOWED: "NO"
     CODE_SIGNING_REQUIRED: "NO"

@@ -530,44 +530,138 @@ def cmd_install(a):
     out(do_install(ipa, tag, a.force), 0 if True else 1)
 
 
-def do_jit(rerun_test=True):
-    jit_cmd = cfg("JIT_CMD")
-    mcp_tool = cfg("ATVLOADLY_MCP_JIT_TOOL")
-    if not jit_cmd and not mcp_tool:
-        return {"ok": False, "error": "neither JIT_CMD nor ATVLOADLY_MCP_JIT_TOOL is set in laptop/config.env"}
+def _debugserver_addr(res):
+    """DEBUGSERVER_ADDR, or start DEBUGSERVER_CMD and scrape host:port from its output."""
+    addr = cfg("DEBUGSERVER_ADDR")
+    if addr:
+        return addr, None
+    dcmd = cfg("DEBUGSERVER_CMD")
+    if not dcmd:
+        return None, None
+    dcmd = fmt(dcmd, **placeholders())
+    regex = cfg("DEBUGSERVER_ADDR_REGEX", r"connect://(\[[0-9a-fA-F:%.\w]+\]|[0-9.]+):(\d+)|(?:listening|Listening)[^\d]*(\d{2,5})")
+    proc = subprocess.Popen(dcmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+    res["debugserver_cmd"] = dcmd
+    lines = []
+    deadline = time.time() + float(cfg("DEBUGSERVER_START_TIMEOUT", "90"))
+    import select
+    while time.time() < deadline and proc.poll() is None:
+        r, _, _ = select.select([proc.stdout], [], [], 1.0)
+        if not r:
+            continue
+        line = proc.stdout.readline()
+        if not line:
+            break
+        lines.append(line.rstrip())
+        m = re.search(regex, line)
+        if m:
+            if m.group(1) and m.group(2):
+                return f"{m.group(1)}:{m.group(2)}", proc
+            if m.lastindex and m.group(m.lastindex):
+                host = cfg("DEBUGSERVER_HOST", "127.0.0.1")
+                return f"{host}:{m.group(m.lastindex)}", proc
+    res["debugserver_output"] = lines[-30:]
+    proc.terminate()
+    return None, None
+
+
+def do_jit(rerun_test=True, page=0, madvise=False, fresh=False):
+    """Authorize the app's JIT arena, then run the in-app exec test.
+
+    Backends (JIT_BACKEND=auto|gdbremote|cmd|mcp):
+      gdbremote  attach to the app through debugserver (DEBUGSERVER_ADDR or
+                 DEBUGSERVER_CMD), write every 16 KB page of /status.jit_arena
+                 back to itself (the TXM authorization), detach.
+      cmd        run JIT_CMD (external tool does the whole thing).
+      mcp        call ATVLOADLY_MCP_JIT_TOOL.
+    """
+    backend = cfg("JIT_BACKEND", "auto")
+    if backend == "auto":
+        backend = "cmd" if cfg("JIT_CMD") else ("mcp" if cfg("ATVLOADLY_MCP_JIT_TOOL") else "gdbremote")
+    if not wait_app(True, 20):
+        return {"ok": False, "error": "app not reachable; launch it first (tv.py launch)"}
+    _, s = app_json("GET", "/status")
+    pid = int(s.get("pid") or 0)
+    arena = s.get("jit_arena") or {}
     app_id = resolve_app_id() or cfg("APP_BUNDLE_ID", "dev.rltvos.app")
-    pid = ""
-    if app_is_up():
-        _, s = app_json("GET", "/status")
-        pid = str(s.get("pid", ""))
-    if jit_cmd:
-        cmd = fmt(jit_cmd, **placeholders(bundle_id=app_id, pid=pid))
-        r = sh(cmd, timeout=int(cfg("JIT_TIMEOUT", "180")))
-        res = {"method": "JIT_CMD", "cmd": cmd, "rc": r["rc"], "out": r["out"][-3000:], "err": r["err"][-3000:]}
-    else:
+    res = {"backend": backend, "pid": pid, "arena": arena, "build": s.get("build")}
+    t0 = time.time()
+    proc = None
+    if backend == "cmd":
+        cmd = fmt(cfg("JIT_CMD", ""), **placeholders(bundle_id=app_id, pid=str(pid), base=arena.get("base", ""),
+                                                      size=str(arena.get("size", ""))))
+        r = sh(cmd, timeout=int(cfg("JIT_TIMEOUT", "300")))
+        res.update({"cmd": cmd, "rc": r["rc"], "out": r["out"][-3000:], "err": r["err"][-3000:]})
+        authorized = r["rc"] == 0
+    elif backend == "mcp":
         try:
             targs = json.loads(cfg("ATVLOADLY_MCP_JIT_ARGS", "{}"))
         except Exception as e:
             return {"ok": False, "error": f"ATVLOADLY_MCP_JIT_ARGS is not JSON: {e}"}
-        targs = {k: (fmt(v, **placeholders(bundle_id=app_id, pid=pid)) if isinstance(v, str) else v)
+        targs = {k: (fmt(v, **placeholders(bundle_id=app_id, pid=str(pid))) if isinstance(v, str) else v)
                  for k, v in targs.items()}
-        m = mcp_tool_call(mcp_tool, targs, timeout=int(cfg("JIT_TIMEOUT", "180")))
-        r = {"rc": 0 if m.get("ok") else 1}
-        res = {"method": "atvloadly-mcp", "tool": mcp_tool, "args": targs, "mcp": m, "rc": r["rc"]}
-    settle = float(cfg("JIT_SETTLE_S", "3"))
-    time.sleep(settle)
-    if rerun_test and wait_app(True, 30):
-        st, j = app_json("POST", "/run", {"argv": ["jittest"], "env": [], "cwd": "/"}, timeout=30)
-        res["jittest"] = j
-        res["ok"] = bool(j.get("ok")) if isinstance(j, dict) else False
+        m = mcp_tool_call(cfg("ATVLOADLY_MCP_JIT_TOOL"), targs, timeout=int(cfg("JIT_TIMEOUT", "300")))
+        res.update({"tool": cfg("ATVLOADLY_MCP_JIT_TOOL"), "args": targs, "mcp": m})
+        authorized = bool(m.get("ok"))
+    elif backend == "gdbremote":
+        if not pid or not arena.get("base"):
+            return {"ok": False, "error": "status has no pid/jit_arena (old build?)", "status": s}
+        addr, proc = _debugserver_addr(res)
+        if not addr:
+            res.update({"ok": False, "error": "no debugserver: set DEBUGSERVER_ADDR (host:port) or DEBUGSERVER_CMD"})
+            return res
+        sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+        from gdbremote import GdbRemote, GdbRemoteError, parse_hostport
+        host, port = parse_hostport(addr)
+        res["debugserver"] = f"{host}:{port}"
+        base = int(arena["base"], 16)
+        size = int(arena["size"])
+        limit_mb = int(cfg("JIT_AUTH_MB", "0"))
+        if limit_mb:
+            size = min(size, limit_mb << 20)
+        g = GdbRemote(host, port, timeout=float(cfg("DEBUGSERVER_TIMEOUT", "60")))
+        try:
+            g.connect()
+            g.attach(pid)
+            n = g.authorize(base, size, chunk=int(cfg("JIT_AUTH_CHUNK", "32768")))
+            res.update({"authorized_bytes": n, "authorized_pages": n // int(arena.get("page", 16384)),
+                        "packet_size": g.packet_size})
+            if cfg("JIT_KEEP_ATTACHED", "0") != "1":
+                g.detach()
+            authorized = True
+        except (GdbRemoteError, OSError) as e:
+            res.update({"ok": False, "error": f"gdbremote: {e}"})
+            authorized = False
+        finally:
+            g.close()
     else:
-        res["ok"] = r["rc"] == 0
-        res["note"] = "app not reachable after JIT_CMD; jit test not re-run"
+        return {"ok": False, "error": f"unknown JIT_BACKEND {backend}"}
+    res["authorize_seconds"] = round(time.time() - t0, 1)
+    res["authorized"] = authorized
+    if proc is not None and cfg("DEBUGSERVER_KEEP", "0") != "1":
+        proc.terminate()
+    time.sleep(float(cfg("JIT_SETTLE_S", "1")))
+    if not authorized:
+        res.setdefault("ok", False)
+        return res
+    if rerun_test:
+        if not wait_app(True, 30):
+            res.update({"ok": False, "error": "app not reachable after authorization"})
+            return res
+        argv = ["jittest", "--trust", "--page", str(page)] + (["--madvise"] if madvise else []) + (["--fresh"] if fresh else [])
+        st, j = app_json("POST", "/run", {"argv": argv, "env": [], "cwd": "/"}, timeout=60)
+        res["jittest"] = j
+        if st == 0:
+            res.update({"ok": False, "error": "app died during jittest (SIGKILL by TXM/codesign?) — relaunch and check /status.last_jit_kill"})
+        else:
+            res["ok"] = bool(j.get("ok")) if isinstance(j, dict) else False
+    else:
+        res["ok"] = True
     return res
 
 
 def cmd_jit(a):
-    r = do_jit(rerun_test=not a.no_test)
+    r = do_jit(rerun_test=not a.no_test, page=a.page, madvise=a.madvise, fresh=a.fresh)
     out(r, 0 if r.get("ok") else 1)
 
 
@@ -827,7 +921,7 @@ def main():
 
     p = sp.add_parser("build"); p.add_argument("--tag"); p.add_argument("--wait", type=int, default=0, help="minutes to wait for the release"); p.set_defaults(fn=cmd_build)
     p = sp.add_parser("install"); p.add_argument("--tag"); p.add_argument("--ipa"); p.add_argument("--force", action="store_true"); p.add_argument("--wait", type=int, default=0); p.set_defaults(fn=cmd_install)
-    p = sp.add_parser("jit"); p.add_argument("--no-test", action="store_true"); p.set_defaults(fn=cmd_jit)
+    p = sp.add_parser("jit", help="authorize the JIT arena (debugger write per page) and run the in-app exec test"); p.add_argument("--no-test", action="store_true"); p.add_argument("--page", type=int, default=0); p.add_argument("--madvise", action="store_true", help="madvise(MADV_FREE) the page first"); p.add_argument("--fresh", action="store_true", help="execute in a fresh unauthorized page (expected SIGKILL on tvOS 26+)"); p.set_defaults(fn=cmd_jit)
     p = sp.add_parser("launch"); p.add_argument("--fresh", action="store_true", help="kill first if running"); p.add_argument("--timeout", type=int, default=60); p.set_defaults(fn=cmd_launch)
     p = sp.add_parser("kill"); p.set_defaults(fn=cmd_kill)
     p = sp.add_parser("apps"); p.set_defaults(fn=cmd_apps)

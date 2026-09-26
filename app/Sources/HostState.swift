@@ -39,7 +39,43 @@ final class HostState {
         let info = HostState.parseJSON(HostState.fill(4096) { rl_sysinfo_json($0, 4096) })
         lock.lock(); sysinfo = info; lock.unlock()
         rl_log_str("host: sysinfo \(HostState.compact(info))")
+        // A previous run that died inside a trusted jittest left the marker.
+        if let m = try? String(contentsOf: jitMarkerFile, encoding: .utf8), !m.isEmpty {
+            lock.lock(); lastJitKill = m; lock.unlock()
+            rl_log_str("host: previous run was killed during jittest: \(m) (unauthorized page → SIGKILL?)")
+            try? FileManager.default.removeItem(at: jitMarkerFile)
+        }
+        // JIT arena: fixed region the debugger authorizes page by page.
+        let rc = rl_jit_arena_init(Int(jitArenaMB) << 20)
+        rl_log_str("host: jit arena init rc=\(rc) \(HostState.fill(512) { rl_jit_arena_json($0, 512) })")
         workQueue.async { self.runProbes() }
+    }
+
+    var jitArenaMB: Int {
+        (Bundle.main.object(forInfoDictionaryKey: "RLJitArenaMB") as? NSNumber)?.intValue
+            ?? Int((Bundle.main.object(forInfoDictionaryKey: "RLJitArenaMB") as? String) ?? "") ?? 64
+    }
+
+    var jitMarkerFile: URL { cachesDir.appendingPathComponent("jittest-inflight.txt") }
+    private var lastJitKill: String = ""
+
+    func jitArenaInfo() -> [String: Any] {
+        HostState.parseJSON(HostState.fill(512) { rl_jit_arena_json($0, 512) })
+    }
+
+    /// Executes code in the arena (or a fresh page). Writes a marker first so
+    /// a SIGKILL (unauthorized page under TXM) is visible after relaunch.
+    @discardableResult
+    func runJitExecTest(page: Int32, madvise: Bool, fresh: Bool) -> [String: Any] {
+        let marker = "page=\(page) madvise=\(madvise) fresh=\(fresh) at=\(Date())\n"
+        try? marker.write(to: jitMarkerFile, atomically: true, encoding: .utf8)
+        let s = HostState.fill(2048) { _ = rl_jit_exec_test_json(page, madvise ? 1 : 0, fresh ? 1 : 0, $0, 2048) }
+        try? FileManager.default.removeItem(at: jitMarkerFile)
+        var d = HostState.parseJSON(s)
+        d["trusted"] = true
+        lock.lock(); jit = d; lock.unlock()
+        rl_log_str("host: jit exec test \(s)")
+        return d
     }
 
     private func runProbes() {
@@ -49,12 +85,13 @@ final class HostState {
         rl_log_str("host: mem \(HostState.compact(m))")
     }
 
+    /// Map-only probe (never executes): reports whether RWX mapping works.
     @discardableResult
     func runJitTest() -> [String: Any] {
-        let s = HostState.fill(2048) { _ = rl_jit_test_json($0, 2048) }
+        let s = HostState.fill(2048) { _ = rl_jit_test_json(0, $0, 2048) }
         let d = HostState.parseJSON(s)
         lock.lock(); jit = d; lock.unlock()
-        rl_log_str("host: jit \(s)")
+        rl_log_str("host: jit map probe \(s)")
         return d
     }
 
@@ -107,6 +144,8 @@ final class HostState {
             "low_power": pi.isLowPowerModeEnabled,
             "sysinfo": sysInfo(),
             "jit": jitInfo(),
+            "jit_arena": jitArenaInfo(),
+            "last_jit_kill": { lock.lock(); defer { lock.unlock() }; return lastJitKill }(),
             "va": vaInfo(),
             "mem": memInfo(),
             "frames": renderer?.frameCount ?? 0,
@@ -124,8 +163,24 @@ final class HostState {
         guard let cmd = argv.first else { return ["ok": false, "error": "empty argv"] }
         switch cmd {
         case "jittest":
-            let d = runJitTest()
-            return ["ok": (d["ok"] as? Bool) ?? false, "jit": d]
+            // jittest [--trust|--force] [--page N] [--madvise] [--fresh]
+            // Without --trust only the map probe runs (safe). With --trust the
+            // code is executed: tv.py jit sets it after the debugger authorized
+            // the arena pages. --fresh executes in a fresh, unauthorized page
+            // (expected to be SIGKILLed on tvOS 26+; run it last).
+            let flags = Array(argv.dropFirst())
+            let trust = flags.contains("--trust") || flags.contains("--force")
+            var page: Int32 = 0
+            if let i = flags.firstIndex(of: "--page"), i + 1 < flags.count { page = Int32(flags[i + 1]) ?? 0 }
+            let madv = flags.contains("--madvise")
+            let fresh = flags.contains("--fresh")
+            if !trust {
+                let d = runJitTest()
+                return ["ok": false, "executed": false, "jit": d, "arena": jitArenaInfo(),
+                        "hint": "authorize the arena with a debugger write per page, then jittest --trust"]
+            }
+            let d = runJitExecTest(page: page, madvise: madv, fresh: fresh)
+            return ["ok": (d["ok"] as? Bool) ?? false, "executed": true, "jit": d, "arena": jitArenaInfo()]
         case "vaprobe":
             let limit = argv.count > 1 ? (Int32(argv[1]) ?? 1024) : 1024
             return ["ok": true, "va": runVaProbe(stepLimitGB: limit)]
@@ -173,12 +228,18 @@ final class HostState {
         } else {
             lines.append("VA   max contiguous \(v["max_contiguous_gb"] ?? "?") GB   1 GB steps \(v["total_1gb_steps"] ?? "?") / \(v["step_limit_gb"] ?? "?")   range \(v["lowest"] ?? "?")-\(v["highest"] ?? "?")")
         }
-        if let stage = j["stage"] as? String, (j["ok"] as? Bool) != true {
-            lines.append("JIT  \(stage == "pending" ? "pending" : "FAIL") \(HostState.compact(j))")
-        } else if (j["ok"] as? Bool) == true {
-            lines.append("JIT ok   \(j["method"] ?? "?"): wrote+executed -> \(j["result1"] ?? "?"), rewrote+executed -> \(j["result2"] ?? "?")")
+        let arena = jitArenaInfo()
+        lines.append("ARENA \(arena["prot"] ?? "?") \(arena["size_mb"] ?? "?") MB at \(arena["base"] ?? "?")  (\(arena["pages"] ?? "?") pages of 16 KB; rwx_errno \(arena["rwx_errno"] ?? "?"))")
+        if (j["ok"] as? Bool) == true {
+            lines.append("JIT ok   \(j["where"] ?? j["method"] ?? "?") \(j["prot"] ?? ""): wrote+executed -> \(j["result1"] ?? "?"), rewrote+executed -> \(j["result2"] ?? "?")")
+        } else if let stage = j["stage"] as? String {
+            lines.append("JIT  \(stage) rwx_errno=\(j["rwx_errno"] ?? "?") ptraced=\(j["ptraced"] ?? "?") cs_debugged=\(j["cs_debugged"] ?? "?")  (awaiting tv.py jit)")
         } else {
             lines.append("JIT FAIL \(HostState.compact(j))")
+        }
+        let kill: String = { lock.lock(); defer { lock.unlock() }; return lastJitKill }()
+        if !kill.isEmpty {
+            lines.append("JIT  previous run KILLED during jittest: \(kill.trimmingCharacters(in: .whitespacesAndNewlines))")
         }
         lines.append("DBG  ptraced=\(si["ptraced"] ?? "?")  cs_debugged=\(j["cs_debugged"] ?? si["cs_debugged"] ?? "?")  crash_report=\(FileManager.default.fileExists(atPath: crashFile.path) ? "yes" : "no")")
         lines.append("")

@@ -17,12 +17,26 @@ int rl_is_ptraced(void);
 // 0 if not, -1 if csops failed.
 int rl_cs_debugged(void);
 
-// Writes {"ok":bool,"method":"rwx-mmap"|"rw-then-rx",...}. Executes a
-// freshly written function in an RWX page and then rewrites the same page
-// and executes again (a real JIT's write-after-execute pattern). Returns 1
-// when both executions returned the expected values. Never executes when
-// the process is not debugged (would be SIGKILLed by codesigning).
-int rl_jit_test_json(char *out, size_t cap);
+// Writes {"ok":bool,"method":"rwx-mmap"|"rw-then-rx",...}. Maps a fresh page
+// RWX (or RW then RX), writes a function into it and — only if `execute` is
+// non-zero — runs it, rewrites the page and runs it again (a JIT's
+// write-after-execute pattern). With execute == 0 it only reports what the
+// mappings allowed (rwx_errno, ptraced, cs_debugged). Executing code on a
+// page no debugger has written to is SIGKILLed on tvOS 26+ (TXM), so
+// callers pass execute != 0 only after authorization.
+int rl_jit_test_json(int execute, char *out, size_t cap);
+
+// JIT arena — one fixed RWX (or RW) anonymous region allocated at startup
+// whose pages an external debugger authorizes (one write per 16 KB page);
+// all JIT code later lives here. Returns 0, or -errno; EEXIST if present.
+int rl_jit_arena_init(size_t size);
+// {"base":"0x..","size":N,"prot":"rwx"|"rw"|"none","rwx_errno":e,"page":16384,"pages":P}
+void rl_jit_arena_json(char *out, size_t cap);
+// Write/exec/rewrite/exec inside arena page `page` (fresh != 0: a fresh
+// mapping instead, to test unauthorized pages). madv != 0 first
+// madvise(MADV_FREE)s the page (does authorization survive reclaim?).
+// Only call when execution is known to be authorized. Returns 1 on success.
+int rl_jit_exec_test_json(int page, int madv, int fresh, char *out, size_t cap);
 
 // Writes {"max_contiguous_gb":N,"total_1gb_steps":M,...}: the largest single
 // PROT_NONE reservation (binary search) and how many 1 GB PROT_NONE

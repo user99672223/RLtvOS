@@ -6,7 +6,7 @@ from the result's `mem.json`.
 
 | Step | What | Request | Verdict | Build | Peak phys_footprint | fps | Notes |
 |------|------|---------|---------|-------|---------------------|-----|-------|
-| A  | Harness: workflow, tv.py, debug server, JIT/VA/mem on screen | 001 | open | — | — | — | |
+| A  | Harness: workflow, tv.py, debug server, JIT/VA/mem on screen | 001 | open (waiting on LAPTOP) | build-3 | — | — | CI green since run 3. tvOS 27 + TXM: JIT needs a debugger write per 16 KB page (tv.py jit, gdbremote backend); build-4+ carries the JIT arena protocol. |
 | B  | FEXCore on tvOS, bare x86-64 function | — | — | — | — | — | |
 | C1 | static hello (write/exit_group) | — | — | — | — | — | |
 | C2 | dynamic glibc hello (ld.so path) | — | — | — | — | — | |
