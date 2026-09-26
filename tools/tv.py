@@ -324,6 +324,108 @@ def ensure_ipa(tag=None, wait_min=0):
     return tag, dest, info
 
 
+# ----------------------------------------------------------------- MCP (atvloadly)
+
+_MCP_SESSION = {}
+
+
+def mcp_url():
+    return cfg("ATVLOADLY_MCP_URL", "http://127.0.0.1:5533/mcp")
+
+
+def _mcp_post(url, payload, session_id=None, timeout=900):
+    headers = {"Content-Type": "application/json", "Accept": "application/json, text/event-stream",
+               "MCP-Protocol-Version": "2025-06-18"}
+    if session_id:
+        headers["Mcp-Session-Id"] = session_id
+    req = urllib.request.Request(url, data=json.dumps(payload).encode(), method="POST", headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as r:
+            body = r.read()
+            hdrs = dict(r.headers)
+            status = r.status
+    except urllib.error.HTTPError as e:
+        body, hdrs, status = e.read(), dict(e.headers or {}), e.code
+    except (urllib.error.URLError, OSError) as e:
+        return 0, None, {}, str(e)
+    text = body.decode(errors="replace")
+    ctype = (hdrs.get("Content-Type") or hdrs.get("content-type") or "")
+    msgs = []
+    if "text/event-stream" in ctype:
+        for line in text.splitlines():
+            if line.startswith("data:"):
+                try:
+                    msgs.append(json.loads(line[5:].strip()))
+                except Exception:
+                    pass
+    elif text.strip():
+        try:
+            msgs.append(json.loads(text))
+        except Exception:
+            return status, None, hdrs, text[:500]
+    return status, msgs, hdrs, None
+
+
+def mcp_rpc(method, params=None, url=None, timeout=900):
+    """One JSON-RPC call over MCP streamable HTTP (initialises the session first)."""
+    url = url or mcp_url()
+    sid = _MCP_SESSION.get(url)
+    if sid is None:
+        init = {"jsonrpc": "2.0", "id": 1, "method": "initialize",
+                "params": {"protocolVersion": "2025-06-18", "capabilities": {},
+                           "clientInfo": {"name": "rltvos-tv.py", "version": "1"}}}
+        st, msgs, hdrs, err = _mcp_post(url, init, timeout=60)
+        if err or not msgs:
+            return {"ok": False, "error": f"MCP initialize failed: HTTP {st} {err or msgs}", "url": url}
+        sid = hdrs.get("Mcp-Session-Id") or hdrs.get("mcp-session-id") or ""
+        _MCP_SESSION[url] = sid
+        _mcp_post(url, {"jsonrpc": "2.0", "method": "notifications/initialized"}, sid, timeout=30)
+    payload = {"jsonrpc": "2.0", "id": 2, "method": method, "params": params or {}}
+    st, msgs, hdrs, err = _mcp_post(url, payload, sid, timeout=timeout)
+    if err:
+        return {"ok": False, "error": f"HTTP {st}: {err}", "url": url}
+    for m in msgs or []:
+        if isinstance(m, dict) and m.get("id") == 2:
+            if "error" in m:
+                return {"ok": False, "error": m["error"], "url": url}
+            return {"ok": True, "result": m.get("result"), "url": url}
+    return {"ok": False, "error": "no response with matching id", "raw": msgs, "http": st}
+
+
+def mcp_tool_call(name, args, url=None, timeout=900):
+    r = mcp_rpc("tools/call", {"name": name, "arguments": args}, url=url, timeout=timeout)
+    if r.get("ok"):
+        res = r["result"] or {}
+        texts = [c.get("text", "") for c in res.get("content", []) if isinstance(c, dict) and c.get("type") == "text"]
+        r["text"] = "\n".join(texts)
+        if res.get("isError"):
+            r["ok"] = False
+            r["error"] = r["text"] or "tool reported isError"
+    return r
+
+
+def cmd_mcp(a):
+    url = a.url or mcp_url()
+    if a.what == "list":
+        r = mcp_rpc("tools/list", url=url, timeout=60)
+        if r.get("ok"):
+            tools = (r["result"] or {}).get("tools", [])
+            r["tools"] = [{"name": t.get("name"), "description": (t.get("description") or "")[:300],
+                           "input": t.get("inputSchema", {}).get("properties", {})} for t in tools]
+            r.pop("result", None)
+        out(r, 0 if r.get("ok") else 1)
+    if a.what == "call":
+        if not a.name:
+            fail("usage: tv.py mcp call NAME [--args JSON]")
+        try:
+            args = json.loads(a.args) if a.args else {}
+        except json.JSONDecodeError as e:
+            fail(f"--args is not JSON: {e}")
+        r = mcp_tool_call(a.name, args, url=url, timeout=a.timeout)
+        out(r, 0 if r.get("ok") else 1)
+    fail("usage: tv.py mcp list | call NAME [--args JSON]")
+
+
 # ----------------------------------------------------------------- commands
 
 
@@ -367,12 +469,23 @@ def do_install(ipa, tag, force=False):
                 "sha256": digest, "app_id": st.get("app_id")}
     install_cmd = cfg("INSTALL_CMD")
     result = {"tag": tag, "ipa": str(ipa), "sha256": digest}
+    mcp_tool = cfg("ATVLOADLY_MCP_INSTALL_TOOL")
     if install_cmd:
         cmd = fmt(install_cmd, **placeholders(ipa=str(ipa), tag=tag or ""))
         r = sh(cmd, timeout=int(cfg("INSTALL_TIMEOUT", "900")))
         result.update({"method": "INSTALL_CMD", "cmd": cmd, "rc": r["rc"],
                        "out": r["out"][-2000:], "err": r["err"][-2000:]})
         ok = r["rc"] == 0
+    elif mcp_tool:
+        try:
+            targs = json.loads(cfg("ATVLOADLY_MCP_INSTALL_ARGS", "{}"))
+        except Exception as e:
+            fail(f"ATVLOADLY_MCP_INSTALL_ARGS is not JSON: {e}")
+        targs = {k: (fmt(v, **placeholders(ipa=str(ipa), tag=tag or "")) if isinstance(v, str) else v)
+                 for k, v in targs.items()}
+        r = mcp_tool_call(mcp_tool, targs, timeout=int(cfg("INSTALL_TIMEOUT", "900")))
+        result.update({"method": "atvloadly-mcp", "tool": mcp_tool, "args": targs, "mcp": r})
+        ok = bool(r.get("ok"))
     else:
         url = cfg("ATVLOADLY_INSTALL_URL") or (cfg("ATVLOADLY_URL", "http://127.0.0.1:8080").rstrip("/") + "/api/install")
         fields = {}
@@ -419,16 +532,28 @@ def cmd_install(a):
 
 def do_jit(rerun_test=True):
     jit_cmd = cfg("JIT_CMD")
-    if not jit_cmd:
-        return {"ok": False, "error": "JIT_CMD is not set in laptop/config.env"}
+    mcp_tool = cfg("ATVLOADLY_MCP_JIT_TOOL")
+    if not jit_cmd and not mcp_tool:
+        return {"ok": False, "error": "neither JIT_CMD nor ATVLOADLY_MCP_JIT_TOOL is set in laptop/config.env"}
     app_id = resolve_app_id() or cfg("APP_BUNDLE_ID", "dev.rltvos.app")
     pid = ""
     if app_is_up():
         _, s = app_json("GET", "/status")
         pid = str(s.get("pid", ""))
-    cmd = fmt(jit_cmd, **placeholders(bundle_id=app_id, pid=pid))
-    r = sh(cmd, timeout=int(cfg("JIT_TIMEOUT", "180")))
-    res = {"cmd": cmd, "rc": r["rc"], "out": r["out"][-3000:], "err": r["err"][-3000:]}
+    if jit_cmd:
+        cmd = fmt(jit_cmd, **placeholders(bundle_id=app_id, pid=pid))
+        r = sh(cmd, timeout=int(cfg("JIT_TIMEOUT", "180")))
+        res = {"method": "JIT_CMD", "cmd": cmd, "rc": r["rc"], "out": r["out"][-3000:], "err": r["err"][-3000:]}
+    else:
+        try:
+            targs = json.loads(cfg("ATVLOADLY_MCP_JIT_ARGS", "{}"))
+        except Exception as e:
+            return {"ok": False, "error": f"ATVLOADLY_MCP_JIT_ARGS is not JSON: {e}"}
+        targs = {k: (fmt(v, **placeholders(bundle_id=app_id, pid=pid)) if isinstance(v, str) else v)
+                 for k, v in targs.items()}
+        m = mcp_tool_call(mcp_tool, targs, timeout=int(cfg("JIT_TIMEOUT", "180")))
+        r = {"rc": 0 if m.get("ok") else 1}
+        res = {"method": "atvloadly-mcp", "tool": mcp_tool, "args": targs, "mcp": m, "rc": r["rc"]}
     settle = float(cfg("JIT_SETTLE_S", "3"))
     time.sleep(settle)
     if rerun_test and wait_app(True, 30):
@@ -717,6 +842,7 @@ def main():
     p = sp.add_parser("run"); p.add_argument("--env", action="append"); p.add_argument("--cwd", default="/"); p.add_argument("--timeout", type=int, default=120); p.add_argument("argv", nargs=argparse.REMAINDER); p.set_defaults(fn=cmd_run)
     p = sp.add_parser("cycle"); p.add_argument("--tag"); p.add_argument("--ipa"); p.add_argument("--no-install", action="store_true"); p.add_argument("--force", action="store_true"); p.add_argument("--wait", type=int, default=0); p.add_argument("--timeout", type=int, default=90); p.add_argument("--out"); p.set_defaults(fn=cmd_cycle)
     p = sp.add_parser("result"); p.add_argument("name"); p.add_argument("--verdict", required=True, choices=["PASS", "FAIL"]); p.add_argument("--note"); p.add_argument("--from", dest="src"); p.set_defaults(fn=cmd_result)
+    p = sp.add_parser("mcp", help="talk to atvloadly's MCP endpoint: mcp list | mcp call NAME --args JSON"); p.add_argument("what", choices=["list", "call"]); p.add_argument("name", nargs="?"); p.add_argument("--args"); p.add_argument("--url"); p.add_argument("--timeout", type=int, default=900); p.set_defaults(fn=cmd_mcp)
 
     a = ap.parse_args()
     a.fn(a)

@@ -2,14 +2,26 @@
 
 ## repo
 
-- State: bootstrapping. First commit (CLAUDE.md, handoff/, PROGRESS.md)
-  done; Phase A (workflow, tools/tv.py, in-app debug server) in progress.
+- State: Phase A shipped. CI green from run 3 (`macos-15`, Xcode 16.4,
+  tvOS 18.5 SDK, ~1 min per build). Release `build-3` has `app.ipa` +
+  `app.dSYM.zip`.
+- Open request: `handoff/requests/001-harness.md` (build-3). Waiting on
+  `handoff/results/001-harness/`.
 - Shared branch is `claude/rocket-league-apple-tv-zek0mi` until `main`
   exists (see CLAUDE.md "Shared branch" and DECISIONS.md).
-- Next: push Phase A, wait for release `build-<N>`, write
-  `handoff/requests/001-harness.md`, then `handoff/wait.sh results` in the
-  background while writing `laptop/setup/*.sh` and `laptop/refs/*.sh`.
-- Open request: none yet.
+- Laptop-side scripts written: `laptop/setup/00..40`, `laptop/assets_server.py`,
+  `laptop/refs/run.sh` + `guest/c1..e2`. Known gap: `10-rootfs.sh` uses sudo;
+  LAPTOP has no non-interactive sudo and built the rootfs with
+  `mmdebstrap --mode=unshare` — REPO to add that path next.
+- Known facts from LAPTOP: TV 192.168.1.7, tvOS 27.0, AppleTV14,1; atvloadly
+  v0.4.8 with MCP at :5533/mcp; **no working JIT method yet** — if JIT proves
+  impossible on tvOS 27/A15 the FEXCore skeleton is blocked (issue + stop).
+- Next for REPO while waiting: rootless rootfs path in `10-rootfs.sh`; start
+  Phase B groundwork (vendor FEXCore, CMake for tvOS static lib, Darwin
+  platform layer skeleton) — no request until 001 is answered.
+- `sigaltstack` is `__TVOS_PROHIBITED` at compile time; app resolves it via
+  dlsym and reports `/status.sysinfo.sigaltstack`. Design of the signal
+  delegator depends on that answer.
 
 ## laptop
 
