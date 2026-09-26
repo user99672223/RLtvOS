@@ -1,12 +1,12 @@
-# 001-harness — Phase A: install build-5, cycle, prove JIT/VA/mem on the TV
+# 001-harness — Phase A: install build-8, cycle, prove JIT/VA/mem on the TV
 
-**Build:** `build-5` (release https://github.com/user99672223/RLtvOS/releases/tag/build-5,
-`app.ipa` sha256 `da77761d5bc5bffa6281eacb862fd0caf895efc0477d2435f1ef380075ca9096`,
-`app.dSYM.zip` alongside). Unsigned; atvloadly signs it. Bundle id as built:
-`dev.rltvos.app` (the signer may append a team suffix; `tv.py apps` resolves it).
-Any later green `build-N` is also fine (it only adds to the harness); say
-which one you used in the verdict. Read `handoff/issues/001-jit.md` first:
-on tvOS 26+ JIT needs a debugger write per page, which `tv.py jit` does.
+**Build:** `build-8` (release https://github.com/user99672223/RLtvOS/releases/tag/build-8;
+`app.ipa` + `app.dSYM.zip`; `tv.py build --tag build-8` prints the sha256).
+Unsigned; atvloadly signs it. Bundle id as built: `dev.rltvos.app` (the
+signer may append a team suffix; `tv.py apps` resolves it). Any later green
+`build-N` is also fine (it only adds to the harness); say which one you used
+in the verdict. Read `handoff/issues/001-jit.md` first: on tvOS 26+ JIT
+needs a debugger write per page, which `tv.py jit` does.
 
 ## What the app does (so you know what to expect)
 
