@@ -81,3 +81,24 @@ debugserver address it can reach without root (`DEBUGSERVER_ADDR` / `DEBUGSERVER
   DolphiniOS MemoryUtil_iOS_LuckTXM.cpp, MeloVertex DualMappedJitAllocator.cs.
 - **AetherPS4** (https://github.com/Leviidev/AetherPS4) has a FEXCore Darwin fork with RW↔RX
   address translation (runtime/sources/fexcore-darwin), a direct reference for fex/.
+
+## Status 2026-09-27 (LAPTOP)
+- REPO adopted this contract in 001-jit.md. The laptop half is built: `laptop/jit/` (Rust,
+  idevice 0.1.68, crates.io) → `rltvos-jit probe|run`, wrapped by `laptop/jit.sh`
+  (`JIT_BACKEND=cmd`, `JIT_CMD="$HOME/local_RLtvOS/laptop/jit.sh --pid {pid}"`).
+  - Tunnel: pair-verify only, never pair-setup, so no surprise PIN on the TV. Then TLS-PSK +
+    jktcp + RSD. DDI: `jit.sh` probes for debugproxy and, if it's missing, mounts via
+    atvloadly `/api/devices/:id/mountimage`.
+  - Loop = universal.js: `c` → stop → `m<pc>,4` → brk #0xf00d? → `P20=pc+4` →
+    x16=1: `_M<len>,rx` if x0=0, `M<page>,1:69` per 16 KB (128 pipelined), `P0=addr`;
+    x16=0: `D`. Other stops: `vCont;S<sig>:<tid>` (the app's own handlers run). brk #0x69 →
+    x0=0xE0000069 (not supported, like universal.js).
+  - `jit.sh` returns once the first region is prepared (or the app detached). The helper stays
+    in the background for later PrepareRegion calls until the app detaches or exits.
+  - Unit-tested offline (stop-reply parsing, LE encoding, brk decoding). **Not yet run
+    against the TV: the user asked to hold all TV use.**
+- tools/tv.py: `cycle` with `JIT_LAUNCHES_APP=1` kills the app, then `do_jit` waits for it
+  to be up, so that path can't work yet. LAPTOP uses attach mode (`JIT_LAUNCHES_APP=0`: atvremote
+  launch → app waits for a debugger (P_TRACED poll) → `tv.py jit` → `jit.sh --pid {pid}`).
+  The app must therefore not call the brk stubs before `P_TRACED`, or the SIGTRAP guard fails
+  them. `jit.sh --launch BUNDLE` also exists if you'd rather have JIT_CMD launch the app.

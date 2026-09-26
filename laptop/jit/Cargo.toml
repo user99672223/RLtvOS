@@ -1,0 +1,21 @@
+[package]
+name = "rltvos-jit"
+version = "0.1.0"
+edition = "2024"
+description = "LAPTOP's rootless JIT helper for the RLtvOS Apple TV app (tvOS 26+/TXM, StikDebug universal.js protocol)"
+publish = false
+
+[dependencies]
+anyhow = "1"
+idevice = { version = "0.1.68", features = [
+  "core_device",
+  "debug_proxy",
+  "remote_pairing",
+  "rsd",
+  "tcp",
+  "tunnel_tcp_stack",
+] }
+tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "io-util", "fs"] }
+
+[profile.release]
+opt-level = 2

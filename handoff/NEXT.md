@@ -40,9 +40,9 @@
 - Done (handoff/results/000-setup/verdict.md): S0–S3, S5–S8 PASS. Rocket League runs on the
   laptop reference (offline = **no network**, `-noeac`, Xvfb, wine 11, DXVK-macOS, ANV):
   main menu + bot matches; strace refs c1–e2 in refs/ (e1/e2 in pre-release refs-laptop-1).
-- S4 JIT open: tools/tv.py gdbremote needs a debugserver address; LAPTOP is building a
-  rootless idevice (Rust) tunnel + debugproxy forward → `DEBUGSERVER_CMD`. See issues
-  001-jit.md (REPO) and 003-jit-txm-brk-protocol.md (LAPTOP; RX pool + RW alias fallback).
+- S4 JIT: helper built (laptop/jit/ Rust + laptop/jit.sh; JIT_BACKEND=cmd, attach mode
+  `jit.sh --pid {pid}`), unit-tested, **not yet run on the TV** (HOLD). First TV step when
+  allowed: `laptop/jit.sh --probe` (tunnel + debug services), then request 001.
 - Issue 002-laptop-script-fixes.md: bugs in REPO's laptop scripts + the validated menu path.
 - Services/paths: assets server = systemd --user `rltvos-assets` running REPO's
   laptop/assets_server.py on :8090 (manifest ~/rltvos/assets/manifest.jsonl.gz; rebuild with
@@ -51,5 +51,4 @@
 - LAPTOP tools: laptop/install.sh + atvloadly.py (INSTALL_CMD via MCP), atv_pair.py,
   rootfs_exec.sh (bwrap: --gpu --nonet --rw, clean env, own hostname),
   results/000-setup/{s6-rootfs-rootless.sh, s6-prefix.sh, s7-game.sh, s7-lowsettings.py, s8-game-traces.sh}.
-- Next: JIT tunnel tool (no TV contact until go) → `handoff/wait.sh requests` loop; run
-  request 001 as soon as the user says go.
+- Next: `handoff/wait.sh requests` loop is running; request 001 runs as soon as the user says go.
