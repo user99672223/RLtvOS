@@ -3,8 +3,13 @@
 ## repo
 
 - State: Phase A shipped. CI green (`macos-15`, Xcode 16.4, tvOS 18.5 SDK,
-  ~1 min per build). `build-5` = harness + JIT arena protocol; build 6 adds
-  the CMake-built C++ core (`core/`, `librlcore.a`, `/status.core`).
+  ~1 min per build; plus a Linux `host-tests` job running `core/tests`).
+  `build-5` = harness + JIT arena protocol; `build-6` adds the CMake-built
+  C++ core (`core/`, `librlcore.a`, `/status.core`); `build-7` adds `rlvfs`
+  (HTTP range client, manifest, 1 MB block cache, guest namespace) with an
+  end-to-end host test against `laptop/assets_server.py`; `build-8` exposes
+  it on the TV: `tv.py run -- vfs-mount http://LAPTOP_IP:8090`, then
+  `vfs-stat`, `vfs-ls`, `vfs-cat`; `/status.vfs` has cache/http counters.
 - Open request: `handoff/requests/001-harness.md` (build-5 or any later
   green build). Waiting on `handoff/results/001-harness/`. User said the
   Apple TV is in use for now; LAPTOP resumes later.

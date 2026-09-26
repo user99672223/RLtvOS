@@ -24,6 +24,7 @@ add_subdirectory(vfs)
 
 add_library(rlcore STATIC
   src/rlcore.cpp
+  src/rlcore_vfs.cpp
 )
 target_include_directories(rlcore PUBLIC include)
 target_compile_options(rlcore PRIVATE -Wall -Wextra -Wno-unused-parameter)

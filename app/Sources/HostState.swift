@@ -94,6 +94,7 @@ final class HostState {
 
     private var core: [String: Any] = ["stage": "pending"]
     func coreInfo() -> [String: Any] { lock.lock(); defer { lock.unlock() }; return core }
+    func vfsStats() -> [String: Any] { HostState.parseJSON(HostState.fill(2048) { rlcore_vfs_stats($0, 2048) }) }
 
     /// Map-only probe (never executes): reports whether RWX mapping works.
     @discardableResult
@@ -157,6 +158,7 @@ final class HostState {
             "jit_arena": jitArenaInfo(),
             "last_jit_kill": { lock.lock(); defer { lock.unlock() }; return lastJitKill }(),
             "core": coreInfo(),
+            "vfs": vfsStats(),
             "va": vaInfo(),
             "mem": memInfo(),
             "frames": renderer?.frameCount ?? 0,
@@ -204,6 +206,33 @@ final class HostState {
         case "log":
             rl_log_str("run: " + argv.dropFirst().joined(separator: " "))
             return ["ok": true]
+        case "vfs-mount":
+            // vfs-mount http://LAPTOP_IP:8090 [cache-subdir]
+            guard argv.count > 1 else { return ["ok": false, "error": "usage: vfs-mount http://host:port"] }
+            let sub = argv.count > 2 ? argv[2] : "vfs-blocks"
+            let dir = cachesDir.appendingPathComponent(sub).path
+            let s = HostState.fill(8192) { _ = rlcore_vfs_mount(argv[1], dir, $0, 8192) }
+            rl_log_str("vfs: mount \(argv[1]) → \(s.prefix(300))")
+            return HostState.parseJSON(s)
+        case "vfs-stat":
+            guard argv.count > 1 else { return ["ok": false, "error": "usage: vfs-stat PATH [nofollow]"] }
+            let follow: Int32 = argv.count > 2 && argv[2] == "nofollow" ? 0 : 1
+            return HostState.parseJSON(HostState.fill(8192) { _ = rlcore_vfs_stat(argv[1], follow, $0, 8192) })
+        case "vfs-ls":
+            let path = argv.count > 1 ? argv[1] : "/"
+            return HostState.parseJSON(HostState.fill(262144) { _ = rlcore_vfs_ls(path, $0, 262144) })
+        case "vfs-cat":
+            // vfs-cat PATH [off] [len]
+            guard argv.count > 1 else { return ["ok": false, "error": "usage: vfs-cat PATH [off] [len]"] }
+            let off = argv.count > 2 ? (UInt64(argv[2]) ?? 0) : 0
+            let len = argv.count > 3 ? (UInt32(argv[3]) ?? 4096) : 4096
+            let s = HostState.fill(262144) { _ = rlcore_vfs_read(argv[1], off, len, $0, 262144) }
+            var d = HostState.parseJSON(s)
+            if let t = d["text"] as? String {
+                for line in t.split(separator: "\n").prefix(20) { rl_log_str("guest-file: \(line)") }
+            }
+            d["stats"] = vfsStats()
+            return d
         case "sleep":
             let s = argv.count > 1 ? (Double(argv[1]) ?? 1) : 1
             Thread.sleep(forTimeInterval: min(s, 30))
@@ -212,7 +241,9 @@ final class HostState {
             return [
                 "ok": false,
                 "error": "no guest kernel yet (phase A)",
-                "builtins": ["jittest", "vaprobe [steps]", "memprobe", "crashtest [0|1|2]", "log ...", "sleep s"],
+                "builtins": ["jittest [--trust] [--page N] [--madvise] [--fresh]", "vaprobe [steps]", "memprobe",
+                             "crashtest [0|1|2]", "log ...", "sleep s", "vfs-mount http://host:port [cache-subdir]",
+                             "vfs-stat PATH [nofollow]", "vfs-ls PATH", "vfs-cat PATH [off] [len]"],
                 "argv": argv, "env": env, "cwd": cwd,
             ]
         }
