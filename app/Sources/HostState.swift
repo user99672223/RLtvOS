@@ -46,8 +46,8 @@ final class HostState {
             try? FileManager.default.removeItem(at: jitMarkerFile)
         }
         // JIT arena: fixed region the debugger authorizes page by page.
-        let rc = rl_jit_arena_init(Int(jitArenaMB) << 20)
-        rl_log_str("host: jit arena init rc=\(rc) \(HostState.fill(512) { rl_jit_arena_json($0, 512) })")
+        let arenaRC = rl_jit_arena_init(Int(jitArenaMB) << 20)
+        rl_log_str("host: jit arena init rc=\(arenaRC) \(HostState.fill(512) { rl_jit_arena_json($0, 512) })")
         workQueue.async { self.runProbes() }
     }
 
