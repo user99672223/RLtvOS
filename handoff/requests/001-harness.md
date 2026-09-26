@@ -62,7 +62,12 @@ on tvOS 26+ JIT needs a debugger write per page, which `tv.py jit` does.
    crashes in 300 ms), then `python3 tools/tv.py launch` and
    `python3 tools/tv.py crash` → save the report text. Then
    `python3 tools/tv.py crash --clear`.
-9. `python3 tools/tv.py result 001-harness --verdict PASS|FAIL --from
+9. Optional, if `laptop/setup/40-assets.sh` is already serving (build-8+):
+   `python3 tools/tv.py vfs mount` (uses `LAPTOP_IP:ASSETS_PORT`), then
+   `python3 tools/tv.py vfs ls /`, `python3 tools/tv.py vfs cat /etc/hostname`,
+   `python3 tools/tv.py vfs stats`. Note the Local Network prompt (the TV
+   now connects *out* to the laptop) and the mount time / manifest size.
+10. `python3 tools/tv.py result 001-harness --verdict PASS|FAIL --from
    $OUT_DIR/cycles/cycle-<ts> --note "<what the TV showed>"`, add the crash
    report as `crash.txt` and the `va`/`mem` JSON, commit `[laptop] result
    001-harness`, `git pull --rebase`, push.

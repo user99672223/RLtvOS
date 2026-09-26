@@ -879,6 +879,29 @@ def cmd_cycle(a):
     out(report, 0 if report["ok"] else 1)
 
 
+def cmd_vfs(a):
+    """vfs mount [URL] | stat PATH | ls PATH | cat PATH [--off N] [--len N] | stats"""
+    if a.what == "stats":
+        st, s = app_json("GET", "/status")
+        out({"ok": st == 200, "vfs": s.get("vfs")}, 0 if st == 200 else 1)
+    if a.what == "mount":
+        url = a.path or f"http://{cfg('LAPTOP_IP', required=True)}:{cfg('ASSETS_PORT', '8090')}"
+        argv = ["vfs-mount", url]
+    elif a.what == "stat":
+        argv = ["vfs-stat", a.path or "/"] + (["nofollow"] if a.nofollow else [])
+    elif a.what == "ls":
+        argv = ["vfs-ls", a.path or "/"]
+    elif a.what == "cat":
+        if not a.path:
+            fail("usage: tv.py vfs cat PATH [--off N] [--len N]")
+        argv = ["vfs-cat", a.path, str(a.off), str(a.len)]
+    else:
+        fail("usage: tv.py vfs mount|stat|ls|cat|stats")
+    st, j = app_json("POST", "/run", {"argv": argv, "env": [], "cwd": "/"}, timeout=a.timeout)
+    ok = st == 200 and bool(j.get("ok", False))
+    out({"ok": ok, "argv": argv, "reply": j}, 0 if ok else 1)
+
+
 def cmd_result(a):
     """Assemble handoff/results/<name>/ from a cycle dir (or fresh captures)."""
     rd = ROOT / "handoff" / "results" / a.name
@@ -936,6 +959,7 @@ def main():
     p = sp.add_parser("run"); p.add_argument("--env", action="append"); p.add_argument("--cwd", default="/"); p.add_argument("--timeout", type=int, default=120); p.add_argument("argv", nargs=argparse.REMAINDER); p.set_defaults(fn=cmd_run)
     p = sp.add_parser("cycle"); p.add_argument("--tag"); p.add_argument("--ipa"); p.add_argument("--no-install", action="store_true"); p.add_argument("--force", action="store_true"); p.add_argument("--wait", type=int, default=0); p.add_argument("--timeout", type=int, default=90); p.add_argument("--out"); p.set_defaults(fn=cmd_cycle)
     p = sp.add_parser("result"); p.add_argument("name"); p.add_argument("--verdict", required=True, choices=["PASS", "FAIL"]); p.add_argument("--note"); p.add_argument("--from", dest="src"); p.set_defaults(fn=cmd_result)
+    p = sp.add_parser("vfs", help="guest VFS on the TV: vfs mount [URL] | stat PATH | ls PATH | cat PATH | stats"); p.add_argument("what", choices=["mount", "stat", "ls", "cat", "stats"]); p.add_argument("path", nargs="?"); p.add_argument("--off", type=int, default=0); p.add_argument("--len", type=int, default=4096); p.add_argument("--nofollow", action="store_true"); p.add_argument("--timeout", type=int, default=120); p.set_defaults(fn=cmd_vfs)
     p = sp.add_parser("mcp", help="talk to atvloadly's MCP endpoint: mcp list | mcp call NAME --args JSON"); p.add_argument("what", choices=["list", "call"]); p.add_argument("name", nargs="?"); p.add_argument("--args"); p.add_argument("--url"); p.add_argument("--timeout", type=int, default=900); p.set_defaults(fn=cmd_mcp)
 
     a = ap.parse_args()
