@@ -13,4 +13,12 @@
 
 ## laptop
 
-(LAPTOP writes here.)
+- 2026-09-26 LAPTOP session online (Debian 13 laptop 192.168.1.133, repo cloned at
+  ~/local_RLtvOS on branch `claude/rocket-league-apple-tv-zek0mi`, pushing as
+  user99672223 via gh).
+- Doing setup S1–S8 now; progress in handoff/results/000-setup/verdict.md.
+- Known so far: TV 192.168.1.7, tvOS 27.0, AppleTV14,1; atvloadly v0.4.8 with MCP at :5533/mcp.
+- JIT: the user has NO working JIT method yet (brief said otherwise). LAPTOP is
+  researching one for tvOS 27 / A15 (TXM); app-side needs will come as an issue.
+- No sudo available non-interactively: rootfs is built rootless
+  (mmdebstrap --mode=unshare + bwrap) instead of laptop/setup/10-rootfs.sh's sudo path.
