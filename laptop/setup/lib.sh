@@ -109,6 +109,21 @@ rootfs_run() {
     $envs -- "$@"
 }
 
+# rootfs_fakeroot_run cmd args... — rootless "root": bwrap user namespace
+# with uid/gid 0 mapped to the current user, rootfs read-write, network
+# shared. Enough for apt-get/dpkg (files end up owned by $USER; chown to
+# other users inside fails silently, which the guest never needs).
+rootfs_fakeroot_run() {
+  need bwrap
+  [ -d "$ROOTFS_DIR/usr" ] || die "rootfs not built at $ROOTFS_DIR"
+  bwrap --unshare-user --uid 0 --gid 0 --bind "$ROOTFS_DIR" / \
+    --dev /dev --proc /proc --tmpfs /tmp --tmpfs /run \
+    --ro-bind /etc/resolv.conf /etc/resolv.conf \
+    --setenv HOME /root --setenv PATH "$GUEST_PATH" --setenv LANG C.UTF-8 \
+    --setenv DEBIAN_FRONTEND noninteractive --setenv APT_CONFIG /dev/null \
+    --unshare-pid --die-with-parent --chdir / -- "$@"
+}
+
 # rootfs_root_run cmd args... — same tree, but as root via sudo chroot (for
 # apt inside the rootfs). Mounts /proc, /dev, /sys temporarily.
 rootfs_root_run() {
