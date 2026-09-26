@@ -113,6 +113,29 @@ FEX_DEFAULT_VISIBILITY extern MMAP_Hook mmap;
 FEX_DEFAULT_VISIBILITY extern MUNMAP_Hook munmap;
 FEX_DEFAULT_VISIBILITY extern void VirtualName(const char* Name, void* Ptr, size_t Size);
 
+#ifdef __APPLE__
+// RLtvOS: executable memory is dual-mapped (tvOS 26+ TXM): the mmap hook
+// returns the *writable* alias of a debugger-prepared RX region and registers
+// the pair here. Everything the emitter holds is a write-side address;
+// pointers that escape as branch targets (entry points, dispatcher pointers)
+// are translated with GetExecutableAddress, and addresses recovered from a
+// running PC (link records, back-patch sites) are translated back with
+// GetWritableAddress before being stored to. Both are identity for addresses
+// outside every registered region.
+FEX_DEFAULT_VISIBILITY void RegisterDualMapping(void* WriteBase, void* ExecBase, size_t Size);
+// Returns true and stores the exec base when WriteBase was registered.
+FEX_DEFAULT_VISIBILITY bool UnregisterDualMapping(void* WriteBase, void** ExecBase, size_t* Size);
+FEX_DEFAULT_VISIBILITY void* GetExecutableAddress(void* WriteAddr);
+FEX_DEFAULT_VISIBILITY void* GetWritableAddress(void* ExecAddr);
+#else
+inline void* GetExecutableAddress(void* WriteAddr) {
+  return WriteAddr;
+}
+inline void* GetWritableAddress(void* ExecAddr) {
+  return ExecAddr;
+}
+#endif
+
 // All commit parameters are ignored here, they are unnecessary as Linux supports overcommit
 
 inline void* VirtualAlloc(size_t Size, bool Execute = false, bool Commit = true) {

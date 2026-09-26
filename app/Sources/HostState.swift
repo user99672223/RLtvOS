@@ -45,15 +45,173 @@ final class HostState {
             rl_log_str("host: previous run was killed during jittest: \(m) (unauthorized page → SIGKILL?)")
             try? FileManager.default.removeItem(at: jitMarkerFile)
         }
-        // JIT arena: fixed region the debugger authorizes page by page.
+        // Legacy RWX arena (page-touch experiments; not the plan on TXM boxes).
         let arenaRC = rl_jit_arena_init(Int(jitArenaMB) << 20)
         rl_log_str("host: jit arena init rc=\(arenaRC) \(HostState.fill(512) { rl_jit_arena_json($0, 512) })")
+        // TXM JIT pool (jit26.c): wait for the debugger, prepare, remap, self-test.
+        if let m = try? String(contentsOf: jit26MarkerFile, encoding: .utf8), !m.isEmpty {
+            lock.lock(); lastJitKill = m; lock.unlock()
+            rl_log_str("host: previous run died inside a jit26 step: \(m.trimmingCharacters(in: .whitespacesAndNewlines))")
+            try? FileManager.default.removeItem(at: jit26MarkerFile)
+        }
+        rl_jit26_set_marker_path(jit26MarkerFile.path)
+        rl_log_str("host: config \(HostState.compact(config))")
+        if cfgBool("jit_autostart", true) {
+            startJit26()
+        } else {
+            rl_log_str("host: jit26 autostart disabled (cfg jit_autostart=0); use /run jitprep")
+        }
+        // FEX's executable memory comes out of the jit26 pool.
+        rlfexBind()
         workQueue.async { self.runProbes() }
     }
 
-    var jitArenaMB: Int {
-        (Bundle.main.object(forInfoDictionaryKey: "RLJitArenaMB") as? NSNumber)?.intValue
-            ?? Int((Bundle.main.object(forInfoDictionaryKey: "RLJitArenaMB") as? String) ?? "") ?? 64
+    var jitArenaMB: Int { infoInt("RLJitArenaMB", 16) }
+    var jitPoolMB: Int { cfgInt("jit_pool_mb", infoInt("RLJitPoolMB", 128)) }
+    var jitWaitS: Int { cfgInt("jit_wait_s", infoInt("RLJitWaitS", 60)) }
+    var jit26MarkerFile: URL { cachesDir.appendingPathComponent("jit26-inflight.txt") }
+
+    func infoInt(_ key: String, _ def: Int) -> Int {
+        (Bundle.main.object(forInfoDictionaryKey: key) as? NSNumber)?.intValue
+            ?? Int((Bundle.main.object(forInfoDictionaryKey: key) as? String) ?? "") ?? def
+    }
+
+    // MARK: - runtime config (Caches/rl-config.json, edited with /run cfg k=v)
+
+    var configFile: URL { cachesDir.appendingPathComponent("rl-config.json") }
+    lazy var config: [String: Any] = {
+        guard let d = try? Data(contentsOf: configFile),
+              let o = try? JSONSerialization.jsonObject(with: d), let dict = o as? [String: Any] else { return [:] }
+        return dict
+    }()
+
+    func cfgInt(_ k: String, _ def: Int) -> Int {
+        if let n = config[k] as? NSNumber { return n.intValue }
+        if let s = config[k] as? String, let n = Int(s) { return n }
+        return def
+    }
+
+    func cfgBool(_ k: String, _ def: Bool) -> Bool {
+        if let n = config[k] as? NSNumber { return n.boolValue }
+        if let s = config[k] as? String { return ["1", "true", "yes", "on"].contains(s.lowercased()) }
+        return def
+    }
+
+    func setConfig(_ kv: [String: Any]) -> [String: Any] {
+        lock.lock()
+        for (k, v) in kv {
+            if let s = v as? String, s.isEmpty { config.removeValue(forKey: k) } else { config[k] = v }
+        }
+        let c = config
+        lock.unlock()
+        if let d = try? JSONSerialization.data(withJSONObject: c, options: [.sortedKeys, .prettyPrinted]) {
+            try? d.write(to: configFile, options: .atomic)
+        }
+        return c
+    }
+
+    /// Flags for rl_jit26_start from the runtime config.
+    var jit26Flags: Int32 {
+        // Values of the RL_JIT26_* flags in jit26.h (anonymous C enum).
+        var f: Int32 = 0
+        if cfgBool("jit_in_place", false) { f |= 1 }   // RL_JIT26_IN_PLACE
+        if !cfgBool("jit_detach", true) { f |= 2 }     // RL_JIT26_NO_DETACH
+        if !cfgBool("jit_selftest", true) { f |= 4 }   // RL_JIT26_NO_SELFTEST
+        return f
+    }
+
+    @discardableResult
+    func startJit26(waitS: Int? = nil) -> Int32 {
+        let rc = rl_jit26_start(jitPoolMB << 20, Int32(waitS ?? jitWaitS), jit26Flags)
+        rl_log_str("host: jit26 start rc=\(rc) pool=\(jitPoolMB) MB wait=\(waitS ?? jitWaitS) s flags=\(jit26Flags)")
+        return rc
+    }
+
+    func jit26Info() -> [String: Any] {
+        HostState.parseJSON(HostState.fill(2048) { rl_jit26_status_json($0, 2048) })
+    }
+
+    // MARK: - FEXCore (rlfex)
+
+    private var fexInit: [String: Any] = ["ok": false, "stage": "not-initialised"]
+    func fexInfo() -> [String: Any] {
+        var d: [String: Any] = [:]
+        lock.lock(); d["init"] = fexInit; lock.unlock()
+        #if RL_HAVE_FEX
+        d["status"] = HostState.parseJSON(HostState.fill(1024) { rlfex_status_json($0, 1024) })
+        d["linked"] = true
+        #else
+        d["linked"] = false
+        d["note"] = "app built without core/fex (see the build log's FEX step)"
+        #endif
+        return d
+    }
+
+    private func rlfexBind() {
+        #if RL_HAVE_FEX
+        rlfex_set_log { line in if let line = line { rl_log_str(String(cString: line)) } }
+        rlfex_set_exec_allocator({ size, rxOut in rl_jit26_alloc(size, rxOut) }, { rw, size in rl_jit26_free(rw, size) })
+        rl_log_str("host: rlfex bound to the jit26 pool")
+        #else
+        rl_log_str("host: rlfex not linked in this build")
+        #endif
+    }
+
+    /// Initialises FEXCore (needs the jit26 pool ready). Returns the init JSON.
+    @discardableResult
+    func fexInitNow() -> [String: Any] {
+        #if RL_HAVE_FEX
+        guard rl_jit26_ready() != 0 else {
+            let d: [String: Any] = ["ok": false, "error": "jit26 pool not ready", "jit": jit26Info()]
+            lock.lock(); fexInit = d; lock.unlock()
+            return d
+        }
+        let s = HostState.fill(4096) { _ = rlfex_init($0, 4096) }
+        let d = HostState.parseJSON(s)
+        lock.lock(); fexInit = d; lock.unlock()
+        rl_log_str("host: rlfex init \(s.prefix(400))")
+        return d
+        #else
+        return ["ok": false, "error": "rlfex not linked"]
+        #endif
+    }
+
+    func fexSelftest(_ which: String) -> [String: Any] {
+        #if RL_HAVE_FEX
+        let i = fexInitNow()
+        if (i["ok"] as? Bool) != true { return ["ok": false, "init": i] }
+        let s = HostState.fill(16384) { _ = rlfex_selftest(which, $0, 16384) }
+        var d = HostState.parseJSON(s)
+        d["init"] = i
+        rl_log_str("host: fex selftest \(which): \(s.prefix(600))")
+        return d
+        #else
+        return ["ok": false, "error": "rlfex not linked"]
+        #endif
+    }
+
+    func fexRunHex(_ hex: String, rdi: UInt64, rsi: UInt64, rdx: UInt64) -> [String: Any] {
+        #if RL_HAVE_FEX
+        let i = fexInitNow()
+        if (i["ok"] as? Bool) != true { return ["ok": false, "init": i] }
+        var bytes: [UInt8] = []
+        var h = hex.replacingOccurrences(of: " ", with: "")
+        if h.count % 2 == 1 { h = "0" + h }
+        var idx = h.startIndex
+        while idx < h.endIndex {
+            let next = h.index(idx, offsetBy: 2)
+            guard let b = UInt8(h[idx..<next], radix: 16) else { return ["ok": false, "error": "bad hex"] }
+            bytes.append(b)
+            idx = next
+        }
+        let s = HostState.fill(2048) { out in
+            bytes.withUnsafeBufferPointer { p in _ = rlfex_run_bare(p.baseAddress, p.count, rdi, rsi, rdx, out, 2048) }
+        }
+        rl_log_str("host: fex run \(bytes.count) bytes: \(s)")
+        return HostState.parseJSON(s)
+        #else
+        return ["ok": false, "error": "rlfex not linked"]
+        #endif
     }
 
     var jitMarkerFile: URL { cachesDir.appendingPathComponent("jittest-inflight.txt") }
@@ -154,8 +312,11 @@ final class HostState {
             "physical_memory": pi.physicalMemory,
             "low_power": pi.isLowPowerModeEnabled,
             "sysinfo": sysInfo(),
-            "jit": jitInfo(),
+            "jit": jit26Info(),          // TXM pool (jit26.c): stage, pool, rw_alias, tests
+            "jit_probe": jitInfo(),      // legacy map-only RWX probe / arena exec test
             "jit_arena": jitArenaInfo(),
+            "fex": fexInfo(),
+            "config": { lock.lock(); defer { lock.unlock() }; return config }(),
             "last_jit_kill": { lock.lock(); defer { lock.unlock() }; return lastJitKill }(),
             "core": coreInfo(),
             "vfs": vfsStats(),
@@ -176,12 +337,16 @@ final class HostState {
         guard let cmd = argv.first else { return ["ok": false, "error": "empty argv"] }
         switch cmd {
         case "jittest":
-            // jittest [--trust|--force] [--page N] [--madvise] [--fresh]
-            // Without --trust only the map probe runs (safe). With --trust the
-            // code is executed: tv.py jit sets it after the debugger authorized
-            // the arena pages. --fresh executes in a fresh, unauthorized page
-            // (expected to be SIGKILLed on tvOS 26+; run it last).
+            // jittest [--legacy [--trust] [--page N] [--madvise] [--fresh]]
+            // Default: re-run the write/execute/rewrite/execute test inside the
+            // TXM pool (jit26) and return the pool status. --legacy runs the old
+            // RWX-arena flow (page-touch experiments).
             let flags = Array(argv.dropFirst())
+            if !flags.contains("--legacy") {
+                let s = HostState.fill(2048) { _ = rl_jit26_selftest_json($0, 2048) }
+                let d = HostState.parseJSON(s)
+                return ["ok": (d["ok"] as? Bool) ?? false, "executed": rl_jit26_ready() != 0, "test": d, "jit": jit26Info()]
+            }
             let trust = flags.contains("--trust") || flags.contains("--force")
             var page: Int32 = 0
             if let i = flags.firstIndex(of: "--page"), i + 1 < flags.count { page = Int32(flags[i + 1]) ?? 0 }
@@ -190,10 +355,49 @@ final class HostState {
             if !trust {
                 let d = runJitTest()
                 return ["ok": false, "executed": false, "jit": d, "arena": jitArenaInfo(),
-                        "hint": "authorize the arena with a debugger write per page, then jittest --trust"]
+                        "hint": "legacy flow: authorize the arena with a debugger write per page, then jittest --legacy --trust"]
             }
             let d = runJitExecTest(page: page, madvise: madv, fresh: fresh)
             return ["ok": (d["ok"] as? Bool) ?? false, "executed": true, "jit": d, "arena": jitArenaInfo()]
+        case "jitprep":
+            // jitprep [--wait S]: (re)start the TXM preparation (waits for P_TRACED).
+            let flags = Array(argv.dropFirst())
+            var wait: Int? = nil
+            if let i = flags.firstIndex(of: "--wait"), i + 1 < flags.count { wait = Int(flags[i + 1]) }
+            if rl_jit26_ready() != 0 { return ["ok": true, "already_ready": true, "jit": jit26Info()] }
+            let stage = String(cString: rl_jit26_stage())
+            if stage == "waiting-for-debugger" || stage == "preparing" || stage == "remapping" || stage == "testing" || stage == "detaching" {
+                return ["ok": true, "in_progress": true, "jit": jit26Info()]
+            }
+            // A failed or never-started preparation: run it synchronously on the work queue.
+            let w = wait ?? jitWaitS
+            workQueue.async { _ = rl_jit26_prepare_now(self.jitPoolMB << 20, Int32(w), self.jit26Flags) }
+            return ["ok": true, "started": true, "wait_s": w, "flags": jit26Flags, "jit": jit26Info()]
+        case "jitdetach":
+            let ok = rl_jit26_detach()
+            return ["ok": ok != 0, "jit": jit26Info()]
+        case "cfg":
+            // cfg key=value ... (empty value deletes). Keys: jit_pool_mb, jit_wait_s,
+            // jit_in_place, jit_detach, jit_selftest, jit_autostart. Applied at next launch
+            // (jitprep uses them immediately).
+            var kv: [String: Any] = [:]
+            for a in argv.dropFirst() {
+                let parts = a.split(separator: "=", maxSplits: 1).map(String.init)
+                guard parts.count == 2 else { return ["ok": false, "error": "expected key=value", "arg": a] }
+                if let n = Int(parts[1]) { kv[parts[0]] = n } else { kv[parts[0]] = parts[1] }
+            }
+            return ["ok": true, "config": setConfig(kv), "file": configFile.path]
+        case "fex-init":
+            return fexInitNow()
+        case "fex-selftest":
+            return fexSelftest(argv.count > 1 ? argv[1] : "all")
+        case "fex-run":
+            // fex-run HEXBYTES [rdi] [rsi] [rdx]  (code must end with hlt; rax = result)
+            guard argv.count > 1 else { return ["ok": false, "error": "usage: fex-run HEX [rdi rsi rdx]"] }
+            let rdi = argv.count > 2 ? (UInt64(argv[2]) ?? 0) : 0
+            let rsi = argv.count > 3 ? (UInt64(argv[3]) ?? 0) : 0
+            let rdx = argv.count > 4 ? (UInt64(argv[4]) ?? 0) : 0
+            return fexRunHex(argv[1], rdi: rdi, rsi: rsi, rdx: rdx)
         case "vaprobe":
             let limit = argv.count > 1 ? (Int32(argv[1]) ?? 1024) : 1024
             return ["ok": true, "va": runVaProbe(stepLimitGB: limit)]
@@ -241,7 +445,9 @@ final class HostState {
             return [
                 "ok": false,
                 "error": "no guest kernel yet (phase A)",
-                "builtins": ["jittest [--trust] [--page N] [--madvise] [--fresh]", "vaprobe [steps]", "memprobe",
+                "builtins": ["jittest [--legacy [--trust] [--page N] [--madvise] [--fresh]]", "jitprep [--wait S]", "jitdetach",
+                             "cfg key=value ...", "fex-init", "fex-selftest [add|loop|sse|call|mem|syscall|exit|all]",
+                             "fex-run HEX [rdi rsi rdx]", "vaprobe [steps]", "memprobe",
                              "crashtest [0|1|2]", "log ...", "sleep s", "vfs-mount http://host:port [cache-subdir]",
                              "vfs-stat PATH [nofollow]", "vfs-ls PATH", "vfs-cat PATH [off] [len]"],
                 "argv": argv, "env": env, "cwd": cwd,
@@ -270,14 +476,30 @@ final class HostState {
         } else {
             lines.append("VA   max contiguous \(v["max_contiguous_gb"] ?? "?") GB   1 GB steps \(v["total_1gb_steps"] ?? "?") / \(v["step_limit_gb"] ?? "?")   range \(v["lowest"] ?? "?")-\(v["highest"] ?? "?")")
         }
-        let arena = jitArenaInfo()
-        lines.append("ARENA \(arena["prot"] ?? "?") \(arena["size_mb"] ?? "?") MB at \(arena["base"] ?? "?")  (\(arena["pages"] ?? "?") pages of 16 KB; rwx_errno \(arena["rwx_errno"] ?? "?"))")
-        if (j["ok"] as? Bool) == true {
-            lines.append("JIT ok   \(j["where"] ?? j["method"] ?? "?") \(j["prot"] ?? ""): wrote+executed -> \(j["result1"] ?? "?"), rewrote+executed -> \(j["result2"] ?? "?")")
-        } else if let stage = j["stage"] as? String {
-            lines.append("JIT  \(stage) rwx_errno=\(j["rwx_errno"] ?? "?") ptraced=\(j["ptraced"] ?? "?") cs_debugged=\(j["cs_debugged"] ?? "?")  (awaiting tv.py jit)")
+        let j26 = jit26Info()
+        let stage26 = (j26["stage"] as? String) ?? "?"
+        if (j26["ok"] as? Bool) == true {
+            let at = (j26["attached_test"] as? Bool) == true ? "ok" : "\(j26["attached_test"] ?? "-")"
+            let dt: String = {
+                if let b = j26["detached_test"] as? Bool { return b ? "ok" : "FAIL" }
+                return (j26["detached"] as? Bool) == true ? "?" : "not-detached"
+            }()
+            lines.append("JIT ok   pool \(j26["size_mb"] ?? "?") MB rx \(j26["pool"] ?? "?") rw \(j26["rw_alias"] ?? "?") by \(j26["prepared_by"] ?? "?")  attached-test \(at)  detached-test \(dt)  ptraced=\(j26["ptraced"] ?? "?")")
         } else {
-            lines.append("JIT FAIL \(HostState.compact(j))")
+            let err = (j26["error"] as? String) ?? ""
+            lines.append("JIT  \(stage26)  waited \(j26["waited_s"] ?? "?")/\(j26["wait_s"] ?? "?") s  ptraced=\(j26["ptraced"] ?? "?") traps=\(j26["unserviced_traps"] ?? "?")  \(err.isEmpty ? "(needs the laptop JIT helper: tv.py jit)" : err)")
+        }
+        let arena = jitArenaInfo()
+        lines.append("ARENA legacy \(arena["prot"] ?? "?") \(arena["size_mb"] ?? "?") MB (rwx_errno \(arena["rwx_errno"] ?? "?"))   probe: \(j["stage"] ?? (j["ok"] as? Bool == true ? "ok" : "?")) rwx_errno=\(j["rwx_errno"] ?? "?")")
+        let fx = fexInfo()
+        let fi = (fx["init"] as? [String: Any]) ?? [:]
+        if (fx["linked"] as? Bool) != true {
+            lines.append("FEX  not linked in this build")
+        } else if (fi["ok"] as? Bool) == true {
+            let st = (fx["status"] as? [String: Any]) ?? [:]
+            lines.append("FEX  \(fi["version"] ?? "?") ready  runs=\(st["runs"] ?? 0) syscalls=\(st["syscalls"] ?? 0) poisoned=\(st["poisoned"] ?? false)")
+        } else {
+            lines.append("FEX  linked, \(fi["stage"] as? String ?? "not initialised")  \(fi["error"] ?? "")  (tv.py fex selftest)")
         }
         let kill: String = { lock.lock(); defer { lock.unlock() }; return lastJitKill }()
         if !kill.isEmpty {

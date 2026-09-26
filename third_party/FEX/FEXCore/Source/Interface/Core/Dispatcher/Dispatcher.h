@@ -55,9 +55,10 @@ public:
   }
 #endif
 
-  uint64_t GetExitFunctionLinkerAddress() const {
-    return ExitFunctionLinkerAddress;
-  }
+  // RLtvOS: defined in Dispatcher.cpp; embedded as an absolute literal in
+  // every block and branched to, so it must be the executable (RX) address
+  // of the dual-mapped JIT pool (identity on other platforms).
+  uint64_t GetExitFunctionLinkerAddress() const;
 
   SignalDelegatorConfig MakeSignalDelegatorConfig() const;
 
@@ -69,6 +70,7 @@ protected:
 
   AsmDispatch DispatchPtr;
   JITCallback CallbackPtr;
+  void* DispatchRawBegin {}; // RLtvOS: write-side start of the dispatcher code
 private:
   /**
    * @name Dispatch Helper functions

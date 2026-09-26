@@ -340,7 +340,9 @@ namespace CPU {
 
   bool CPUBackend::IsAddressInCodeBuffer(uintptr_t Address) const {
     const auto CheckCodeBuffer = [](const CodeBuffer& Buffer, uintptr_t Address) {
-      const auto BufferPtr = reinterpret_cast<uintptr_t>(Buffer.GetBufferBase());
+      // RLtvOS: Address is a live PC (executable side); the buffer base is the
+      // writable side of the dual-mapped pool. Identity elsewhere.
+      const auto BufferPtr = reinterpret_cast<uintptr_t>(FEXCore::Allocator::GetExecutableAddress(Buffer.GetBufferBase()));
       const uintptr_t LastPageAddr = BufferPtr + Buffer.UsableSize();
       return (Address >= BufferPtr && Address < LastPageAddr);
     };

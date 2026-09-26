@@ -1,5 +1,6 @@
 // rl_native.c — JIT/VA/memory probes, sysctl info, crash handler.
 #include "rl_native.h"
+#include "jit26.h"
 #include "rl_log.h"
 
 #include <dlfcn.h>
@@ -409,6 +410,9 @@ static void crash_handler(int sig, siginfo_t *si, void *uctx) {
     char buf[1024];
     uint64_t pc = 0, lr = 0, sp = 0, fp = 0, far = 0, esr = 0;
     ucontext_t *uc = (ucontext_t *)uctx;
+    // An unserviced `brk #0xf00d` in one of the JIT26 stubs (no debugger
+    // attached) is turned into a 0 return instead of a crash.
+    if (sig == SIGTRAP && rl_jit26_sigtrap_guard(uctx)) return;
 #if defined(__arm64__) || defined(__aarch64__)
     if (uc && uc->uc_mcontext) {
         pc = __darwin_arm_thread_state64_get_pc(uc->uc_mcontext->__ss);

@@ -4,7 +4,9 @@
 
 #include "rl_log.h"
 #include "rl_native.h"
+#include "jit26.h"
 #include "httpd.h"
 #include <rlcore/rlcore.h>
+#include <rlfex/rlfex.h>
 
 #endif

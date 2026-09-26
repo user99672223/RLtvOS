@@ -86,7 +86,34 @@ Sources (FEXCore/Source):
 - `Interface/Core/Interpreter/Fallbacks/F80Fallbacks.h` — `sin`/`cos` instead
   of `sincos` on Apple.
 
-Still to do (tracked in `handoff/issues/001-jit.md`): every place that writes
-into executable code (JIT.cpp link/delink/memcpy, Arm64 back-patches, the
-dispatcher) must go through the RW alias of the TXM-prepared RX pool
-(`RLtvOS::ToRW(ptr)`); not applied yet.
+Dual-mapped executable memory (tvOS 26+ TXM; modelled on AetherPS4's
+`fexcore-darwin` port). The mmap hook returns the *writable* alias of a
+debugger-prepared RX region; the emitter only ever sees write-side
+addresses; pointers that escape as branch targets are translated with
+`FEXCore::Allocator::GetExecutableAddress`, addresses recovered from a
+running PC are translated back with `GetWritableAddress` before a store;
+icache maintenance is issued on both aliases. Identity on other platforms.
+
+- `FEXCore/include/FEXCore/Utils/AllocatorHooks.h` — declares
+  `RegisterDualMapping`, `UnregisterDualMapping`, `GetExecutableAddress`,
+  `GetWritableAddress` (real on Apple, inline identity elsewhere).
+- `Utils/Allocator.cpp` — Apple section: fixed region table + the four
+  functions above (mutex-protected, offset-preserving translation).
+- `Interface/Core/JIT/JIT.cpp` — entry points translated to exec-side after
+  the shared-buffer copy; `ClearICache` on both aliases (compile and
+  `LoadCachedCode`); `DirectBlockDelinker`, `IndirectBlockDelinker`,
+  `ExitFunctionLink` store through `GetWritableAddress` (call sites,
+  `Record->HostCode`, jump thunks) and clean both sides.
+- `Interface/Core/Dispatcher/Dispatcher.cpp` / `.h` — `DispatchPtr`,
+  `CallbackPtr`, `End`, every `Ptrs.*` in `InitThreadPointers`,
+  `GenerateABICall`'s return, `MakeSignalDelegatorConfig` and the now
+  out-of-line `GetExitFunctionLinkerAddress` are exec-side; `DispatchRawBegin`
+  keeps the write-side start for the icache clean of both aliases.
+- `Interface/Core/CPUBackend.cpp` — `IsAddressInCodeBuffer` compares the
+  live PC against the exec-side buffer base.
+- `Utils/ArchHelpers/Arm64.cpp` — the inline JIT block header/tail is read
+  through the writable alias; the unaligned-atomic back-patches (LDAR/STLR/
+  LDAPUR/STLUR) store through `WPC = GetWritableAddress(PC)` and clean both.
+- `Interface/Core/SharedCodeBufferManager.cpp` — `MAX_CODE_SIZE` 64 MB on
+  Apple (all code buffers come out of one 128 MB pool whose pages are
+  resident once prepared).

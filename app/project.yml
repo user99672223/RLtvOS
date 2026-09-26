@@ -5,12 +5,17 @@ options:
   createIntermediateGroups: true
   generateEmptyDirectories: false
   deploymentTarget:
-    tvOS: "16.0"
+    tvOS: "18.0"
 settings:
   base:
     SWIFT_VERSION: "5.0"
     RL_BUILD_TAG: dev
-    RL_JIT_ARENA_MB: "64"
+    RL_JIT_ARENA_MB: "16"
+    RL_JIT_POOL_MB: "128"
+    RL_JIT_WAIT_S: "60"
+    # RL_HAVE_FEX is added to SWIFT_ACTIVE_COMPILATION_CONDITIONS and the FEX
+    # archives to OTHER_LDFLAGS by the workflow when core/fex built.
+    SWIFT_ACTIVE_COMPILATION_CONDITIONS: "$(inherited)"
     ENABLE_BITCODE: "NO"
     CODE_SIGNING_ALLOWED: "NO"
     CODE_SIGNING_REQUIRED: "NO"
@@ -39,7 +44,7 @@ targets:
       - sdk: libz.tbd
     settings:
       base:
-        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../core/include $(SRCROOT)/../core/vfs/include"
+        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../core/include $(SRCROOT)/../core/vfs/include $(SRCROOT)/../core/fex/include"
         LIBRARY_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../build/core $(SRCROOT)/../build/core/vfs"
         PRODUCT_BUNDLE_IDENTIFIER: dev.rltvos.app
         PRODUCT_NAME: RLtvOS

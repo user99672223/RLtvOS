@@ -34,6 +34,10 @@
 	<string>$(RL_BUILD_TAG)</string>
 	<key>RLJitArenaMB</key>
 	<string>$(RL_JIT_ARENA_MB)</string>
+	<key>RLJitPoolMB</key>
+	<string>$(RL_JIT_POOL_MB)</string>
+	<key>RLJitWaitS</key>
+	<string>$(RL_JIT_WAIT_S)</string>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>RLtvOS streams its root filesystem from a computer on your local network and accepts debug connections from it.</string>
 	<key>NSAppTransportSecurity</key>

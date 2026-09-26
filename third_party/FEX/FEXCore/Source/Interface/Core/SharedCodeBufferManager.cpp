@@ -13,8 +13,15 @@
 
 namespace FEXCore::CPU {
 static constexpr size_t INITIAL_CODE_SIZE = 1024 * 1024 * 16;
+#ifdef __APPLE__
+// RLtvOS: every code buffer comes out of one debugger-prepared pool (128 MB
+// by default) whose pages are all resident; growing to 128 MB would need
+// 64 + 128 MB live at once. Cap at 64 MB and let the cache flush instead.
+static constexpr size_t MAX_CODE_SIZE = 1024 * 1024 * 64;
+#else
 // We don't want to move above 128MB atm because that means we will have to encode longer jumps
 static constexpr size_t MAX_CODE_SIZE = 1024 * 1024 * 128;
+#endif
 
 CodeBuffer::CodeBuffer(size_t Size, bool ShouldBeNamed)
   : AllocatedSize(Size) {

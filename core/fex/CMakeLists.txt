@@ -115,9 +115,10 @@ if(APPLE)
     src/darwin_platform.cpp
     ${FEX_ROOT}/Source/Tools/CommonTools/DummyHandlers.cpp
   )
-  target_include_directories(rlfex PUBLIC include PRIVATE ${FEX_ROOT}/Source ${FEX_ROOT}/Source/Tools/CommonTools)
+  target_include_directories(rlfex PUBLIC include PRIVATE src ${FEX_ROOT}/Source ${FEX_ROOT}/Source/Tools/CommonTools)
   target_compile_options(rlfex PRIVATE -Wall -Wno-unused-parameter -fno-exceptions -fno-strict-aliasing)
-  target_compile_definitions(rlfex PRIVATE ${DEFINES} "FEXCORE_PRESERVE_ALL_ATTR=" "FEXCORE_HAS_PRESERVE_ALL_ATTR=0")
+  target_compile_definitions(rlfex PRIVATE ${DEFINES} "FEXCORE_PRESERVE_ALL_ATTR=" "FEXCORE_HAS_PRESERVE_ALL_ATTR=0"
+                                          RLFEX_FEX_VERSION="${GIT_DESCRIBE_STRING}")
   target_link_libraries(rlfex PUBLIC FEXCore FEXCore_Base JemallocLibs rpmalloc fmt::fmt xxHash::xxhash
                                      cephes_128bit softfloat_3e unordered_dense::unordered_dense FEXHeaderUtils CodeEmitter)
 

@@ -9,7 +9,9 @@ set(CMAKE_SYSTEM_PROCESSOR arm64)
 set(CMAKE_OSX_ARCHITECTURES arm64 CACHE STRING "" FORCE)
 set(CMAKE_OSX_SYSROOT appletvos CACHE STRING "" FORCE)
 if(NOT CMAKE_OSX_DEPLOYMENT_TARGET)
-  set(CMAKE_OSX_DEPLOYMENT_TARGET 16.0 CACHE STRING "" FORCE)
+  # 18.0: os_sync_wait_on_address (17.4+) and std::pmr (17+) are used by the
+  # vendored FEXCore; the target box runs tvOS 27.
+  set(CMAKE_OSX_DEPLOYMENT_TARGET 18.0 CACHE STRING "" FORCE)
 endif()
 
 execute_process(COMMAND xcrun --sdk appletvos --show-sdk-path

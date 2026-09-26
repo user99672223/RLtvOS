@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <fcntl.h>
+#include <mutex> // RLtvOS: dual-mapping table
 #ifndef _WIN32
 #include <sys/mman.h>
 #ifndef __APPLE__ // RLtvOS
@@ -52,6 +53,78 @@ void SetupHooks(size_t PageSize) {
 void ClearHooks() {
   FEXCore::Allocator::mmap = ::mmap;
   FEXCore::Allocator::munmap = ::munmap;
+}
+
+// RLtvOS: dual-mapped executable regions (write alias / exec alias pairs).
+// Small fixed table, lock-free readers would be nicer but translation is
+// off the hot path (compile time, link/delink, signal handling).
+namespace {
+struct DualRegion {
+  uintptr_t Write;
+  uintptr_t Exec;
+  size_t Size;
+};
+constexpr size_t MaxDualRegions = 64;
+DualRegion DualRegions[MaxDualRegions] {};
+size_t NumDualRegions {};
+std::mutex DualMutex;
+
+template<bool WriteToExec>
+void* TranslateLocked(void* Addr) {
+  const auto A = reinterpret_cast<uintptr_t>(Addr);
+  for (size_t i = 0; i < NumDualRegions; ++i) {
+    const auto& R = DualRegions[i];
+    const uintptr_t Base = WriteToExec ? R.Write : R.Exec;
+    if (A >= Base && A < Base + R.Size) {
+      const uintptr_t Other = WriteToExec ? R.Exec : R.Write;
+      return reinterpret_cast<void*>(Other + (A - Base));
+    }
+  }
+  return Addr;
+}
+} // namespace
+
+void RegisterDualMapping(void* WriteBase, void* ExecBase, size_t Size) {
+  std::lock_guard lk(DualMutex);
+  if (NumDualRegions == MaxDualRegions) {
+    LogMan::Msg::EFmt("RegisterDualMapping: table full ({} regions)", MaxDualRegions);
+    return;
+  }
+  DualRegions[NumDualRegions++] = {reinterpret_cast<uintptr_t>(WriteBase), reinterpret_cast<uintptr_t>(ExecBase), Size};
+}
+
+bool UnregisterDualMapping(void* WriteBase, void** ExecBase, size_t* Size) {
+  std::lock_guard lk(DualMutex);
+  const auto W = reinterpret_cast<uintptr_t>(WriteBase);
+  for (size_t i = 0; i < NumDualRegions; ++i) {
+    if (DualRegions[i].Write == W) {
+      if (ExecBase) {
+        *ExecBase = reinterpret_cast<void*>(DualRegions[i].Exec);
+      }
+      if (Size) {
+        *Size = DualRegions[i].Size;
+      }
+      DualRegions[i] = DualRegions[--NumDualRegions];
+      return true;
+    }
+  }
+  return false;
+}
+
+void* GetExecutableAddress(void* WriteAddr) {
+  if (!WriteAddr) {
+    return nullptr;
+  }
+  std::lock_guard lk(DualMutex);
+  return TranslateLocked<true>(WriteAddr);
+}
+
+void* GetWritableAddress(void* ExecAddr) {
+  if (!ExecAddr) {
+    return nullptr;
+  }
+  std::lock_guard lk(DualMutex);
+  return TranslateLocked<false>(ExecAddr);
 }
 
 FEX_DEFAULT_VISIBILITY size_t GetHostVABits() {

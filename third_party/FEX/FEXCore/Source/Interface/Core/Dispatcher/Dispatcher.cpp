@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "Common/VectorRegType.h"
+#include <FEXCore/Utils/AllocatorHooks.h> // RLtvOS: GetExecutableAddress
 #include "Interface/Context/Context.h"
 #include "Interface/Core/CPUBackend.h"
 #include "Interface/Core/Dispatcher/Dispatcher.h"
@@ -58,7 +59,12 @@ void Dispatcher::EmitDispatcher() {
   const auto DisasmBegin = GetCursorAddress<const vixl::aarch64::Instruction*>();
 #endif
 
-  DispatchPtr = GetCursorAddress<AsmDispatch>();
+  // RLtvOS: DispatchPtr is called as a raw function pointer; on the
+  // dual-mapped JIT pool it must be the executable-side address (identity
+  // elsewhere). DispatchRawBegin keeps the write-side cursor for the icache
+  // maintenance at the end of emission.
+  DispatchRawBegin = GetCursorAddress<void*>();
+  DispatchPtr = reinterpret_cast<AsmDispatch>(FEXCore::Allocator::GetExecutableAddress(DispatchRawBegin));
 
   // while (true) {
   //    Ptr = FindBlock(RIP)
@@ -478,7 +484,8 @@ void Dispatcher::EmitDispatcher() {
     // On return to the thunk, the thunk can get whatever its return value is from the thread context depending on ABI handling on its end
     // When the thunk itself returns, it'll do its regular return logic there
     // void ReentrantCallback(FEXCore::Core::InternalThreadState *Thread, uint64_t RIP);
-    CallbackPtr = GetCursorAddress<JITCallback>();
+    // RLtvOS: called as a raw function pointer -> executable-side address.
+    CallbackPtr = reinterpret_cast<JITCallback>(FEXCore::Allocator::GetExecutableAddress(GetCursorAddress<void*>()));
 
     // We expect the thunk to have previously pushed the registers it was using
     PushCalleeSavedRegisters();
@@ -664,8 +671,15 @@ void Dispatcher::EmitDispatcher() {
   dc64(PMFCompileSingleStep.GetConvertedPointer());
 
   Start = reinterpret_cast<uint64_t>(DispatchPtr);
-  End = GetCursorAddress<uint64_t>();
-  ClearICache(reinterpret_cast<void*>(DispatchPtr), End - reinterpret_cast<uint64_t>(DispatchPtr));
+  // RLtvOS: Start/End are compared against faulting PCs (executable side);
+  // the bytes were written through the write-side cursor, so clean both.
+  void* const DispatchRawEnd = GetCursorAddress<void*>();
+  End = reinterpret_cast<uint64_t>(FEXCore::Allocator::GetExecutableAddress(DispatchRawEnd));
+  const size_t DispatchSize = static_cast<size_t>(static_cast<uint8_t*>(DispatchRawEnd) - static_cast<uint8_t*>(DispatchRawBegin));
+  ClearICache(DispatchRawBegin, DispatchSize);
+  if (DispatchRawBegin != reinterpret_cast<void*>(DispatchPtr)) {
+    ClearICache(reinterpret_cast<void*>(DispatchPtr), DispatchSize);
+  }
 
   if (CTX->Config.BlockJITNaming()) {
     fextl::string Name = fextl::fmt::format("Dispatch_{}", FHU::Syscalls::gettid());
@@ -2670,7 +2684,9 @@ uint64_t Dispatcher::GenerateABICall(FallbackABI ABI) {
   // Return to JIT
   ret();
 
-  return Address;
+  // RLtvOS: stored verbatim into the fallback handler table and called from
+  // JIT code -> executable-side address (identity elsewhere).
+  return reinterpret_cast<uint64_t>(FEXCore::Allocator::GetExecutableAddress(reinterpret_cast<void*>(Address)));
 }
 
 void Dispatcher::InitThreadPointers(FEXCore::Core::InternalThreadState* Thread) {
@@ -2678,36 +2694,47 @@ void Dispatcher::InitThreadPointers(FEXCore::Core::InternalThreadState* Thread) 
   {
     auto& Ptrs = Thread->CurrentFrame->Pointers;
 
-    Ptrs.DispatcherLoopTop = AbsoluteLoopTopAddress;
-    Ptrs.DispatcherLoopTopFillSRA = AbsoluteLoopTopAddressFillSRA;
-    Ptrs.DispatcherLoopTopEnterEC = AbsoluteLoopTopAddressEnterEC;
-    Ptrs.DispatcherLoopTopEnterECFillSRA = AbsoluteLoopTopAddressEnterECFillSRA;
-    Ptrs.ExitFunctionLinker = ExitFunctionLinkerAddress;
-    Ptrs.ThreadStopHandlerSpillSRA = ThreadStopHandlerAddressSpillSRA;
-    Ptrs.ThreadPauseHandlerSpillSRA = ThreadPauseHandlerAddressSpillSRA;
-    Ptrs.ThreadDispatchSyscallHandler = ThreadDispatchSyscallHandler;
-    Ptrs.ThreadDispatchRemoveCodeEntry = ThreadDispatchRemoveCodeEntry;
-    Ptrs.GuestSignal_SIGILL = GuestSignal_SIGILL;
-    Ptrs.GuestSignal_SIGTRAP = GuestSignal_SIGTRAP;
-    Ptrs.GuestSignal_SIGSEGV = GuestSignal_SIGSEGV;
-    Ptrs.SignalReturnHandler = SignalHandlerReturnAddress;
-    Ptrs.SignalReturnHandlerRT = SignalHandlerReturnAddressRT;
-    Ptrs.LUDIVHandler = LUDIVHandlerAddress;
-    Ptrs.LDIVHandler = LDIVHandlerAddress;
-    Ptrs.F64SinHandler = F64SinHandlerAddress;
-    Ptrs.F64CosHandler = F64CosHandlerAddress;
-    Ptrs.F64TanHandler = F64TanHandlerAddress;
-    Ptrs.F64F2XM1Handler = F64F2XM1HandlerAddress;
-    Ptrs.F64ScaleHandler = F64ScaleHandlerAddress;
-    Ptrs.F64AtanHandler = F64AtanHandlerAddress;
-    Ptrs.F64FYL2XHandler = F64FYL2XHandlerAddress;
-    Ptrs.F64FYL2XP1Handler = F64FYL2XP1HandlerAddress;
-    Ptrs.F64FPREMHandler = F64FPREMHandlerAddress;
-    Ptrs.F64FPREM1Handler = F64FPREM1HandlerAddress;
+    // RLtvOS: every one of these is a branch/return target reached from JIT
+    // code, so on the dual-mapped pool it must be the executable-side
+    // address; the members hold the write-side cursor values.
+    const auto X = [](uint64_t WriteAddr) -> uint64_t {
+      return reinterpret_cast<uint64_t>(FEXCore::Allocator::GetExecutableAddress(reinterpret_cast<void*>(WriteAddr)));
+    };
+
+    Ptrs.DispatcherLoopTop = X(AbsoluteLoopTopAddress);
+    Ptrs.DispatcherLoopTopFillSRA = X(AbsoluteLoopTopAddressFillSRA);
+    Ptrs.DispatcherLoopTopEnterEC = X(AbsoluteLoopTopAddressEnterEC);
+    Ptrs.DispatcherLoopTopEnterECFillSRA = X(AbsoluteLoopTopAddressEnterECFillSRA);
+    Ptrs.ExitFunctionLinker = X(ExitFunctionLinkerAddress);
+    Ptrs.ThreadStopHandlerSpillSRA = X(ThreadStopHandlerAddressSpillSRA);
+    Ptrs.ThreadPauseHandlerSpillSRA = X(ThreadPauseHandlerAddressSpillSRA);
+    Ptrs.ThreadDispatchSyscallHandler = X(ThreadDispatchSyscallHandler);
+    Ptrs.ThreadDispatchRemoveCodeEntry = X(ThreadDispatchRemoveCodeEntry);
+    Ptrs.GuestSignal_SIGILL = X(GuestSignal_SIGILL);
+    Ptrs.GuestSignal_SIGTRAP = X(GuestSignal_SIGTRAP);
+    Ptrs.GuestSignal_SIGSEGV = X(GuestSignal_SIGSEGV);
+    Ptrs.SignalReturnHandler = X(SignalHandlerReturnAddress);
+    Ptrs.SignalReturnHandlerRT = X(SignalHandlerReturnAddressRT);
+    Ptrs.LUDIVHandler = X(LUDIVHandlerAddress);
+    Ptrs.LDIVHandler = X(LDIVHandlerAddress);
+    Ptrs.F64SinHandler = X(F64SinHandlerAddress);
+    Ptrs.F64CosHandler = X(F64CosHandlerAddress);
+    Ptrs.F64TanHandler = X(F64TanHandlerAddress);
+    Ptrs.F64F2XM1Handler = X(F64F2XM1HandlerAddress);
+    Ptrs.F64ScaleHandler = X(F64ScaleHandlerAddress);
+    Ptrs.F64AtanHandler = X(F64AtanHandlerAddress);
+    Ptrs.F64FYL2XHandler = X(F64FYL2XHandlerAddress);
+    Ptrs.F64FYL2XP1Handler = X(F64FYL2XP1HandlerAddress);
+    Ptrs.F64FPREMHandler = X(F64FPREMHandlerAddress);
+    Ptrs.F64FPREM1Handler = X(F64FPREM1HandlerAddress);
 
     // Fill in the fallback handlers
     InterpreterOps::FillFallbackIndexPointers(Ptrs.FallbackHandlerPointers, &ABIPointers[0]);
   }
+}
+
+uint64_t Dispatcher::GetExitFunctionLinkerAddress() const {
+  return reinterpret_cast<uint64_t>(FEXCore::Allocator::GetExecutableAddress(reinterpret_cast<void*>(ExitFunctionLinkerAddress)));
 }
 
 SignalDelegatorConfig Dispatcher::MakeSignalDelegatorConfig() const {
@@ -2731,22 +2758,28 @@ SignalDelegatorConfig Dispatcher::MakeSignalDelegatorConfig() const {
     return Mapping;
   };
 
+  // RLtvOS: consumed by the signal delegator against faulting/resuming PCs,
+  // which are executable-side addresses on the dual-mapped pool.
+  const auto X = [](uint64_t WriteAddr) -> uint64_t {
+    return reinterpret_cast<uint64_t>(FEXCore::Allocator::GetExecutableAddress(reinterpret_cast<void*>(WriteAddr)));
+  };
+
   return FEXCore::SignalDelegatorConfig {
     .DispatcherBegin = Start,
     .DispatcherEnd = End,
 
-    .AbsoluteLoopTopAddress = AbsoluteLoopTopAddress,
-    .AbsoluteLoopTopAddressFillSRA = AbsoluteLoopTopAddressFillSRA,
-    .SignalHandlerReturnAddress = SignalHandlerReturnAddress,
-    .SignalHandlerReturnAddressRT = SignalHandlerReturnAddressRT,
+    .AbsoluteLoopTopAddress = X(AbsoluteLoopTopAddress),
+    .AbsoluteLoopTopAddressFillSRA = X(AbsoluteLoopTopAddressFillSRA),
+    .SignalHandlerReturnAddress = X(SignalHandlerReturnAddress),
+    .SignalHandlerReturnAddressRT = X(SignalHandlerReturnAddressRT),
 
-    .PauseReturnInstruction = PauseReturnInstruction,
-    .ThreadPauseHandlerAddressSpillSRA = ThreadPauseHandlerAddressSpillSRA,
-    .ThreadPauseHandlerAddress = ThreadPauseHandlerAddress,
+    .PauseReturnInstruction = X(PauseReturnInstruction),
+    .ThreadPauseHandlerAddressSpillSRA = X(ThreadPauseHandlerAddressSpillSRA),
+    .ThreadPauseHandlerAddress = X(ThreadPauseHandlerAddress),
 
     // Stop handlers.
-    .ThreadStopHandlerAddressSpillSRA = ThreadStopHandlerAddressSpillSRA,
-    .ThreadStopHandlerAddress = ThreadStopHandlerAddress,
+    .ThreadStopHandlerAddressSpillSRA = X(ThreadStopHandlerAddressSpillSRA),
+    .ThreadStopHandlerAddress = X(ThreadStopHandlerAddress),
 
     // SRA information.
     .SRAGPRCount = GPRCount,

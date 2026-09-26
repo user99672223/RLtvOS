@@ -567,34 +567,92 @@ def _debugserver_addr(res):
     return None, None
 
 
-def do_jit(rerun_test=True, page=0, madvise=False, fresh=False):
-    """Authorize the app's JIT arena, then run the in-app exec test.
+def jit_stage(s):
+    """(stage, ok) of the TXM pool from a /status document (None on old builds)."""
+    j = s.get("jit") or {}
+    if "stage" not in j:
+        return None, False
+    return j.get("stage"), bool(j.get("ok"))
 
-    Backends (JIT_BACKEND=auto|gdbremote|cmd|mcp):
-      gdbremote  attach to the app through debugserver (DEBUGSERVER_ADDR or
-                 DEBUGSERVER_CMD), write every 16 KB page of /status.jit_arena
-                 back to itself (the TXM authorization), detach.
-      cmd        run JIT_CMD (external tool does the whole thing).
-      mcp        call ATVLOADLY_MCP_JIT_TOOL.
+
+def wait_jit_ready(timeout):
+    """Poll /status.jit until the pool is ready or failed. Returns the last jit object."""
+    deadline = time.time() + timeout
+    last = {}
+    while time.time() < deadline:
+        st, s = app_json("GET", "/status", timeout=5)
+        if st == 200:
+            last = s.get("jit") or {}
+            stage = last.get("stage")
+            if last.get("ok") or stage in ("ready", "failed"):
+                return last
+        time.sleep(1.0)
+    return last
+
+
+def do_jit(rerun_test=True, page=0, madvise=False, fresh=False, legacy=False, wait=None):
+    """JIT on tvOS 26+/TXM (the app half is jit26.c, see handoff/issues/001-jit.md).
+
+    Default flow (JIT_BACKEND=cmd, or auto with JIT_CMD set): run JIT_CMD —
+    LAPTOP's laptop/jit.sh, which attaches a debugger to the app (or launches
+    it suspended when JIT_LAUNCHES_APP=1), services the app's brk #0xf00d
+    requests (prepare region, detach) — then poll /status.jit until the
+    app reports stage "ready" (pool prepared, RW alias mapped, self-tests
+    run) or "failed", and finally re-run the in-pool self-test (jittest).
+
+    Legacy flow (--legacy or JIT_BACKEND=gdbremote): attach through
+    debugserver ourselves and write every 16 KB page of the RWX arena back
+    to itself (page-touch authorization; superseded on TXM devices).
+    mcp backend: call ATVLOADLY_MCP_JIT_TOOL, then poll like the default flow.
     """
     backend = cfg("JIT_BACKEND", "auto")
+    if legacy:
+        backend = "gdbremote"
     if backend == "auto":
         backend = "cmd" if cfg("JIT_CMD") else ("mcp" if cfg("ATVLOADLY_MCP_JIT_TOOL") else "gdbremote")
-    if not wait_app(True, 20):
-        return {"ok": False, "error": "app not reachable; launch it first (tv.py launch)"}
-    _, s = app_json("GET", "/status")
-    pid = int(s.get("pid") or 0)
-    arena = s.get("jit_arena") or {}
+    launches = cfg("JIT_LAUNCHES_APP", "0") == "1" and backend == "cmd"
+    pid, arena, s = 0, {}, {}
+    if not launches:
+        if not wait_app(True, 20):
+            return {"ok": False, "error": "app not reachable; launch it first (tv.py launch)"}
+        _, s = app_json("GET", "/status")
+        pid = int(s.get("pid") or 0)
+        arena = s.get("jit_arena") or {}
+        stage, ready = jit_stage(s)
+        if ready and backend != "gdbremote":
+            res = {"ok": True, "backend": backend, "already_ready": True, "jit": s.get("jit"), "build": s.get("build")}
+            if rerun_test:
+                _, j = app_json("POST", "/run", {"argv": ["jittest"], "env": [], "cwd": "/"}, timeout=60)
+                res["jittest"] = j
+                res["ok"] = bool(isinstance(j, dict) and j.get("ok"))
+            return res
     app_id = resolve_app_id() or cfg("APP_BUNDLE_ID", "dev.rltvos.app")
-    res = {"backend": backend, "pid": pid, "arena": arena, "build": s.get("build")}
+    res = {"backend": backend, "pid": pid, "arena": arena, "build": s.get("build"), "launches_app": launches}
     t0 = time.time()
     proc = None
+    poll_timeout = float(wait if wait is not None else cfg("JIT_READY_TIMEOUT", "120"))
     if backend == "cmd":
         cmd = fmt(cfg("JIT_CMD", ""), **placeholders(bundle_id=app_id, pid=str(pid), base=arena.get("base", ""),
                                                       size=str(arena.get("size", ""))))
-        r = sh(cmd, timeout=int(cfg("JIT_TIMEOUT", "300")))
-        res.update({"cmd": cmd, "rc": r["rc"], "out": r["out"][-3000:], "err": r["err"][-3000:]})
-        authorized = r["rc"] == 0
+        if cfg("JIT_CMD_BACKGROUND", "0") == "1":
+            # The helper keeps servicing requests; start it and move on.
+            proc = subprocess.Popen(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            res.update({"cmd": cmd, "background_pid": proc.pid})
+            proc = None
+            authorized = True
+        else:
+            r = sh(cmd, timeout=int(cfg("JIT_TIMEOUT", "300")))
+            res.update({"cmd": cmd, "rc": r["rc"], "out": r["out"][-3000:], "err": r["err"][-3000:]})
+            authorized = r["rc"] == 0
+        if authorized:
+            if not wait_app(True, 60):
+                res.update({"ok": False, "error": "app not reachable after JIT_CMD"})
+                return res
+            j = wait_jit_ready(poll_timeout)
+            res["jit"] = j
+            authorized = bool(j.get("ok"))
+            if not authorized:
+                res["error"] = f"pool not ready: stage={j.get('stage')} error={j.get('error')}"
     elif backend == "mcp":
         try:
             targs = json.loads(cfg("ATVLOADLY_MCP_JIT_ARGS", "{}"))
@@ -605,6 +663,10 @@ def do_jit(rerun_test=True, page=0, madvise=False, fresh=False):
         m = mcp_tool_call(cfg("ATVLOADLY_MCP_JIT_TOOL"), targs, timeout=int(cfg("JIT_TIMEOUT", "300")))
         res.update({"tool": cfg("ATVLOADLY_MCP_JIT_TOOL"), "args": targs, "mcp": m})
         authorized = bool(m.get("ok"))
+        if authorized and wait_app(True, 60):
+            j = wait_jit_ready(poll_timeout)
+            res["jit"] = j
+            authorized = bool(j.get("ok"))
     elif backend == "gdbremote":
         if not pid or not arena.get("base"):
             return {"ok": False, "error": "status has no pid/jit_arena (old build?)", "status": s}
@@ -650,7 +712,10 @@ def do_jit(rerun_test=True, page=0, madvise=False, fresh=False):
         if not wait_app(True, 30):
             res.update({"ok": False, "error": "app not reachable after authorization"})
             return res
-        argv = ["jittest", "--trust", "--page", str(page)] + (["--madvise"] if madvise else []) + (["--fresh"] if fresh else [])
+        if backend == "gdbremote":
+            argv = ["jittest", "--legacy", "--trust", "--page", str(page)] + (["--madvise"] if madvise else []) + (["--fresh"] if fresh else [])
+        else:
+            argv = ["jittest"]
         st, j = app_json("POST", "/run", {"argv": argv, "env": [], "cwd": "/"}, timeout=60)
         res["jittest"] = j
         if st == 0:
@@ -663,8 +728,47 @@ def do_jit(rerun_test=True, page=0, madvise=False, fresh=False):
 
 
 def cmd_jit(a):
-    r = do_jit(rerun_test=not a.no_test, page=a.page, madvise=a.madvise, fresh=a.fresh)
+    if a.detach:
+        st, j = app_json("POST", "/run", {"argv": ["jitdetach"], "env": [], "cwd": "/"}, timeout=60)
+        out(j, 0 if isinstance(j, dict) and j.get("ok") else 1)
+    if a.prep:
+        argv = ["jitprep"] + (["--wait", str(a.wait)] if a.wait is not None else [])
+        st, j = app_json("POST", "/run", {"argv": argv, "env": [], "cwd": "/"}, timeout=60)
+        j = wait_jit_ready(float(a.wait if a.wait is not None else cfg("JIT_READY_TIMEOUT", "120")))
+        out(j, 0 if j.get("ok") else 1)
+    r = do_jit(rerun_test=not a.no_test, page=a.page, madvise=a.madvise, fresh=a.fresh, legacy=a.legacy, wait=a.wait)
     out(r, 0 if r.get("ok") else 1)
+
+
+def cmd_jitcfg(a):
+    """Set the app's runtime JIT config (Caches/rl-config.json): jit_pool_mb, jit_wait_s,
+    jit_in_place, jit_detach, jit_selftest, jit_autostart. Applied at the next launch."""
+    if not a.kv:
+        st, s = app_json("GET", "/status")
+        out({"config": s.get("config"), "jit": s.get("jit")})
+    st, j = app_json("POST", "/run", {"argv": ["cfg"] + a.kv, "env": [], "cwd": "/"}, timeout=30)
+    out(j, 0 if isinstance(j, dict) and j.get("ok") else 1)
+
+
+def cmd_fex(a):
+    """FEXCore on the TV: fex init | fex selftest [name] | fex run HEX [rdi rsi rdx] | fex status."""
+    if not wait_app(True, 20):
+        fail("app not reachable; launch it first (tv.py launch)")
+    if a.what == "status":
+        st, s = app_json("GET", "/status")
+        out({"fex": s.get("fex"), "jit": s.get("jit"), "build": s.get("build")})
+    if a.what == "init":
+        argv = ["fex-init"]
+    elif a.what == "selftest":
+        argv = ["fex-selftest", a.arg or "all"]
+    else:
+        if not a.arg:
+            fail("fex run needs HEX bytes (must end with f4 = hlt)")
+        argv = ["fex-run", a.arg] + [str(x) for x in (a.regs or [])]
+    st, j = app_json("POST", "/run", {"argv": argv, "env": [], "cwd": "/"}, timeout=a.timeout)
+    if st == 0:
+        fail("app died during the FEX command; relaunch and read /crash", argv=argv)
+    out(j, 0 if isinstance(j, dict) and j.get("ok") else 1)
 
 
 def do_launch(fresh=False, timeout=60):
@@ -877,6 +981,8 @@ def cmd_cycle(a):
         report["steps"]["crash"] = {"present": False}
     report["ok"] = all(s.get("ok", True) for s in report["steps"].values())
     report["jit_ok"] = bool((status.get("jit") or {}).get("ok"))
+    report["jit_stage"] = (status.get("jit") or {}).get("stage")
+    report["fex"] = status.get("fex")
     (d / "report.json").write_text(json.dumps(report, indent=2, sort_keys=True, default=str))
     out(report, 0 if report["ok"] else 1)
 
@@ -946,7 +1052,9 @@ def main():
 
     p = sp.add_parser("build"); p.add_argument("--tag"); p.add_argument("--wait", type=int, default=0, help="minutes to wait for the release"); p.set_defaults(fn=cmd_build)
     p = sp.add_parser("install"); p.add_argument("--tag"); p.add_argument("--ipa"); p.add_argument("--force", action="store_true"); p.add_argument("--wait", type=int, default=0); p.set_defaults(fn=cmd_install)
-    p = sp.add_parser("jit", help="authorize the JIT arena (debugger write per page) and run the in-app exec test"); p.add_argument("--no-test", action="store_true"); p.add_argument("--page", type=int, default=0); p.add_argument("--madvise", action="store_true", help="madvise(MADV_FREE) the page first"); p.add_argument("--fresh", action="store_true", help="execute in a fresh unauthorized page (expected SIGKILL on tvOS 26+)"); p.set_defaults(fn=cmd_jit)
+    p = sp.add_parser("jit", help="TXM JIT: run JIT_CMD (laptop helper), wait for /status.jit ready, run the pool self-test"); p.add_argument("--no-test", action="store_true"); p.add_argument("--wait", type=float, help="seconds to wait for the pool (default JIT_READY_TIMEOUT)"); p.add_argument("--prep", action="store_true", help="only ask the app to (re)start its preparation and wait"); p.add_argument("--detach", action="store_true", help="only ask the app to detach the debugger"); p.add_argument("--legacy", action="store_true", help="old flow: gdbremote page-touch authorization of the RWX arena"); p.add_argument("--page", type=int, default=0); p.add_argument("--madvise", action="store_true", help="(legacy) madvise(MADV_FREE) the page first"); p.add_argument("--fresh", action="store_true", help="(legacy) execute in a fresh unauthorized page (expected SIGKILL)"); p.set_defaults(fn=cmd_jit)
+    p = sp.add_parser("jitcfg", help="show or set the app's runtime JIT config: jitcfg [jit_pool_mb=128 jit_wait_s=60 jit_in_place=0 jit_detach=1 jit_selftest=1 jit_autostart=1]"); p.add_argument("kv", nargs="*"); p.set_defaults(fn=cmd_jitcfg)
+    p = sp.add_parser("fex", help="FEXCore on the TV: fex status | init | selftest [add|loop|sse|call|mem|syscall|exit|all] | run HEX [rdi rsi rdx]"); p.add_argument("what", choices=["status", "init", "selftest", "run"]); p.add_argument("arg", nargs="?"); p.add_argument("regs", nargs="*"); p.add_argument("--timeout", type=int, default=300); p.set_defaults(fn=cmd_fex)
     p = sp.add_parser("launch"); p.add_argument("--fresh", action="store_true", help="kill first if running"); p.add_argument("--timeout", type=int, default=60); p.set_defaults(fn=cmd_launch)
     p = sp.add_parser("kill"); p.set_defaults(fn=cmd_kill)
     p = sp.add_parser("apps"); p.set_defaults(fn=cmd_apps)

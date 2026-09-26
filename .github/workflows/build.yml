@@ -36,12 +36,27 @@ jobs:
           python3 -m py_compile tools/tv.py tools/gdbremote.py laptop/assets_server.py laptop/refs/summarize.py
           for f in laptop/setup/*.sh laptop/refs/run.sh laptop/refs/guest/*.sh handoff/wait.sh; do sh -n "$f"; done
 
+  fex-host-check:
+    name: FEXCore compile check (Linux x86-64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - name: Configure and build vendored FEXCore (host debug configuration)
+        run: |
+          set -euxo pipefail
+          sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends cmake ninja-build clang python3
+          cmake -S core/fex -B build/fex-host -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+          cmake --build build/fex-host --target FEXCore --parallel
+          ls -la build/fex-host/fexcore/Source/*.a
+
   build:
     name: tvOS build (unsigned) → release build-${{ github.run_number }}
     runs-on: macos-15
-    timeout-minutes: 60
+    timeout-minutes: 90
     env:
       BUILD_TAG: build-${{ github.run_number }}
+      RL_DEPLOYMENT_TARGET: "18.0"
     steps:
       - uses: actions/checkout@v4
 
@@ -67,11 +82,41 @@ jobs:
           cmake -S core -B build/core -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE="$PWD/cmake/tvos.toolchain.cmake" \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_OSX_DEPLOYMENT_TARGET=16.0 \
-            -DRL_ENABLE_FEX=${RL_ENABLE_FEX:-OFF}
+            -DCMAKE_OSX_DEPLOYMENT_TARGET="$RL_DEPLOYMENT_TARGET" \
+            -DRL_ENABLE_FEX=OFF
           cmake --build build/core --parallel
           ls -la build/core/*.a
           lipo -info build/core/librlcore.a
+
+      # FEXCore + rlfex for tvOS. A failure here must not cost the harness
+      # build: the app is then built without FEX (the FEX line on screen says
+      # "not linked") and fex-build.log is uploaded for the next round.
+      - name: Build FEXCore + rlfex (CMake, tvOS static libs)
+        id: fex
+        run: |
+          set -uxo pipefail
+          status=0
+          {
+            cmake -S core/fex -B build/fex -G Ninja \
+              -DCMAKE_TOOLCHAIN_FILE="$PWD/cmake/tvos.toolchain.cmake" \
+              -DCMAKE_BUILD_TYPE=Release \
+              -DCMAKE_OSX_DEPLOYMENT_TARGET="$RL_DEPLOYMENT_TARGET" \
+            && cmake --build build/fex --parallel --target rlfex
+          } > fex-build.log 2>&1 || status=$?
+          echo "cmake/ninja exit status: $status"
+          grep -E 'error:|FAILED:' fex-build.log | head -60 || true
+          if [ "$status" -ne 0 ]; then
+            echo '--- last 120 lines of fex-build.log ---'; tail -120 fex-build.log
+            echo "ok=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # One merged archive for the Xcode link step.
+          test -s build/fex/rlfex-archives.txt
+          cat build/fex/rlfex-archives.txt
+          xargs libtool -static -o build/fex/librlfex_all.a < build/fex/rlfex-archives.txt
+          lipo -info build/fex/librlfex_all.a
+          ls -la build/fex/librlfex_all.a
+          echo "ok=true" >> "$GITHUB_OUTPUT"
 
       - name: Generate project
         working-directory: app
@@ -82,9 +127,20 @@ jobs:
 
       - name: Build
         working-directory: app
+        env:
+          FEX_OK: ${{ steps.fex.outputs.ok }}
         run: |
           set -uxo pipefail
           status=0
+          extra_ld=""
+          swift_conds='$(inherited)'
+          if [ "${FEX_OK:-false}" = "true" ]; then
+            extra_ld="$GITHUB_WORKSPACE/build/fex/librlfex_all.a"
+            swift_conds='$(inherited) RL_HAVE_FEX'
+            echo "linking FEX: $extra_ld"
+          else
+            echo "FEX not linked (see fex-build.log)"
+          fi
           xcodebuild \
             -project RLtvOS.xcodeproj \
             -scheme RLtvOS \
@@ -98,6 +154,8 @@ jobs:
             RL_BUILD_TAG="$BUILD_TAG" \
             CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
             ONLY_ACTIVE_ARCH=NO \
+            OTHER_LDFLAGS="\$(inherited) $extra_ld" \
+            SWIFT_ACTIVE_COMPILATION_CONDITIONS="$swift_conds" \
             build > ../build.log 2>&1 || status=$?
           echo "xcodebuild exit status: $status"
           grep -E 'error:|warning:|BUILD (SUCCEEDED|FAILED)' ../build.log | grep -v 'note:' | head -200 || true
@@ -120,14 +178,20 @@ jobs:
           ls -la app.ipa app.dSYM.zip || true
           unzip -l app.ipa | head -40
           plutil -p "Payload/$(basename "$APP")/Info.plist" | grep -E 'RLBuildTag|CFBundleIdentifier|CFBundleVersion|MinimumOSVersion'
+          # The JIT26 stubs must be in the main binary for the debugger script.
+          nm "Payload/$(basename "$APP")/RLtvOS" | grep -E ' T _JIT26(PrepareRegion|Detach)$' || echo "WARNING: JIT26 stubs not exported"
+          nm "Payload/$(basename "$APP")/RLtvOS" | grep -c ' T _rlfex_' || echo "note: rlfex not linked"
+          echo "fex_linked=${{ steps.fex.outputs.ok }}"
           echo "sha256: $(shasum -a 256 app.ipa)"
 
-      - name: Upload build log
+      - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: build-log-${{ github.run_number }}
-          path: build.log
+          name: build-logs-${{ github.run_number }}
+          path: |
+            build.log
+            fex-build.log
           if-no-files-found: ignore
 
       - name: Release
@@ -138,6 +202,7 @@ jobs:
           target_commitish: ${{ github.sha }}
           body: |
             Unsigned tvOS build of `${{ github.sha }}` (${{ github.ref_name }}).
+            FEX linked: `${{ steps.fex.outputs.ok }}` (false = see fex-build.log in the build-logs artifact).
 
             ${{ github.event.head_commit.message }}
 

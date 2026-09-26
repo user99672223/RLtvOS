@@ -546,7 +546,12 @@ static void DirectBlockDelinker(FEXCore::Context::ExitFunctionLinkData* Record, 
     BranchEmit.b(BranchOffset);
   }
 
-  std::atomic_ref<uint32_t>(*reinterpret_cast<uint32_t*>(CallerAddress)).store(BranchInst, std::memory_order::relaxed);
+  // RLtvOS: Record was captured from the LR of the executing thunk, i.e. it
+  // is an executable-side address; store through the writable alias and
+  // maintain the caches on both sides (identity elsewhere).
+  void* WriteCallerAddress = FEXCore::Allocator::GetWritableAddress(reinterpret_cast<void*>(CallerAddress));
+  std::atomic_ref<uint32_t>(*reinterpret_cast<uint32_t*>(WriteCallerAddress)).store(BranchInst, std::memory_order::relaxed);
+  ARMEmitter::Emitter::ClearICache(WriteCallerAddress, 4);
   ARMEmitter::Emitter::ClearICache(reinterpret_cast<void*>(CallerAddress), 4);
 }
 
@@ -557,7 +562,9 @@ static void IndirectBlockDelinker(FEXCore::Context::ExitFunctionLinkData* Record
   // Restore branch +2 instructions to jump to the linker block
   BranchEmit.b(0x2);
 
-  std::atomic_ref<uint32_t>(*reinterpret_cast<uint32_t*>(JumpThunkStartAddress)).store(BranchInst, std::memory_order::relaxed);
+  void* WriteJumpThunkStartAddress = FEXCore::Allocator::GetWritableAddress(reinterpret_cast<void*>(JumpThunkStartAddress));
+  std::atomic_ref<uint32_t>(*reinterpret_cast<uint32_t*>(WriteJumpThunkStartAddress)).store(BranchInst, std::memory_order::relaxed);
+  ARMEmitter::Emitter::ClearICache(WriteJumpThunkStartAddress, 4);
   ARMEmitter::Emitter::ClearICache(reinterpret_cast<void*>(JumpThunkStartAddress), 4);
 
   // No need to reset HostCode here as the exit linker pointer is stored separately, and if the block is relinked it will be updated.
@@ -624,20 +631,30 @@ uint64_t Arm64JITCore::ExitFunctionLink(FEXCore::Core::CpuStateFrame* Frame, FEX
         GuestRip, Record, [](FEXCore::Context::ExitFunctionLinkData* Record) { DirectBlockDelinker(Record, false); }, lk);
     }
 
-    std::atomic_ref<uint32_t>(*reinterpret_cast<uint32_t*>(CallerAddress)).store(BranchInst, std::memory_order::relaxed);
+    // RLtvOS: CallerAddress is executable-side (derived from Record, which the
+    // running thunk produced); write through the RW alias, maintain both.
+    void* WriteCallerAddress = FEXCore::Allocator::GetWritableAddress(reinterpret_cast<void*>(CallerAddress));
+    std::atomic_ref<uint32_t>(*reinterpret_cast<uint32_t*>(WriteCallerAddress)).store(BranchInst, std::memory_order::relaxed);
+    ARMEmitter::Emitter::ClearICache(WriteCallerAddress, 4);
     ARMEmitter::Emitter::ClearICache(reinterpret_cast<void*>(CallerAddress), 4);
   } else {
     // This case is common between calls and jumps as the thunk callsite can be left untouched.
-    std::atomic_ref<uint64_t>(Record->HostCode).store(HostCode, std::memory_order::seq_cst);
+    // RLtvOS: Record lives in the code stream (executable side); its HostCode
+    // slot is written through the writable alias.
+    auto* WriteRecord = static_cast<FEXCore::Context::ExitFunctionLinkData*>(FEXCore::Allocator::GetWritableAddress(Record));
+    std::atomic_ref<uint64_t>(WriteRecord->HostCode).store(HostCode, std::memory_order::seq_cst);
 #ifdef ARCHITECTURE_arm64
     // Make memory write visible to other threads reading the same location
-    asm volatile("dc cvau, %0; dsb ish" : : "r"(Record->HostCode) :);
+    asm volatile("dc cvau, %0; dsb ish" : : "r"(&WriteRecord->HostCode) :);
+    asm volatile("dc cvau, %0; dsb ish" : : "r"(&Record->HostCode) :);
 #endif
 
     uint32_t LdrInst = 0;
     ARMEmitter::Emitter LdrEmit(reinterpret_cast<uint8_t*>(&LdrInst), 4);
     LdrEmit.ldr(TMP1, reinterpret_cast<uint64_t>(&Record->HostCode) - JumpThunkStartAddress);
-    std::atomic_ref<uint32_t>(*reinterpret_cast<uint32_t*>(JumpThunkStartAddress)).store(LdrInst, std::memory_order::relaxed);
+    void* WriteJumpThunkStartAddress = FEXCore::Allocator::GetWritableAddress(reinterpret_cast<void*>(JumpThunkStartAddress));
+    std::atomic_ref<uint32_t>(*reinterpret_cast<uint32_t*>(WriteJumpThunkStartAddress)).store(LdrInst, std::memory_order::relaxed);
+    ARMEmitter::Emitter::ClearICache(WriteJumpThunkStartAddress, 4);
     ARMEmitter::Emitter::ClearICache(reinterpret_cast<void*>(JumpThunkStartAddress), 4);
 
     Thread->LookupCache->AddBlockLink(GuestRip, Record, IndirectBlockDelinker, lk);
@@ -1165,9 +1182,21 @@ CPUBackend::CompiledCode Arm64JITCore::CompileCode(uint64_t Entry, uint64_t Size
     memcpy(AllocatedInfo.BufferAllocationOffset, TempCodeBuffer, CodeData.Size);
   }
 
+  // RLtvOS: entry points escape as branch targets (lookup cache, dispatcher);
+  // on the dual-mapped pool they must be executable-side addresses. BlockBegin
+  // stays write-side (bookkeeping only). Identity on other platforms.
+  for (auto& EntryPoint : CodeData.EntryPoints) {
+    EntryPoint.second = static_cast<uint8_t*>(FEXCore::Allocator::GetExecutableAddress(EntryPoint.second));
+  }
+
   TempCodeBufferAllocator.DelayedDisownBuffer();
 
+  // Both aliases: the write-side clean flushes the lines we dirtied, the
+  // exec-side invalidate drops stale instruction lines under the fetched VA.
   ClearICache(CodeBegin, CodeOnlySize);
+  if (void* ExecBegin = FEXCore::Allocator::GetExecutableAddress(CodeBegin); ExecBegin != CodeBegin) {
+    ClearICache(ExecBegin, CodeOnlySize);
+  }
 
 #ifdef VIXL_DISASSEMBLER
   if (Disassemble() & FEXCore::Config::Disassemble::STATS) {
@@ -1209,6 +1238,9 @@ CPUBackend::CompiledCode Arm64JITCore::LoadCachedCode(std::span<const uint8_t> H
   uint8_t* Dest = AllocatedInfo.BufferAllocationOffset;
   memcpy(Dest, HostBytes.data(), HostBytes.size());
   ClearICache(Dest, HostBytes.size());
+  if (void* ExecDest = FEXCore::Allocator::GetExecutableAddress(Dest); ExecDest != Dest) {
+    ClearICache(ExecDest, HostBytes.size()); // RLtvOS: dual-mapped pool
+  }
 
   CPUBackend::CompiledCode Result;
   Result.BlockBegin = Dest;

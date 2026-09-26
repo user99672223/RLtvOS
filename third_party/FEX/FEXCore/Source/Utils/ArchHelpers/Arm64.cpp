@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 
 #include "Interface/Core/CPUBackend.h"
+#include <FEXCore/Utils/AllocatorHooks.h> // RLtvOS: GetWritableAddress
 #include "Interface/Context/Context.h"
 #include <FEXCore/Utils/SpinWaitLock.h>
 
@@ -2046,9 +2047,15 @@ std::optional<int32_t> HandleUnalignedAccess(FEXCore::Core::InternalThreadState*
   }
 
   const auto Frame = Thread->CurrentFrame;
-  const uint64_t BlockBegin = Frame->State.InlineJITBlockHeader;
+  // RLtvOS: InlineJITBlockHeader is an executable-side address (set by the
+  // running block); read/write the header and tail through the writable
+  // alias. WPC is the writable alias of the faulting instruction for the
+  // back-patches below. Identity on other platforms.
+  const uint64_t BlockBegin =
+    reinterpret_cast<uint64_t>(FEXCore::Allocator::GetWritableAddress(reinterpret_cast<void*>(Frame->State.InlineJITBlockHeader)));
   auto InlineHeader = reinterpret_cast<const CPU::CPUBackend::JITCodeHeader*>(BlockBegin);
-  auto InlineTail = reinterpret_cast<CPU::CPUBackend::JITCodeTail*>(Frame->State.InlineJITBlockHeader + InlineHeader->OffsetToBlockTail);
+  auto InlineTail = reinterpret_cast<CPU::CPUBackend::JITCodeTail*>(BlockBegin + InlineHeader->OffsetToBlockTail);
+  uint32_t* WPC = static_cast<uint32_t*>(FEXCore::Allocator::GetWritableAddress(PC));
 
   // Check some instructions first that don't do any backpatching.
   if ((Instr & ArchHelpers::Arm64::CASPAL_MASK) == ArchHelpers::Arm64::CASPAL_INST) { // CASPAL
@@ -2113,10 +2120,13 @@ std::optional<int32_t> HandleUnalignedAccess(FEXCore::Core::InternalThreadState*
     LDR |= DataReg;
     if (HandleType != UnalignedHandlerType::NonAtomic) {
       // Ordering matters with cross-thread visibility!
-      std::atomic_ref<uint32_t>(PC[1]).store(DMB_LD, std::memory_order_release); // Back-patch the half-barrier.
+      std::atomic_ref<uint32_t>(WPC[1]).store(DMB_LD, std::memory_order_release); // Back-patch the half-barrier.
     }
-    std::atomic_ref<uint32_t>(PC[0]).store(LDR, std::memory_order_release);
-    ClearICache(&PC[0], 8);
+    std::atomic_ref<uint32_t>(WPC[0]).store(LDR, std::memory_order_release);
+    ClearICache(&WPC[0], 8);
+    if (WPC != PC) {
+      ClearICache(&PC[0], 8);
+    }
     // With the instruction modified, now execute again.
     return 0;
   } else if ((Instr & LDAXR_MASK) == STLR_INST) { // STLR*
@@ -2125,10 +2135,13 @@ std::optional<int32_t> HandleUnalignedAccess(FEXCore::Core::InternalThreadState*
     STR |= AddrReg << 5;
     STR |= DataReg;
     if (HandleType != UnalignedHandlerType::NonAtomic) {
-      std::atomic_ref<uint32_t>(PC[-1]).store(DMB, std::memory_order_release); // Back-patch the half-barrier.
+      std::atomic_ref<uint32_t>(WPC[-1]).store(DMB, std::memory_order_release); // Back-patch the half-barrier.
     }
-    std::atomic_ref<uint32_t>(PC[0]).store(STR, std::memory_order_release);
-    ClearICache(&PC[-1], 8);
+    std::atomic_ref<uint32_t>(WPC[0]).store(STR, std::memory_order_release);
+    ClearICache(&WPC[-1], 8);
+    if (WPC != PC) {
+      ClearICache(&PC[-1], 8);
+    }
     // Back up one instruction and have another go
     return -4;
   } else if ((Instr & RCPC2_MASK) == LDAPUR_INST) { // LDAPUR*
@@ -2140,10 +2153,13 @@ std::optional<int32_t> HandleUnalignedAccess(FEXCore::Core::InternalThreadState*
     LDUR |= Instr & (0b1'1111'1111 << 12);
     if (HandleType != UnalignedHandlerType::NonAtomic) {
       // Ordering matters with cross-thread visibility!
-      std::atomic_ref<uint32_t>(PC[1]).store(DMB_LD, std::memory_order_release); // Back-patch the half-barrier.
+      std::atomic_ref<uint32_t>(WPC[1]).store(DMB_LD, std::memory_order_release); // Back-patch the half-barrier.
     }
-    std::atomic_ref<uint32_t>(PC[0]).store(LDUR, std::memory_order_release);
-    ClearICache(&PC[0], 8);
+    std::atomic_ref<uint32_t>(WPC[0]).store(LDUR, std::memory_order_release);
+    ClearICache(&WPC[0], 8);
+    if (WPC != PC) {
+      ClearICache(&PC[0], 8);
+    }
     // With the instruction modified, now execute again.
     return 0;
   } else if ((Instr & RCPC2_MASK) == STLUR_INST) { // STLUR*
@@ -2153,11 +2169,14 @@ std::optional<int32_t> HandleUnalignedAccess(FEXCore::Core::InternalThreadState*
     STUR |= DataReg;
     STUR |= Instr & (0b1'1111'1111 << 12);
     if (HandleType != UnalignedHandlerType::NonAtomic) {
-      std::atomic_ref<uint32_t>(PC[-1]).store(DMB, std::memory_order_release); // Back-patch the half-barrier.
+      std::atomic_ref<uint32_t>(WPC[-1]).store(DMB, std::memory_order_release); // Back-patch the half-barrier.
     }
-    std::atomic_ref<uint32_t>(PC[0]).store(STUR, std::memory_order_release);
+    std::atomic_ref<uint32_t>(WPC[0]).store(STUR, std::memory_order_release);
 
-    ClearICache(&PC[-1], 8);
+    ClearICache(&WPC[-1], 8);
+    if (WPC != PC) {
+      ClearICache(&PC[-1], 8);
+    }
     // Back up one instruction and have another go
     return -4;
   }

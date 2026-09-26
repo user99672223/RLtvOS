@@ -6,8 +6,8 @@ from the result's `mem.json`.
 
 | Step | What | Request | Verdict | Build | Peak phys_footprint | fps | Notes |
 |------|------|---------|---------|-------|---------------------|-----|-------|
-| A  | Harness: workflow, tv.py, debug server, JIT/VA/mem on screen | 001 | open (waiting on LAPTOP) | build-3 | — | — | CI green since run 3. tvOS 27 + TXM: JIT needs a debugger write per 16 KB page (tv.py jit, gdbremote backend); build-4+ carries the JIT arena protocol. |
-| B  | FEXCore on tvOS, bare x86-64 function | — | — | — | — | — | |
+| A  | Harness: workflow, tv.py, debug server, JIT/VA/mem on screen | 001 | open (waiting on LAPTOP; user HOLD on the TV) | build-11 | — | — | CI green since run 3. tvOS 27 + TXM: JIT via the StikDebug prepare-region protocol (app half `jit26.c`, laptop half LAPTOP's `jit.sh`); `/status.jit`. LAPTOP setup S0–S3, S5–S7 PASS on the laptop reference (no TV yet). |
+| B  | FEXCore on tvOS, bare x86-64 function | 001 (step 10, optional) | — | build-11 (FEX linked only if the tvOS FEX build passed) | — | — | Vendored FEX @59f85d6 + Darwin patches + RW/RX dual mapping; `tv.py fex selftest` (add, loop, sse, call, mem, syscall, exit). |
 | C1 | static hello (write/exit_group) | — | — | — | — | — | |
 | C2 | dynamic glibc hello (ld.so path) | — | — | — | — | — | |
 | C3 | busybox sh pipeline + background job | — | — | — | — | — | |
