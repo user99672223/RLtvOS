@@ -36,7 +36,7 @@ final class HostState {
             let first = prev.split(separator: "\n").first.map(String.init) ?? ""
             rl_log_str("host: previous crash report present: \(first)")
         }
-        let info = HostState.parseJSON(HostState.fill(4096) { _ = rl_sysinfo_json($0, 4096) })
+        let info = HostState.parseJSON(HostState.fill(4096) { rl_sysinfo_json($0, 4096) })
         lock.lock(); sysinfo = info; lock.unlock()
         rl_log_str("host: sysinfo \(HostState.compact(info))")
         workQueue.async { self.runProbes() }
@@ -60,7 +60,7 @@ final class HostState {
 
     @discardableResult
     func runVaProbe(stepLimitGB: Int32 = 1024) -> [String: Any] {
-        let s = HostState.fill(1024) { _ = rl_va_probe_json($0, 1024, stepLimitGB) }
+        let s = HostState.fill(1024) { rl_va_probe_json($0, 1024, stepLimitGB) }
         let d = HostState.parseJSON(s)
         lock.lock(); va = d; lock.unlock()
         rl_log_str("host: va \(s)")
@@ -70,7 +70,7 @@ final class HostState {
     // MARK: - accessors
 
     func memInfo() -> [String: Any] {
-        HostState.parseJSON(HostState.fill(1024) { _ = rl_mem_json($0, 1024) })
+        HostState.parseJSON(HostState.fill(1024) { rl_mem_json($0, 1024) })
     }
 
     func jitInfo() -> [String: Any] { lock.lock(); defer { lock.unlock() }; return jit }

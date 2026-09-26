@@ -16,11 +16,12 @@ final class DebugServer {
     func start(port: UInt16) {
         self.port = port
         let rc = httpd_start(port) { method, path, query, body, bodyLen, resp in
-            guard let resp = resp else { return }
+            guard let resp = resp, let method = method, let path = path, let query = query else { return }
             let m = String(cString: method)
             let p = String(cString: path)
             let q = String(cString: query)
-            let b = bodyLen > 0 ? Data(bytes: body, count: bodyLen) : Data()
+            var b = Data()
+            if bodyLen > 0, let body = body { b = Data(bytes: body, count: bodyLen) }
             let reply = DebugServer.shared.handle(method: m, path: p, query: q, body: b)
             reply.data.withUnsafeBytes { (raw: UnsafeRawBufferPointer) -> Void in
                 httpd_set_response(resp, reply.status, reply.type, raw.baseAddress, reply.data.count)
