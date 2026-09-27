@@ -30,14 +30,14 @@
 // and must be exactly `mov x16, #N ; brk #0xf00d ; ret`. x16 selects the
 // operation, x0/x1 carry the arguments, x0 carries the result.
 #if defined(__arm64__) || defined(__aarch64__)
-__attribute__((naked, noinline, used)) void *JIT26PrepareRegion(void *addr, size_t len) {
+__attribute__((naked, noinline, used, visibility("default"))) void *JIT26PrepareRegion(void *addr, size_t len) {
     __asm__ volatile(
         "mov x16, #1\n"
         "brk #0xf00d\n"
         "ret\n");
 }
 
-__attribute__((naked, noinline, used)) void JIT26Detach(void) {
+__attribute__((naked, noinline, used, visibility("default"))) void JIT26Detach(void) {
     __asm__ volatile(
         "mov x16, #0\n"
         "brk #0xf00d\n"

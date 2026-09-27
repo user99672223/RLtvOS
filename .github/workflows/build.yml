@@ -101,10 +101,12 @@ jobs:
               -DCMAKE_TOOLCHAIN_FILE="$PWD/cmake/tvos.toolchain.cmake" \
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_OSX_DEPLOYMENT_TARGET="$RL_DEPLOYMENT_TARGET" \
-            && cmake --build build/fex --parallel --target rlfex
+            && cmake --build build/fex --parallel --target rlfex -- -k 0
           } > fex-build.log 2>&1 || status=$?
           echo "cmake/ninja exit status: $status"
-          grep -E 'error:|FAILED:' fex-build.log | head -60 || true
+          # -k 0: keep going after a failure so one round shows every error.
+          echo "errors: $(grep -c ' error: ' fex-build.log || true) in $(grep -E '^FAILED:' fex-build.log | wc -l | tr -d ' ') objects"
+          grep -E ' error: |^FAILED:' fex-build.log | sort | uniq -c | sort -rn | head -80 || true
           if [ "$status" -ne 0 ]; then
             echo '--- last 120 lines of fex-build.log ---'; tail -120 fex-build.log
             echo "ok=false" >> "$GITHUB_OUTPUT"
@@ -178,9 +180,12 @@ jobs:
           ls -la app.ipa app.dSYM.zip || true
           unzip -l app.ipa | head -40
           plutil -p "Payload/$(basename "$APP")/Info.plist" | grep -E 'RLBuildTag|CFBundleIdentifier|CFBundleVersion|MinimumOSVersion'
-          # The JIT26 stubs must be in the main binary for the debugger script.
-          nm "Payload/$(basename "$APP")/RLtvOS" | grep -E ' T _JIT26(PrepareRegion|Detach)$' || echo "WARNING: JIT26 stubs not exported"
-          nm "Payload/$(basename "$APP")/RLtvOS" | grep -c ' T _rlfex_' || echo "note: rlfex not linked"
+          # The JIT26 stubs must be in the main binary (the helper only needs the
+          # brk instructions, but the symbols make the disassembly checkable).
+          BIN="Payload/$(basename "$APP")/RLtvOS"
+          nm -m "$BIN" | grep -i 'jit26' || echo "WARNING: no JIT26 symbols in the symbol table"
+          otool -tv "$BIN" | grep -A3 -i 'JIT26PrepareRegion\|JIT26Detach' | head -12 || true
+          echo "rlfex symbols: $(nm "$BIN" | grep -c ' T _rlfex_' || true)"
           echo "fex_linked=${{ steps.fex.outputs.ok }}"
           echo "sha256: $(shasum -a 256 app.ipa)"
 

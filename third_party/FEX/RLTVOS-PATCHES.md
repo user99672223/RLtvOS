@@ -117,3 +117,11 @@ icache maintenance is issued on both aliases. Identity on other platforms.
 - `Interface/Core/SharedCodeBufferManager.cpp` — `MAX_CODE_SIZE` 64 MB on
   Apple (all code buffers come out of one 128 MB pool whose pages are
   resident once prepared).
+
+Found by the first tvOS compile (build-11):
+
+- `FEXHeaderUtils/FEXHeaderUtils/Syscalls.h` — Apple `getrandom` is
+  `arc4random_buf` (`<stdlib.h>`); the tvOS SDK has no `<sys/random.h>`.
+- `FEXCore/Source/Utils/FileUtils.cpp` — Apple `getdents64` shim over
+  `fdopendir`/`readdir` (packed Darwin `struct dirent` records; EINVAL +
+  rewind when the buffer is too small, which the walkers already handle).

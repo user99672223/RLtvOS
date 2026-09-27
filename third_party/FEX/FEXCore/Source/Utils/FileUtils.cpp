@@ -6,6 +6,8 @@
 #include <FEXCore/Utils/LogManager.h>
 
 #ifndef _WIN32
+#include <cerrno>
+#include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -25,6 +27,39 @@ extern "C" NTSTATUS RtlUnicodeToUTF8N(OUT PCHAR UTF8StringDestination, IN ULONG 
 
 namespace FEXCore::FileUtils {
 #ifndef _WIN32
+#ifdef __APPLE__
+// RLtvOS: no getdents64 on Darwin. Read the whole directory through readdir
+// into the caller's buffer as packed Darwin `struct dirent` records (the
+// walkers below only use d_reclen/d_type/d_name). A buffer that is too small
+// reports EINVAL after rewinding the fd, which makes the callers retry with a
+// larger one; a fully read directory leaves the shared offset at the end so
+// the next call returns 0.
+static ssize_t getdents64(int fd, void* buf, size_t size) {
+  const int dupfd = ::dup(fd);
+  if (dupfd < 0) {
+    return -1;
+  }
+  DIR* dir = ::fdopendir(dupfd);
+  if (!dir) {
+    ::close(dupfd);
+    return -1;
+  }
+  ssize_t used = 0;
+  while (struct dirent* e = ::readdir(dir)) {
+    if (used + e->d_reclen > size) {
+      ::closedir(dir);
+      ::lseek(fd, 0, SEEK_SET);
+      errno = EINVAL;
+      return -1;
+    }
+    memcpy(static_cast<char*>(buf) + used, e, e->d_reclen);
+    used += e->d_reclen;
+  }
+  ::closedir(dir);
+  return used;
+}
+#endif
+
 static inline bool unlinkat(int fd, const char* path, bool dir) {
   if (::unlinkat(fd, path, dir ? AT_REMOVEDIR : 0) == -1) {
     return errno == ENOENT;

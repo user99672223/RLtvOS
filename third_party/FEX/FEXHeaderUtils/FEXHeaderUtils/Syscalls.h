@@ -10,7 +10,7 @@
 #if defined(__APPLE__) // RLtvOS
 #include <cerrno>
 #include <pthread.h>
-#include <sys/random.h>
+#include <stdlib.h> // arc4random_buf (the tvOS SDK has no <sys/random.h>)
 #elif !defined(_WIN32)
 #include <syscall.h>
 #else
@@ -94,15 +94,9 @@ inline int32_t pidfd_open(pid_t pid, unsigned int flags) {
 }
 
 inline ssize_t getrandom(void* buf, size_t buflen, unsigned int flags) {
-  size_t done = 0;
-  while (done < buflen) {
-    size_t chunk = buflen - done > 256 ? 256 : buflen - done;
-    if (::getentropy(static_cast<char*>(buf) + done, chunk) != 0) {
-      return done ? static_cast<ssize_t>(done) : -1;
-    }
-    done += chunk;
-  }
-  return static_cast<ssize_t>(done);
+  // arc4random_buf never fails and is kernel-seeded on Darwin.
+  ::arc4random_buf(buf, buflen);
+  return static_cast<ssize_t>(buflen);
 }
 #elif !defined(_WIN32)
 inline int32_t getcpu(uint32_t* cpu, uint32_t* node) {
