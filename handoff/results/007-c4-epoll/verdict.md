@@ -19,7 +19,7 @@
   Part B. It looks like address-space fragmentation from the X run, not a per-process leak.
 - B3 `handler` (recorded): exit 139; the guest handler is not entered yet.
 
-Build **build-28** (2cc2222, IPA sha256 c5909ce2…), app pid 1273, TV 07:07–07:11 CEST.
+Build **build-28** (2cc2222, IPA sha256 c5909ce2…), app pid 1273, TV 07:07–07:10 CEST.
 - **Prep:** `crashtest` rebuilt (customize.sh); native `fork-untouched` gives the expected line,
   exit 0. Manifest 70,401 entries.
 - **Install and launch:** install 11 s; `launch --fresh` woke the TV and started on the first try;
