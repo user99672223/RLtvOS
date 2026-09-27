@@ -837,6 +837,10 @@ def cmd_mem(a):
 
 
 def cmd_va(a):
+    if a.probe2:
+        # Reservation-limit experiments in the app (rl_va_probe2_json); a few seconds.
+        st, j = app_json("POST", "/run", {"argv": ["vaprobe2"], "env": [], "cwd": "/"}, timeout=180)
+        out(j, 0 if st == 200 else 1)
     path = "/va?probe=1&steps=%d" % a.steps if a.probe else "/va"
     st, j = app_json("GET", path, timeout=120)
     out({"ok": st == 200, "va": j}, 0 if st == 200 else 1)
@@ -1069,7 +1073,7 @@ def main():
     p = sp.add_parser("status"); p.set_defaults(fn=cmd_status)
     p = sp.add_parser("ping"); p.set_defaults(fn=cmd_ping)
     p = sp.add_parser("mem"); p.set_defaults(fn=cmd_mem)
-    p = sp.add_parser("va"); p.add_argument("--probe", action="store_true"); p.add_argument("--steps", type=int, default=1024); p.set_defaults(fn=cmd_va)
+    p = sp.add_parser("va"); p.add_argument("--probe", action="store_true"); p.add_argument("--probe2", action="store_true", help="reservation-limit experiments (256/64 MB steps, RW vs PROT_NONE, vm_allocate, rlimits)"); p.add_argument("--steps", type=int, default=1024); p.set_defaults(fn=cmd_va)
     p = sp.add_parser("crash"); p.add_argument("--clear", action="store_true"); p.add_argument("--out"); p.set_defaults(fn=cmd_crash)
     p = sp.add_parser("shot"); p.add_argument("--out"); p.set_defaults(fn=cmd_shot)
     p = sp.add_parser("log"); p.add_argument("--since", type=int); p.add_argument("--all", action="store_true"); p.add_argument("--follow", action="store_true"); p.add_argument("--interval", type=float, default=2.0); p.add_argument("--max", type=int, default=4000); p.add_argument("--out"); p.set_defaults(fn=cmd_log)

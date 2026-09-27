@@ -6,8 +6,8 @@ from the result's `mem.json`.
 
 | Step | What | Request | Verdict | Build | Peak phys_footprint | fps | Notes |
 |------|------|---------|---------|-------|---------------------|-----|-------|
-| A  | Harness: workflow, tv.py, debug server, JIT/VA/mem on screen | 001 | open (waiting on LAPTOP; user HOLD on the TV) | build-11 | — | — | CI green since run 3. tvOS 27 + TXM: JIT via the StikDebug prepare-region protocol (app half `jit26.c`, laptop half LAPTOP's `jit.sh`); `/status.jit`. LAPTOP setup S0–S3, S5–S7 PASS on the laptop reference (no TV yet). |
-| B  | FEXCore on tvOS, bare x86-64 function | 001 (step 10, optional) | — | build-11 (FEX linked only if the tvOS FEX build passed) | — | — | Vendored FEX @59f85d6 + Darwin patches + RW/RX dual mapping; `tv.py fex selftest` (add, loop, sse, call, mem, syscall, exit). |
+| A  | Harness: workflow, tv.py, debug server, JIT/VA/mem on screen | 001 | **PASS except JIT** (LAPTOP 2026-09-27, build-11): console, MEM, VA, crash handler, VFS mount/ls/cat on the TV; JIT blocked on the tvOS 27 developer disk image (issue 003) | build-11 | 39.6 MB (idle app) | — | TV numbers: VA max contiguous 6 GB, 7 × 1 GB reservations total (design changed to one shared guest address space, kernel-design §2); sigaltstack ok; RWX mmap allowed (mapped only); no Local Network prompt. |
+| B  | FEXCore on tvOS, bare x86-64 function | 002 (fex status/init without JIT) → JIT request | — | build-13 (FEX built + linked) | — | — | Vendored FEX @59f85d6 + Darwin patches + RW/RX dual mapping compiles and links (build-13). Execution needs the TXM pool → waits on the DDI. |
 | C1 | static hello (write/exit_group) | — | — | — | — | — | |
 | C2 | dynamic glibc hello (ld.so path) | — | — | — | — | — | |
 | C3 | busybox sh pipeline + background job | — | — | — | — | — | |

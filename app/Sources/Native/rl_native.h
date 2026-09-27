@@ -44,6 +44,12 @@ int rl_jit_exec_test_json(int page, int madv, int fresh, char *out, size_t cap);
 // unmapped again before returning.
 void rl_va_probe_json(char *out, size_t cap, int step_limit_gb);
 
+// Second VA probe (the TV reserved only ~7 GB with probe 1): how many
+// 256 MB / 64 MB reservations succeed for PROT_NONE, RW untouched (with and
+// without MAP_NORESERVE), vm_allocate, and RW touched sparsely; plus
+// RLIMIT_AS/RLIMIT_DATA. Everything unmapped again. Takes a few seconds.
+void rl_va_probe2_json(char *out, size_t cap);
+
 // Writes {"phys_footprint":..,"peak_phys_footprint":..,"resident_size":..,
 // "available":os_proc_available_memory(),...}.
 void rl_mem_json(char *out, size_t cap);

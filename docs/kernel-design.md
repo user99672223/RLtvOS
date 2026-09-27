@@ -29,49 +29,47 @@ on thread exit write 0 and `futex_wake` the address. `clone3` → ENOSYS
 
 ## 2. Memory
 
-Guest address = host address. Every guest process gets a reserved VA slice
-(`mmap(PROT_NONE, MAP_NORESERVE)`), size `SLICE` = `MEASURE`:
-`min(total_reservable / max_processes, 64 GB)`; Wine's processes are few
-(wineserver, services, winedevice ×2, plugplay, rpcss, explorer, the game
-+ conhost-like helpers ≈ 10). Xvfb/xdotool add a few. Target 16 processes
-× 4 GB slices if VA allows, else fewer/smaller (`MEASURE`).
+Measured on the TV (request 001, build-11): `/va` reports **max contiguous
+6 GB and only 7 × 1 GB PROT_NONE reservations in total** (ENOMEM after
+that) although the address range spans 0x1074_00000–0x71_8000_0000.
+`vaprobe2` (build-14) separates granularity / protection / API effects;
+until it says otherwise the budget for *all* guest processes together is
+**≈ 6 GB of virtual address space**, code buffers and JIT pool included.
 
-- `mmap` without a hint allocates top-down inside the slice from a simple
-  free-range allocator; `MAP_FIXED` inside the slice is honoured;
-  `MAP_FIXED` outside the slice (Wine reserves low 2 GB etc.) is checked
-  against the process's own slice only — Wine's preloader is skipped
-  (DECISION: exec of `*-preloader` runs the real loader instead).
+Consequences (replaces the per-process slice plan):
+
+- **One shared guest address space** (guest address = host address; no
+  per-process VA slices). A guest process owns a list of VMAs (start, len,
+  prot, kind, file, offset) used for `/proc/<pid>/maps`, `munmap` on exit
+  and bookkeeping; the memory itself is allocated lazily from the host with
+  plain `mmap`. Two guest processes cannot both map the same fixed address
+  — the second `MAP_FIXED` request into a range another process owns fails
+  with EEXIST-like ENOMEM and is logged (`vma-conflict`). Wine tolerates
+  relocation of PE images; its one fixed page (KUSER_SHARED_DATA at
+  0x7ffe0000) is a MAP_SHARED view of one wineserver section and is shared
+  by design. The low 4 GB is reachable because the app is linked with
+  `-pagezero_size 0x4000`.
+- ET_EXEC binaries (non-PIE, fixed vaddr, e.g. `hello-static`) are mapped at
+  their fixed address if free; ET_DYN binaries are loaded top-down under the
+  stack region like the kernel does (main PIE at a hint near the top of the
+  47-bit range, interpreter and libraries below it).
 - 4 KB guest pages on 16 KB host pages: a shadow protection table with one
-  byte per 4 KB page; the host page gets the union of the four 4 KB
-  protections. Guest `mprotect`/`mmap` update the shadow; a fault is checked
-  against the shadow: if the 4 KB page forbids the access → SIGSEGV to the
-  guest, else the host protection is the union and the fault cannot happen.
-  Wine's `NtProtectVirtualMemory` PAGE_NOACCESS guard pages therefore only
-  work at 16 KB granularity (acceptable; FEX on Windows already runs Wine
-  with 64 KB granularity issues documented).
-- `brk`: a reserved 64 MB region per process inside the slice, committed
-  on demand (`mprotect` RW).
-- Anonymous memory is committed lazily by the kernel anyway; we only
-  `mprotect` when needed. File mappings: `MAP_PRIVATE` of a guest file =
-  anonymous RW memory populated from the VFS on first touch? No: populate
-  eagerly for small files (< 8 MB) and use a fault-driven fill for large
-  read-only mappings (game paks are read via `ReadFile`, not mapped, in
-  RL). Start eager; optimise when `/mem` says so.
-- `munmap` returns the range to the slice allocator and re-`mmap`s it
-  `PROT_NONE` (so reservations stay).
-- `vfork` model: `fork` suspends the parent (all its threads are stopped at
-  a safe point: only the forking thread runs Linux `fork` in practice — Wine
-  forks from single-threaded helpers or right before exec), the child is a
-  new guest process object *sharing the parent's slice and memory* until it
-  calls `execve` or `_exit`. Its fd table is a copy (dup'd host fds where
-  needed). On `execve`, the child gets a fresh slice, the parent resumes.
-  Nested vfork: the same rule applies recursively (child of a child shares
-  until its exec). Anything a vfork child does besides
-  dup2/close/sigprocmask/chdir/setsid/execve/_exit is logged as
-  `vfork-unsafe` and is a bug to look at.
-
-FEX: guest memory allocation uses FEX's `MemAllocator`/`64BitAllocator`
-interface — replace with the slice allocator (`FEX:`).
+  byte per 4 KB page for every VMA; the host page gets the union of the four
+  4 KB protections. Guest code is never executed by the host (FEX reads it),
+  so host protections never include EXEC; a guest `PROT_NONE` sub-page is
+  only enforced at 16 KB granularity (Wine's guard pages: acceptable).
+- `brk`: 64 MB reserved after the executable, committed on demand.
+- File mappings: eager copy from the VFS into anonymous memory for the
+  mapped range (MAP_PRIVATE semantics for free); large read-only mappings
+  get a fault-driven fill later only if `/mem` says the eager copies hurt.
+- `munmap` returns memory to the host (`munmap`) — reservations are not
+  kept because VA is the scarce resource here.
+- `vfork` model: the child shares the parent's VMAs until `execve` or
+  `_exit` (it is the same address space anyway); on `execve` the child gets
+  fresh VMAs, the parent resumes. Anything a vfork child does besides
+  dup2/close/sigprocmask/chdir/setsid/execve/_exit is logged `vfork-unsafe`.
+- FEX code buffers come out of the 128 MB TXM pool (`jit26.c`); FEX's
+  `MAX_CODE_SIZE` is 64 MB on Apple so growth never needs 192 MB live.
 
 ## 3. Scheduling and blocking
 

@@ -401,6 +401,11 @@ final class HostState {
         case "vaprobe":
             let limit = argv.count > 1 ? (Int32(argv[1]) ?? 1024) : 1024
             return ["ok": true, "va": runVaProbe(stepLimitGB: limit)]
+        case "vaprobe2":
+            // Reservation-limit experiments (see rl_va_probe2_json); takes seconds.
+            let s = HostState.fill(4096) { rl_va_probe2_json($0, 4096) }
+            rl_log_str("host: va probe 2 \(s)")
+            return ["ok": true, "va2": HostState.parseJSON(s), "mem": memInfo()]
         case "memprobe":
             return ["ok": true, "mem": memInfo()]
         case "crashtest":
@@ -447,7 +452,7 @@ final class HostState {
                 "error": "no guest kernel yet (phase A)",
                 "builtins": ["jittest [--legacy [--trust] [--page N] [--madvise] [--fresh]]", "jitprep [--wait S]", "jitdetach",
                              "cfg key=value ...", "fex-init", "fex-selftest [add|loop|sse|call|mem|syscall|exit|all]",
-                             "fex-run HEX [rdi rsi rdx]", "vaprobe [steps]", "memprobe",
+                             "fex-run HEX [rdi rsi rdx]", "vaprobe [steps]", "vaprobe2", "memprobe",
                              "crashtest [0|1|2]", "log ...", "sleep s", "vfs-mount http://host:port [cache-subdir]",
                              "vfs-stat PATH [nofollow]", "vfs-ls PATH", "vfs-cat PATH [off] [len]"],
                 "argv": argv, "env": env, "cwd": cwd,

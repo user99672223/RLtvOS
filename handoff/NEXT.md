@@ -2,17 +2,22 @@
 
 ## repo
 
-- State: Phase A shipped; Phase B code written, awaiting its first tvOS
-  compile (build-11 on push). CI: `macos-15`, Xcode 16.4, tvOS 18.5 SDK,
+- State: Phase A answered by LAPTOP (result 001: PASS except JIT, TV
+  numbers in PROGRESS.md). Phase B code compiles and links into the app
+  since build-13 (`FEX built: true, FEX linked: true` in the release body);
+  it needs the TXM pool to run, which needs the tvOS 27 DDI (LAPTOP + user). CI: `macos-15`, Xcode 16.4, tvOS 18.5 SDK,
   deployment target now 18.0; jobs `host-tests`, `fex-host-check` (vendored
   FEXCore compiles on x86-64 Linux — passes locally) and `build`. The
   FEX step (`core/fex` → `librlfex_all.a`) is allowed to fail: the app is
   then built without FEX (`RL_HAVE_FEX` off, console says "FEX not linked")
   and `fex-build.log` is in the `build-logs-N` artifact; the release body
   says `FEX linked: true|false`.
-- Open request: `handoff/requests/001-harness.md` rewritten for the TXM
-  flow (build-11 or later). Waiting on `handoff/results/001-harness/`;
-  **user HOLD on the TV** stands (see ## laptop).
+- Request 001 is answered (FAIL = JIT only). Next request 002 (no-JIT
+  checks on build-14+): `tv.py va --probe2` (reservation limit experiments
+  that fix the memory design), `tv.py fex status|init` with FEX linked
+  (expect "JIT pool not ready", no crash), then the kernel loader dry-run
+  once it lands. The JIT + FEX self-test re-run is its own request when
+  the DDI exists.
 - JIT: app half of LAPTOP's issue done in `app/Sources/Native/jit26.c`
   (`/status.jit`, `tv.py jit|jitcfg`, details in `handoff/issues/001-jit.md`).
   Debugger-allocated region is the default; in-place pool is an experiment.
@@ -26,9 +31,12 @@
   exists (see CLAUDE.md "Shared branch" and DECISIONS.md).
 - LAPTOP's issue 002 script fixes applied (rootless rootfs, `--bind`,
   `--gpu`, wine i386 dummy, `-ldxguid -luuid`, `KEY= # comment`).
-- To do next (REPO, no TV needed): rlvfs support for LAPTOP's caddy layout
-  (`/manifest/index.json` + per-root JSON, files at `/<root>/<path>`);
-  Phase C design → syscall table for C1 (`docs/kernel-design.md`).
+- VFS layout question is closed: LAPTOP serves REPO's `assets_server.py`
+  (manifest.jsonl.gz), mount/ls/cat PASS on the TV.
+- To do next (REPO): `core/kernel` (fake kernel) C1/C2: ELF loader from the
+  VFS, shared address space with VMAs (kernel-design §2 rewritten for the
+  6 GB VA budget), fd table, syscall table with strace-format log,
+  `/run exec ARGV...` on the TV; host unit test for the loader.
 - `sigaltstack` is `__TVOS_PROHIBITED` at compile time; app resolves it via
   dlsym and reports `/status.sysinfo.sigaltstack`. Design of the signal
   delegator depends on that answer.

@@ -19,7 +19,9 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <sys/proc.h>
+#include <sys/resource.h>
 #include <sys/sysctl.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/ucontext.h>
 #include <unistd.h>
@@ -289,6 +291,82 @@ void rl_va_probe_json(char *out, size_t cap, int step_limit_gb) {
              "\"step_limit_gb\":%d,\"stop_errno\":%d,\"lowest\":\"0x%llx\",\"highest\":\"0x%llx\"}",
              max_contig, contig_errno, n, step_limit_gb, stop_errno,
              (unsigned long long)lowest, (unsigned long long)highest);
+}
+
+// The first probe found only ~7 GB of PROT_NONE reservations succeed on the
+// TV (ENOMEM after that) although the address range spans 450 GB. This one
+// separates the hypotheses: reservation granularity (256 MB steps), the
+// mapping API (mmap vs vm_allocate), page protection (PROT_NONE vs RW without
+// touching), MAP_NORESERVE, and whether committed memory (touched RW) counts
+// differently. Everything is unmapped again before returning.
+static size_t probe_steps(size_t step, int prot, int flags, int use_vm_allocate, int touch, int max_steps, int *stop_errno,
+                          double *ms) {
+    struct timeval t0, t1;
+    gettimeofday(&t0, NULL);
+    void **chunks = calloc((size_t)max_steps, sizeof(void *));
+    if (!chunks) return 0;
+    int n = 0;
+    *stop_errno = 0;
+    for (; n < max_steps; n++) {
+        void *p = NULL;
+        if (use_vm_allocate) {
+            vm_address_t a = 0;
+            kern_return_t kr = vm_allocate(mach_task_self(), &a, (vm_size_t)step, VM_FLAGS_ANYWHERE);
+            if (kr != KERN_SUCCESS) { *stop_errno = (int)kr; break; }
+            p = (void *)a;
+        } else {
+            p = mmap(NULL, step, prot, flags, -1, 0);
+            if (p == MAP_FAILED) { *stop_errno = errno; break; }
+        }
+        if (touch) {
+            // one byte per 1 MB: commits 1/4096 of the range, enough to see whether
+            // commit accounting differs from reservation accounting
+            for (size_t o = 0; o < step; o += 1u << 20) ((volatile char *)p)[o] = 1;
+        }
+        chunks[n] = p;
+    }
+    for (int i = 0; i < n; i++) {
+        if (use_vm_allocate) vm_deallocate(mach_task_self(), (vm_address_t)chunks[i], (vm_size_t)step);
+        else munmap(chunks[i], step);
+    }
+    free(chunks);
+    gettimeofday(&t1, NULL);
+    *ms = (double)(t1.tv_sec - t0.tv_sec) * 1000.0 + (double)(t1.tv_usec - t0.tv_usec) / 1000.0;
+    return (size_t)n;
+}
+
+void rl_va_probe2_json(char *out, size_t cap) {
+    const size_t MB = (size_t)1 << 20;
+    int e1, e2, e3, e4, e5, e6;
+    double m1, m2, m3, m4, m5, m6;
+    // 1. 256 MB PROT_NONE MAP_NORESERVE steps (like probe 1 but finer)
+    size_t n1 = probe_steps(256 * MB, PROT_NONE, MAP_PRIVATE | MAP_ANON | MAP_NORESERVE, 0, 0, 512, &e1, &m1);
+    // 2. 256 MB RW MAP_NORESERVE, untouched
+    size_t n2 = probe_steps(256 * MB, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON | MAP_NORESERVE, 0, 0, 512, &e2, &m2);
+    // 3. 256 MB RW without MAP_NORESERVE, untouched
+    size_t n3 = probe_steps(256 * MB, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, 0, 0, 512, &e3, &m3);
+    // 4. vm_allocate 256 MB steps
+    size_t n4 = probe_steps(256 * MB, 0, 0, 1, 0, 512, &e4, &m4);
+    // 5. 64 MB PROT_NONE steps (is the limit a count of mappings or a byte total?)
+    size_t n5 = probe_steps(64 * MB, PROT_NONE, MAP_PRIVATE | MAP_ANON | MAP_NORESERVE, 0, 0, 2048, &e5, &m5);
+    // 6. 256 MB RW touched sparsely (commit accounting), capped at 8 steps = 2 GB reserved, 8 MB touched
+    size_t n6 = probe_steps(256 * MB, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANON, 0, 1, 8, &e6, &m6);
+    struct rlimit rl_as, rl_data;
+    memset(&rl_as, 0, sizeof rl_as);
+    memset(&rl_data, 0, sizeof rl_data);
+    getrlimit(RLIMIT_AS, &rl_as);
+    getrlimit(RLIMIT_DATA, &rl_data);
+    snprintf(out, cap,
+             "{\"none_256mb\":{\"steps\":%zu,\"gb\":%.2f,\"stop_errno\":%d,\"ms\":%.0f},"
+             "\"rw_noreserve_256mb\":{\"steps\":%zu,\"gb\":%.2f,\"stop_errno\":%d,\"ms\":%.0f},"
+             "\"rw_256mb\":{\"steps\":%zu,\"gb\":%.2f,\"stop_errno\":%d,\"ms\":%.0f},"
+             "\"vm_allocate_256mb\":{\"steps\":%zu,\"gb\":%.2f,\"stop_kr\":%d,\"ms\":%.0f},"
+             "\"none_64mb\":{\"steps\":%zu,\"gb\":%.2f,\"stop_errno\":%d,\"ms\":%.0f},"
+             "\"rw_touched_256mb\":{\"steps\":%zu,\"gb\":%.2f,\"stop_errno\":%d,\"ms\":%.0f},"
+             "\"rlimit_as\":{\"cur\":%llu,\"max\":%llu},\"rlimit_data\":{\"cur\":%llu,\"max\":%llu}}",
+             n1, n1 * 0.25, e1, m1, n2, n2 * 0.25, e2, m2, n3, n3 * 0.25, e3, m3, n4, n4 * 0.25, e4, m4, n5, n5 / 16.0, e5, m5,
+             n6, n6 * 0.25, e6, m6, (unsigned long long)rl_as.rlim_cur, (unsigned long long)rl_as.rlim_max,
+             (unsigned long long)rl_data.rlim_cur, (unsigned long long)rl_data.rlim_max);
 }
 
 // ---------------------------------------------------------------- memory
