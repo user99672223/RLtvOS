@@ -39,8 +39,14 @@ esac
 
 P=$(probe)
 if ! has_dev "$P"; then
-  # Developer services missing → mount the personalized DDI through atvloadly (plumesign).
-  curl -fsS -m 240 -X POST "$ATVLOADLY_URL/api/devices/$ATVLOADLY_DEVICE_ID/mountimage" >/dev/null 2>&1 || true
+  # Developer services missing. tvOS 27+: install the Cryptex1 DDI (from Xcode 27, see
+  # .github/workflows/laptop-tvos-ddi.yml) via cryptexd; older tvOS: atvloadly's classic mount.
+  DDI=${JIT_DDI_DIR:-$HOME/rltvos/ddi/tvos27/published/Xcode_tvOS_DDI_Cryptex}
+  if [ -f "$DDI/Image.dmg.cryptex_info" ]; then
+    "$BIN" mount-ddi --tv "$TV" --pairing "$PAIR" --ddi "$DDI" >&2 || true
+  else
+    curl -fsS -m 240 -X POST "$ATVLOADLY_URL/api/devices/$ATVLOADLY_DEVICE_ID/mountimage" >/dev/null 2>&1 || true
+  fi
   P=$(probe)
   has_dev "$P" || { echo "{\"ok\":false,\"error\":\"debug services unavailable after mount\",\"probe\":$(printf '%s' "${P:-null}" | head -c 2000)}"; exit 1; }
 fi

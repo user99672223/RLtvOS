@@ -9,12 +9,15 @@ publish = false
 anyhow = "1"
 idevice = { version = "0.1.68", features = [
   "core_device",
+  "cryptexd",
   "debug_proxy",
   "remote_pairing",
   "rsd",
   "tcp",
+  "tss",
   "tunnel_tcp_stack",
 ] }
+plist = "1"
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "net", "time", "io-util", "fs"] }
 
 [profile.release]

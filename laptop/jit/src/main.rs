@@ -9,6 +9,7 @@
 //! RSD, then CoreDevice appservice (launch suspended) and debugserver (debugproxy).
 //!
 //!   rltvos-jit probe --tv IP:PORT --pairing FILE
+//!   rltvos-jit mount-ddi --tv IP:PORT --pairing FILE --ddi DIR   (tvOS 27+: Cryptex1 DDI)
 //!   rltvos-jit run   --tv IP:PORT --pairing FILE (--launch BUNDLE_ID | --pid PID)
 //!                    [--timeout SECS] [--status FILE] [--host NAME]
 //!
@@ -85,13 +86,14 @@ struct Args {
     pid: Option<u64>,
     timeout: u64,
     status: Option<String>,
+    ddi: Option<String>,
 }
 
 fn parse_args() -> Result<Args> {
     let mut it = std::env::args().skip(1);
     let cmd = it.next().ok_or_else(|| anyhow!("usage: rltvos-jit probe|run --tv IP:PORT --pairing FILE ..."))?;
     let (mut tv, mut pairing, mut host) = (None, None, "rltvos-laptop".to_string());
-    let (mut launch, mut pid, mut timeout, mut status) = (None, None, 900u64, None);
+    let (mut launch, mut pid, mut timeout, mut status, mut ddi) = (None, None, 900u64, None, None);
     while let Some(a) = it.next() {
         let mut val = || it.next().ok_or_else(|| anyhow!("{a} needs a value"));
         match a.as_str() {
@@ -102,6 +104,7 @@ fn parse_args() -> Result<Args> {
             "--pid" => pid = Some(val()?.parse().context("--pid")?),
             "--timeout" => timeout = val()?.parse().context("--timeout")?,
             "--status" => status = Some(val()?),
+            "--ddi" => ddi = Some(val()?),
             _ => bail!("unknown argument {a}"),
         }
     }
@@ -114,6 +117,7 @@ fn parse_args() -> Result<Args> {
         pid,
         timeout,
         status,
+        ddi,
     })
 }
 
@@ -267,6 +271,44 @@ async fn probe(a: &Args, out: &Out) -> Result<()> {
     Ok(())
 }
 
+/// tvOS/iOS 27+: install the developer disk image as a Cryptex1 through cryptexd
+/// (Apple TSS personalization over the laptop's internet). DIR holds the published
+/// Cryptex variant: BuildManifest.plist, Image.dmg, Image.dmg.trustcache,
+/// Image.dmg.cryptex_info, Image.dmg.root_hash.
+async fn mount_ddi(a: &Args, out: &Out) -> Result<()> {
+    let dir = std::path::PathBuf::from(a.ddi.as_deref().ok_or_else(|| anyhow!("mount-ddi needs --ddi DIR"))?);
+    let rd = |n: &str| std::fs::read(dir.join(n)).with_context(|| format!("read {}", dir.join(n).display()));
+    let manifest: plist::Dictionary = plist::from_bytes(&rd("BuildManifest.plist")?).context("parse BuildManifest.plist")?;
+    let identity = idevice::tss::select_cryptex_build_identity(&manifest)
+        .context("no '... Developer Disk Image Cryptex' identity in BuildManifest.plist")?
+        .clone();
+    let variant = identity
+        .get("Info")
+        .and_then(|i| i.as_dictionary())
+        .and_then(|i| i.get("Variant"))
+        .and_then(|v| v.as_string())
+        .unwrap_or("?")
+        .to_string();
+    let assets = idevice::cryptexd::Cryptex1Assets::from_parts(
+        rd("Image.dmg")?,
+        rd("Image.dmg.trustcache")?,
+        rd("Image.dmg.cryptex_info")?,
+        rd("Image.dmg.root_hash")?,
+        identity,
+    );
+    let (_rpc, mut adapter, mut hs) = open_tunnel(a.tv, &a.pairing, &a.host).await?;
+    if let Some(c) = idevice::cryptexd::installed_ddi(&mut adapter, &mut hs).await.context("cryptexd: list installed")? {
+        out.event("ddi", &[("state", js("already-installed")), ("identifier", js(&c.identifier)), ("version", js(&c.version))]);
+        return Ok(());
+    }
+    out.event("ddi", &[("state", js("installing")), ("variant", js(&variant))]);
+    let c = idevice::cryptexd::install_ddi(&mut adapter, &mut hs, &assets)
+        .await
+        .context("cryptexd: install DDI (TSS personalization + install)")?;
+    out.event("ddi", &[("state", js("installed")), ("identifier", js(&c.identifier)), ("version", js(&c.version))]);
+    Ok(())
+}
+
 async fn run(a: &Args, out: &Out) -> Result<()> {
     let (_rpc, mut adapter, mut hs) = open_tunnel(a.tv, &a.pairing, &a.host).await?;
     out.event("tunnel", &[("services", hs.services.len().to_string())]);
@@ -394,7 +436,8 @@ async fn main() {
     let res = match a.cmd.as_str() {
         "probe" => probe(&a, &out).await,
         "run" => run(&a, &out).await,
-        c => Err(anyhow!("unknown command {c} (probe|run)")),
+        "mount-ddi" => mount_ddi(&a, &out).await,
+        c => Err(anyhow!("unknown command {c} (probe|mount-ddi|run)")),
     };
     if let Err(e) = res {
         out.event("error", &[("error", js(&format!("{e:#}")))]);

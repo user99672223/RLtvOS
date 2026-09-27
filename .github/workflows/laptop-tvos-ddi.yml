@@ -1,0 +1,61 @@
+# laptop-tvos-ddi — LAPTOP-owned, one-off (not part of the app build).
+# tvOS 27 only exposes debugserver once its developer disk image (a Cryptex1 on
+# tvOS 27) is installed, and that image ships only with Xcode 27
+# (handoff/issues/003-jit-txm-brk-protocol.md). This job reads it from Xcode 27
+# on GitHub's `xcode-27` runner, turns it into the published layout with
+# doronz88/DeveloperDiskImage's update_ddi.py (Cryptex + Personalized variants),
+# and uploads it as a short-lived artifact that the laptop's JIT helper installs.
+name: laptop-tvos-ddi
+on:
+  workflow_dispatch:
+  push:
+    paths: ['.github/workflows/laptop-tvos-ddi.yml']
+permissions:
+  contents: read
+jobs:
+  tvos-ddi:
+    runs-on: xcode-27
+    timeout-minutes: 30
+    steps:
+      - name: Xcode and DDI locations
+        run: |
+          set -x
+          sw_vers
+          xcode-select -p
+          xcodebuild -version
+          ls /Applications | grep -i xcode
+          sudo xcodebuild -runFirstLaunch || true
+          ls -la /Library/Developer/CoreDevice/CandidateDDIs /Library/Developer/DeveloperDiskImages 2>/dev/null || true
+          find /Applications/Xcode_27.app /Library/Developer -iname '*DDI*' -maxdepth 7 2>/dev/null | head -40
+
+      - name: Collect the tvOS DDI dmg
+        run: |
+          set -euo pipefail
+          DMG=/Library/Developer/CoreDevice/CandidateDDIs/tvOS_DDI.dmg
+          if [ ! -f "$DMG" ]; then
+            DMG=$(find /Applications/Xcode_27.app /Library/Developer -name 'tvOS_DDI.dmg' 2>/dev/null | head -1)
+          fi
+          echo "tvOS DDI: ${DMG:-none}"
+          test -n "$DMG" && test -f "$DMG"
+          mkdir -p out/raw src/CoreDevice/CandidateDDIs
+          cp "$DMG" out/raw/tvOS_DDI.dmg
+          cp "$DMG" src/CoreDevice/CandidateDDIs/tvOS_DDI.dmg
+          shasum -a 256 out/raw/tvOS_DDI.dmg | tee out/raw/SHA256SUMS
+          ls -la out/raw
+
+      - name: Publish layout with doronz88's update_ddi.py (Cryptex + Personalized)
+        continue-on-error: true
+        run: |
+          set -x
+          brew install uv || true
+          git clone --depth 1 https://github.com/doronz88/DeveloperDiskImage ddi
+          cd ddi
+          uv run --script update_ddi.py --source-root ../src --platform tvOS
+          ls -laR PersonalizedImages | grep -i -A8 tvos
+          mkdir -p ../out/published && cp -R PersonalizedImages/Xcode_tvOS_DDI_* ../out/published/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tvos27-ddi
+          path: out/
+          retention-days: 5
