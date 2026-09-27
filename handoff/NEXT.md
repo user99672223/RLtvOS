@@ -2,28 +2,26 @@
 
 ## repo
 
-- State (2026-09-27, after result 002): **C1 PASS on the TV** (build-18: the
-  first x86-64 Linux program — PIE static hello — ran through VFS, loader,
-  syscall table and FEX with exact output), FEX self-test 7/7, VA budget
-  measured (6.25–6.5 GB, protection/API independent). **C2 FAIL**: SIGBUS in
-  ld.so's `memcmp` — FEX's TSO `ldapur` traps on an unaligned load crossing 16
-  bytes and rlfex's guard reported it instead of back-patching. Fixed in the
-  next build: the guard now calls FEX's `HandleUnalignedAccess` (HalfBarrier)
-  for a SIGBUS inside the thread's JIT code and resumes, like FEX's Linux
-  frontend; exited processes are reaped (memory/fds freed, translations
-  dropped); strace log escapes control characters; `tv.py launch` wakes a
-  sleeping TV first.
-- Next request 003 (once the build with this is released): C2 `hello-dyn`,
-  then `dash -c`, `busybox echo`, `/bin/ls -la /opt/rl/bin` (getdents64,
-  fstat, ioctl, statx fallback), `fex status` (`unaligned_fixups` count).
-- Then C3: vfork/execve/pipe2/dup3/wait4/kill/rt_sig*/sigaltstack and async
-  signals into a JIT'd thread (FEX deferred-signal path) — busybox sh
-  pipeline with a background job; `threads-test` needs clone + futex.
-- Known gaps: no SMC tracking (mprotect(+W) drops translations instead), one
-  lock around every rlvfs call, no signal delivery yet, no fork/execve/pipes.
-- Core facts to keep in mind: guest executables must be PIE (4 GB hard page
-  zero; `45-elf-audit.sh` found only compilers and python3 as ET_EXEC);
-  `/status.guest`, `/run exec|ps|guest-out|killall`; `tv.py exec|ps`.
+- State (2026-09-27): C1 **PASS** on the TV (build-18); C2 failed on an unaligned
+  TSO load (fixed in build-20, re-run = request 003, open). FEX self-test 7/7.
+- Landed for C3 (build-21; not yet exercised on the TV): fork/vfork/clone
+  (threads) with copy-on-write snapshots for fork, execve (+ `#!` scripts,
+  CLOEXEC, fresh address space, CPU-state reset in place), wait4/SIGCHLD/
+  zombies, pipe2 (64 KB ring, EOF/EPIPE/SIGPIPE, O_NONBLOCK), a real futex
+  (wait/wake/requeue/wake_op, timeouts), guest signals (rt_sigaction/
+  procmask/sigaltstack/kill/tgkill/tkill/rt_sigsuspend/pause, x86-64
+  rt_sigframe + rt_sigreturn, SA_RESTART/EINTR, default actions), interruptible
+  sleeps, process reaping. Host-tested: waiter/queue, pipes, futex, loader.
+- Next: read result 003. If C2 passes → request 004 = C3 on build-21
+  (`/bin/busybox sh -c '<c3.sh body>'`, `threads-test`, `sh -c 'echo one | tr o 0'`).
+  If not → fix C2 first.
+- Known gaps: signals reach a thread running JIT code only at its next
+  syscall (async delivery = FEX SRA spill, later); a guest fault kills the
+  process instead of raising SIGSEGV to a guest handler; exit_group does not
+  stop sibling threads that never syscall; no SMC tracking; one lock around
+  every rlvfs call; no sockets/poll/select (C4).
+- Facts: guest executables must be PIE (4 GB hard page zero); VA budget
+  6.25–6.5 GB; `/status.guest`, `/run exec|ps|guest-out|killall`; `tv.py exec|ps`.
 - CI: `macos-15`, Xcode 16.4, tvOS 18.5 SDK, deployment target 18.0; jobs
   `host-tests` (vfs_test + kernel_test), `fex-host-check` (FEXCore + rlkernel
   compile on x86-64), `build` (FEX step non-fatal → `FEX linked: true|false`

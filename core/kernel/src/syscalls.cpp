@@ -16,8 +16,10 @@
 #include <cstring>
 #include <thread>
 
+#include "futex.h"
 #include "linux_abi.h"
 #include "log.h"
+#include "pipe.h"
 #include "process.h"
 
 namespace rlk {
@@ -118,7 +120,9 @@ int64_t sys_read(Sc& c) {
     c.fmt("%d, 0x%llx, %llu", c.fd(0), (unsigned long long)c.a[1], (unsigned long long)c.a[2]);
     auto f = fd_get(c, c.fd(0));
     if (!f) return -lx::ebadf;
-    return f->read(reinterpret_cast<void*>(c.a[1]), (size_t)c.a[2]);
+    int64_t r = f->read(reinterpret_cast<void*>(c.a[1]), (size_t)c.a[2]);
+    if (r == -lx::eintr) c.t.restartable = true;
+    return r;
 }
 
 int64_t sys_write(Sc& c) {
@@ -130,7 +134,10 @@ int64_t sys_write(Sc& c) {
         c.fmt("%d, NULL, %zu", c.fd(0), len);
     }
     if (!f) return -lx::ebadf;
-    return f->write(reinterpret_cast<const void*>(c.a[1]), len);
+    int64_t r = f->write(reinterpret_cast<const void*>(c.a[1]), len);
+    if (r == -lx::epipe) K().send_signal_thread(c.t, lx::sigpipe, nullptr);
+    if (r == -lx::eintr) c.t.restartable = true;
+    return r;
 }
 
 int64_t sys_pread64(Sc& c) {
@@ -583,30 +590,49 @@ int64_t sys_time(Sc& c) {
     return now;
 }
 
+// Interruptible sleep until the monotonic deadline; writes the remainder.
+int64_t do_sleep(Sc& c, int64_t deadline_ns, lx::timespec* rem) {
+    for (;;) {
+        const uint64_t gen = c.t.waiter.prepare();
+        const int64_t now = MonotonicNs();
+        if (now >= deadline_ns) return 0;
+        auto r = c.t.waiter.wait(gen, deadline_ns);
+        if (r == Waiter::Result::Timeout) return 0;
+        if (r == Waiter::Result::Interrupted) {
+            const int64_t left = deadline_ns - MonotonicNs();
+            if (rem && left > 0) *rem = {left / 1000000000LL, left % 1000000000LL};
+            return -lx::eintr;  // nanosleep is never restarted (the remainder tells the caller)
+        }
+    }
+}
+
 int64_t sys_nanosleep(Sc& c) {
     c.fmt("0x%llx, 0x%llx", (unsigned long long)c.a[0], (unsigned long long)c.a[1]);
     auto* req = reinterpret_cast<const lx::timespec*>(c.a[0]);
     if (!req) return -lx::efault;
-    struct timespec h {(time_t)req->tv_sec, (long)req->tv_nsec};
-    ::nanosleep(&h, nullptr);
-    if (c.a[1]) *reinterpret_cast<lx::timespec*>(c.a[1]) = {0, 0};
-    return 0;
+    if (req->tv_nsec < 0 || req->tv_nsec >= 1000000000LL || req->tv_sec < 0) return -lx::einval;
+    auto* rem = reinterpret_cast<lx::timespec*>(c.a[1]);
+    if (rem) *rem = {0, 0};
+    return do_sleep(c, MonotonicNs() + req->tv_sec * 1000000000LL + req->tv_nsec, rem);
 }
 
 int64_t sys_clock_nanosleep(Sc& c) {
     c.fmt("%d, %d, 0x%llx, 0x%llx", (int)c.a[0], (int)c.a[1], (unsigned long long)c.a[2], (unsigned long long)c.a[3]);
     auto* req = reinterpret_cast<const lx::timespec*>(c.a[2]);
     if (!req) return -lx::efault;
-    struct timespec h {(time_t)req->tv_sec, (long)req->tv_nsec};
-    if (c.a[1] & 1) {  // TIMER_ABSTIME
+    if (req->tv_nsec < 0 || req->tv_nsec >= 1000000000LL || req->tv_sec < 0) return -lx::einval;
+    int64_t deadline;
+    if (c.a[1] & 1) {  // TIMER_ABSTIME in the given clock: convert to monotonic
         struct timespec now;
         clock_gettime((clockid_t)host_clock((int)c.a[0]), &now);
-        int64_t ns = (req->tv_sec - now.tv_sec) * 1000000000LL + (req->tv_nsec - now.tv_nsec);
+        const int64_t ns = (req->tv_sec - now.tv_sec) * 1000000000LL + (req->tv_nsec - now.tv_nsec);
         if (ns <= 0) return 0;
-        h = {(time_t)(ns / 1000000000LL), (long)(ns % 1000000000LL)};
+        deadline = MonotonicNs() + ns;
+    } else {
+        deadline = MonotonicNs() + req->tv_sec * 1000000000LL + req->tv_nsec;
     }
-    ::nanosleep(&h, nullptr);
-    return 0;
+    auto* rem = (c.a[1] & 1) ? nullptr : reinterpret_cast<lx::timespec*>(c.a[3]);
+    return do_sleep(c, deadline, rem);
 }
 
 int64_t sys_sched_yield(Sc& c) {
@@ -674,41 +700,138 @@ int64_t sys_rt_sigprocmask(Sc& c) {
 
 int64_t sys_sigaltstack(Sc& c) {
     c.fmt("0x%llx, 0x%llx", (unsigned long long)c.a[0], (unsigned long long)c.a[1]);
-    if (c.a[1]) memset(reinterpret_cast<void*>(c.a[1]), 0, 24);
+    const uint64_t rsp = c.f->State.gregs[FEXCore::X86State::REG_RSP];
+    const bool on_it = !(c.t.altstack_flags & lx::ss_disable) && c.t.altstack_size && rsp > c.t.altstack_sp &&
+                       rsp <= c.t.altstack_sp + c.t.altstack_size;
+    if (c.a[1]) {
+        auto* old = reinterpret_cast<lx::stack_t*>(c.a[1]);
+        old->ss_sp = c.t.altstack_sp;
+        old->ss_size = c.t.altstack_size;
+        old->ss_flags = (c.t.altstack_flags & lx::ss_disable) ? lx::ss_disable : (on_it ? lx::ss_onstack : 0);
+        old->pad = 0;
+    }
+    if (c.a[0]) {
+        if (on_it) return -lx::eperm;
+        const auto* ss = reinterpret_cast<const lx::stack_t*>(c.a[0]);
+        if (ss->ss_flags & lx::ss_disable) {
+            c.t.altstack_flags = lx::ss_disable;
+            c.t.altstack_sp = c.t.altstack_size = 0;
+        } else {
+            if (ss->ss_flags & ~lx::ss_onstack) return -lx::einval;
+            if (ss->ss_size < lx::minsigstksz) return -lx::enomem;
+            c.t.altstack_sp = ss->ss_sp;
+            c.t.altstack_size = ss->ss_size;
+            c.t.altstack_flags = 0;
+        }
+    }
+    return 0;
+}
+
+// Signal to a process id (>0), the caller's group (0), everyone (-1) or a group (<-1).
+int64_t send_to_pid(Sc& c, int pid, int sig, const lx::siginfo* info) {
+    Kernel& k = K();
+    std::vector<GuestProcess*> targets;
+    {
+        std::lock_guard<std::mutex> lk(k.mu);
+        for (auto& [id, p] : k.procs) {
+            if (p->state.load() != (int)ProcState::Running) continue;
+            if (pid > 0 && id != pid) continue;
+            if (pid == 0 && p->pgid != c.p.pgid) continue;
+            if (pid == -1 && id == c.p.pid) continue;
+            if (pid < -1 && p->pgid != -pid) continue;
+            targets.push_back(p.get());
+        }
+    }
+    if (targets.empty()) return -lx::esrch;
+    for (auto* p : targets) {
+        if (sig == lx::sigkill && p != &c.p) {
+            // Uncatchable: the target's threads exit at their next syscall / wakeup.
+            p->term_signal = lx::sigkill;
+            p->state = (int)ProcState::Dead;
+            for (auto& th : p->threads) th->waiter.notify();
+            continue;
+        }
+        k.send_signal(*p, sig, info);
+    }
     return 0;
 }
 
 int64_t sys_kill(Sc& c) {
     c.fmt("%d, %d", (int)c.a[0], (int)c.a[1]);
-    int pid = (int)c.a[0], sig = (int)c.a[1];
-    if (pid == c.p.pid || pid == 0) {
-        if (sig == 0) return 0;
-        if (sig == lx::sigkill || sig == lx::sigterm || sig == lx::sigabrt || sig == lx::sigsegv || sig == lx::sigint) {
-            K().exit_thread(c.t, c.f, 128 + sig, true);
-            return 0;
+    const int pid = (int)c.a[0], sig = (int)c.a[1];
+    if (sig < 0 || sig >= lx::nsig) return -lx::einval;
+    lx::siginfo si {};
+    si.si_signo = sig;
+    si.si_code = lx::si_user;
+    si.u.kill.pid = c.p.pid;
+    si.u.kill.uid = 1000;
+    if (sig == 0) return send_to_pid(c, pid, 0, nullptr) == -lx::esrch ? -lx::esrch : 0;
+    return send_to_pid(c, pid, sig, &si);
+}
+
+int64_t do_tkill(Sc& c, int tgid, int tid, int sig) {
+    if (sig < 0 || sig >= lx::nsig || tid <= 0) return -lx::einval;
+    Kernel& k = K();
+    GuestThread* target = nullptr;
+    {
+        std::lock_guard<std::mutex> lk(k.mu);
+        for (auto& [id, p] : k.procs) {
+            if (tgid > 0 && id != tgid) continue;
+            for (auto& th : p->threads) {
+                if (th->tid == tid && !th->exited) target = th.get();
+            }
         }
-        return 0;  // other signals to self: no handlers run yet (C3)
     }
-    return -lx::esrch;
+    if (!target) return -lx::esrch;
+    if (sig == 0) return 0;
+    lx::siginfo si {};
+    si.si_signo = sig;
+    si.si_code = lx::si_tkill;
+    si.u.kill.pid = c.p.pid;
+    si.u.kill.uid = 1000;
+    return k.send_signal_thread(*target, sig, &si);
 }
 
 int64_t sys_tgkill(Sc& c) {
     c.fmt("%d, %d, %d", (int)c.a[0], (int)c.a[1], (int)c.a[2]);
-    if ((int)c.a[1] == c.t.tid) {
-        int sig = (int)c.a[2];
-        if (sig == 0) return 0;
-        K().exit_thread(c.t, c.f, 128 + sig, true);
-        return 0;
-    }
-    return -lx::esrch;
+    return do_tkill(c, (int)c.a[0], (int)c.a[1], (int)c.a[2]);
 }
 
-// ---- exit / wait / spawn --------------------------------------------------------------------
+int64_t sys_tkill(Sc& c) {
+    c.fmt("%d, %d", (int)c.a[0], (int)c.a[1]);
+    return do_tkill(c, 0, (int)c.a[0], (int)c.a[1]);
+}
+
+int64_t sys_rt_sigreturn(Sc& c) {
+    c.args[0] = 0;
+    return K().sigreturn(c.t, c.f);
+}
+
+int64_t sys_rt_sigsuspend(Sc& c) {
+    c.fmt("0x%llx, %llu", (unsigned long long)c.a[0], (unsigned long long)c.a[1]);
+    if (!c.a[0] || c.a[1] != 8) return -lx::einval;
+    // The temporary mask is in force until the handler ran; the handler's
+    // frame saves the *old* mask, so sigreturn restores it.
+    const uint64_t old = c.t.sigmask;
+    c.t.sigmask = *reinterpret_cast<const uint64_t*>(c.a[0]) & ~(lx::sigbit(lx::sigkill) | lx::sigbit(lx::sigstop));
+    int64_t r = K().wait_for_signal(c.t);
+    // deliver_signals() runs after we return: it must see the temporary
+    // mask (to pick the signal) and save `old` in the frame.
+    c.t.saved_mask_valid = true;
+    c.t.saved_mask = old;
+    return r;
+}
+
+int64_t sys_pause(Sc& c) {
+    c.args[0] = 0;
+    return K().wait_for_signal(c.t);
+}
+
+// ---- exit / wait / clone / exec --------------------------------------------------------------
 
 int64_t sys_exit(Sc& c) {
     c.fmt("%d", (int)c.a[0]);
-    // single-threaded processes: exit == exit_group
-    K().exit_thread(c.t, c.f, (int)(c.a[0] & 0xff), c.p.threads.size() <= 1);
+    K().exit_thread(c.t, c.f, (int)(c.a[0] & 0xff), false);
     return 0;
 }
 
@@ -721,28 +844,115 @@ int64_t sys_exit_group(Sc& c) {
 int64_t sys_wait4(Sc& c) {
     c.fmt("%d, 0x%llx, 0x%llx, 0x%llx", (int)c.a[0], (unsigned long long)c.a[1], (unsigned long long)c.a[2],
           (unsigned long long)c.a[3]);
-    return -lx::echild;
+    if (c.a[3]) memset(reinterpret_cast<void*>(c.a[3]), 0, 144);  // rusage
+    return K().do_wait4(c.t, (int)c.a[0], reinterpret_cast<int32_t*>(c.a[1]), (int)c.a[2]);
+}
+
+int64_t sys_clone(Sc& c) {
+    // x86-64 order: flags, stack, parent_tid, child_tid, tls
+    c.fmt("0x%llx, 0x%llx, 0x%llx, 0x%llx, 0x%llx", (unsigned long long)c.a[0], (unsigned long long)c.a[1],
+          (unsigned long long)c.a[2], (unsigned long long)c.a[3], (unsigned long long)c.a[4]);
+    return K().do_clone(c.t, c.f, c.a[0], c.a[1], c.a[2], c.a[3], c.a[4]);
+}
+
+int64_t sys_fork(Sc& c) {
+    c.args[0] = 0;
+    return K().do_clone(c.t, c.f, lx::sigchld, 0, 0, 0, 0);
+}
+
+int64_t sys_vfork(Sc& c) {
+    c.args[0] = 0;
+    return K().do_clone(c.t, c.f, lx::clone_vm | lx::clone_vfork | lx::sigchld, 0, 0, 0, 0);
+}
+
+std::vector<std::string> read_string_array(uint64_t p) {
+    std::vector<std::string> out;
+    if (!p) return out;
+    auto* arr = reinterpret_cast<const char* const*>(p);
+    for (size_t i = 0; arr[i] && i < 65536; i++) out.emplace_back(arr[i]);
+    return out;
+}
+
+int64_t sys_execve(Sc& c) {
+    c.fmt("\"%s\", 0x%llx, 0x%llx", c.str(c.a[0]), (unsigned long long)c.a[1], (unsigned long long)c.a[2]);
+    if (!c.a[0]) return -lx::efault;
+    const std::string path = K().resolve_path(c.p, lx::at_fdcwd, c.str(c.a[0]));
+    auto argv = read_string_array(c.a[1]);
+    auto envp = read_string_array(c.a[2]);
+    return K().do_execve(c.t, c.f, path, std::move(argv), std::move(envp));
+}
+
+int64_t do_pipe(Sc& c, int32_t* fds, int flags) {
+    if (!fds) return -lx::efault;
+    if (flags & ~(lx::o_nonblock | lx::o_cloexec)) return -lx::einval;
+    std::shared_ptr<PipeFile> rd, wr;
+    MakePipe(rd, wr);
+    if (flags & lx::o_nonblock) {
+        rd->oflags |= lx::o_nonblock;
+        wr->oflags |= lx::o_nonblock;
+    }
+    int r = c.p.fds.alloc(rd, flags & lx::o_cloexec);
+    if (r < 0) return r;
+    int w = c.p.fds.alloc(wr, flags & lx::o_cloexec);
+    if (w < 0) {
+        c.p.fds.close(r);
+        return w;
+    }
+    fds[0] = r;
+    fds[1] = w;
+    return 0;
+}
+
+int64_t sys_pipe(Sc& c) {
+    c.fmt("0x%llx", (unsigned long long)c.a[0]);
+    return do_pipe(c, reinterpret_cast<int32_t*>(c.a[0]), 0);
+}
+
+int64_t sys_pipe2(Sc& c) {
+    c.fmt("0x%llx, 0x%llx", (unsigned long long)c.a[0], (unsigned long long)c.a[1]);
+    return do_pipe(c, reinterpret_cast<int32_t*>(c.a[0]), (int)c.a[1]);
 }
 
 int64_t sys_futex(Sc& c) {
     c.fmt("0x%llx, %d, %u, 0x%llx, 0x%llx, %u", (unsigned long long)c.a[0], (int)c.a[1], (unsigned)c.a[2],
           (unsigned long long)c.a[3], (unsigned long long)c.a[4], (unsigned)c.a[5]);
     const int op = (int)c.a[1] & lx::futex_cmd_mask;
+    const bool realtime = (int)c.a[1] & lx::futex_clock_realtime;
     auto* uaddr = reinterpret_cast<uint32_t*>(c.a[0]);
-    if (!uaddr) return -lx::efault;
+    if (!uaddr || (c.a[0] & 3)) return -lx::einval;
+    auto& ft = FutexTable::get();
     switch (op) {
-        case lx::futex_wake:
-        case lx::futex_wake_bitset: return 0;  // nobody waits yet (single-threaded processes)
         case lx::futex_wait:
         case lx::futex_wait_bitset: {
-            if (__atomic_load_n(uaddr, __ATOMIC_SEQ_CST) != (uint32_t)c.a[2]) return -lx::eagain;
-            // No waker can exist yet: honour a timeout, otherwise give up after 10 ms.
             const auto* to = reinterpret_cast<const lx::timespec*>(c.a[3]);
-            struct timespec h {0, 10 * 1000 * 1000};
-            if (to && op == lx::futex_wait) h = {(time_t)to->tv_sec, (long)to->tv_nsec};
-            ::nanosleep(&h, nullptr);
-            return -lx::etimedout;
+            int64_t deadline = 0;
+            if (to) {
+                if (to->tv_nsec < 0 || to->tv_nsec >= 1000000000LL) return -lx::einval;
+                const int64_t ns = to->tv_sec * 1000000000LL + to->tv_nsec;
+                if (op == lx::futex_wait) {
+                    deadline = MonotonicNs() + ns;  // relative
+                } else if (realtime) {              // absolute CLOCK_REALTIME → monotonic
+                    struct timespec now;
+                    clock_gettime((clockid_t)host::kClockRealtime, &now);
+                    deadline = MonotonicNs() + (ns - (now.tv_sec * 1000000000LL + now.tv_nsec));
+                } else {                            // absolute CLOCK_MONOTONIC (host clock == our MonotonicNs)
+                    struct timespec now;
+                    clock_gettime((clockid_t)host::kClockMonotonic, &now);
+                    deadline = MonotonicNs() + (ns - (now.tv_sec * 1000000000LL + now.tv_nsec));
+                }
+                if (deadline <= 0) deadline = 1;
+            }
+            const uint32_t bits = op == lx::futex_wait ? ~0u : (uint32_t)c.a[5];
+            int r = ft.wait(uaddr, (uint32_t)c.a[2], deadline, bits);
+            if (r == -lx::eintr) c.t.restartable = true;
+            return r;
         }
+        case lx::futex_wake: return ft.wake(uaddr, (int)c.a[2], ~0u);
+        case lx::futex_wake_bitset: return ft.wake(uaddr, (int)c.a[2], (uint32_t)c.a[5]);
+        case lx::futex_requeue: return ft.requeue(uaddr, (int)c.a[2], (int)c.a[3], reinterpret_cast<uint32_t*>(c.a[4]), false, 0);
+        case lx::futex_cmp_requeue:
+            return ft.requeue(uaddr, (int)c.a[2], (int)c.a[3], reinterpret_cast<uint32_t*>(c.a[4]), true, (uint32_t)c.a[5]);
+        case lx::futex_wake_op: return ft.wake_op(uaddr, (int)c.a[2], reinterpret_cast<uint32_t*>(c.a[4]), (int)c.a[3], (uint32_t)c.a[5]);
         default: return -lx::enosys;
     }
 }
@@ -827,7 +1037,10 @@ void init_table() {
     done = true;
     set(0, sys_read); set(1, sys_write); set(2, sys_open); set(3, sys_close); set(4, sys_stat); set(5, sys_fstat);
     set(6, sys_lstat); set(8, sys_lseek); set(9, sys_mmap); set(10, sys_mprotect); set(11, sys_munmap);
-    set(12, sys_brk); set(13, sys_rt_sigaction); set(14, sys_rt_sigprocmask); set(15, sys_enosys /*rt_sigreturn*/);
+    set(12, sys_brk); set(13, sys_rt_sigaction); set(14, sys_rt_sigprocmask); set(15, sys_rt_sigreturn);
+    set(22, sys_pipe); set(34, sys_pause); set(56, sys_clone); set(57, sys_fork); set(58, sys_vfork); set(59, sys_execve);
+    set(130, sys_rt_sigsuspend); set(200, sys_tkill); set(293, sys_pipe2); set(435, sys_enosys /*clone3 → glibc uses clone*/);
+    set(247, sys_enosys /*waitid*/);
     set(16, sys_ioctl); set(17, sys_pread64); set(18, sys_pwrite64); set(19, sys_readv); set(20, sys_writev);
     set(21, sys_access); set(24, sys_sched_yield); set(25, sys_mremap); set(26, sys_msync); set(28, sys_madvise);
     set(32, sys_dup); set(33, sys_dup2); set(35, sys_nanosleep); set(39, sys_getpid); set(41, sys_socket);
@@ -866,8 +1079,12 @@ void Kernel::handle_syscall(GuestThread& t, void* frame_) {
     t.syscalls++;
     t.proc->syscalls++;
     total_syscalls++;
-    if (t.proc->state.load() == (int)ProcState::Dead) {  // killed from the outside
-        exit_thread(t, f, 137, true);
+    t.syscall_nr = c.nr;
+    t.restartable = false;
+    if (t.proc->state.load() != (int)ProcState::Running) {
+        // The group is exiting (exit_group elsewhere, SIGKILL, killall): leave quietly.
+        const int code = t.proc->term_signal ? 128 + t.proc->term_signal : t.proc->exit_code;
+        exit_thread(t, f, code, t.proc->state.load() == (int)ProcState::Dead, t.proc->term_signal);
         return;
     }
     int64_t ret;
@@ -883,9 +1100,20 @@ void Kernel::handle_syscall(GuestThread& t, void* frame_) {
         S.gregs[REG_RAX] = 0;  // rip already points at the hlt page
         return;
     }
+    if (t.no_retval) {  // execve, rt_sigreturn: the state is the new context
+        t.no_retval = false;
+        strace(t, Nr(c.nr), c.args, ret);
+        if (has_deliverable(t)) deliver_signals(t, f, 0);
+        return;
+    }
     strace(t, Nr(c.nr), c.args, ret);
     S.gregs[REG_RAX] = (uint64_t)ret;
     S.rip += 2;  // past `syscall`
+    if (has_deliverable(t)) deliver_signals(t, f, ret);
+    if (t.saved_mask_valid) {  // rt_sigsuspend without a handler run: mask back
+        t.saved_mask_valid = false;
+        t.sigmask = t.saved_mask;
+    }
 }
 
 }  // namespace rlk

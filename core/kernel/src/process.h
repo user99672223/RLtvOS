@@ -16,13 +16,19 @@
 #include "linux_abi.h"
 #include "log.h"
 #include "mm.h"
+#include "waitq.h"
+
+namespace FEXCore::Context {
+class Context;
+}
 
 namespace rlk {
 
 struct GuestProcess;
 
 // The guest process/thread whose syscall this host thread is serving
-// (nullptr on app threads). Used for /proc/self and FEX's signal deferring.
+// (nullptr on app threads). Used for /proc/self, FEX's signal deferring and
+// the copy-on-write fault hook.
 struct GuestThread;
 extern thread_local GuestProcess* t_current_proc;
 extern thread_local GuestThread* t_current_thread;
@@ -48,7 +54,23 @@ struct GuestThread {
     uint64_t syscalls = 0;
     void* callret_alloc = nullptr;
     size_t callret_alloc_size = 0;
-    uint64_t sigmask = 0;
+
+    // ---- signals ----
+    uint64_t sigmask = 0;           // blocked signals (bit sig-1)
+    uint64_t sigpending = 0;        // thread-directed pending signals
+    lx::siginfo siginfo_by_sig[lx::nsig + 1] {};
+    uint64_t altstack_sp = 0, altstack_size = 0;
+    int altstack_flags = lx::ss_disable;
+
+    // ---- blocking / syscall state ----
+    Waiter waiter;                  // blocking syscalls sleep here; signals notify it
+    uint64_t syscall_nr = 0;        // number of the syscall in progress (restart)
+    bool restartable = false;       // the syscall returned -EINTR and may be restarted after a handler
+    bool no_retval = false;         // execve / rt_sigreturn: leave RAX and RIP alone
+    bool vfork_done = false;        // set by our forked child when it execs or exits
+    bool in_vfork_wait = false;     // not interruptible while waiting for the child
+    bool saved_mask_valid = false;  // rt_sigsuspend: restore `saved_mask` after delivery
+    uint64_t saved_mask = 0;
 };
 
 enum class ProcState { Running, Zombie, Dead };
@@ -59,21 +81,28 @@ struct GuestProcess {
     std::string comm;   // basename, max 15 chars
     std::string cwd = "/";
     std::vector<std::string> argv, envp;
-    std::shared_ptr<AddressSpace> mm;
+    std::shared_ptr<AddressSpace> mm;   // shared with the parent while a forked child has not exec'd
     FdTable fds;
     std::vector<std::unique_ptr<GuestThread>> threads;
     ExecLayout layout;
     std::atomic<int> state {(int)ProcState::Running};
     int exit_code = 0;
+    int term_signal = 0;            // killed by this signal (0 = exited normally)
+    bool reaped = false;            // status collected by wait4 (or nobody to collect it)
     lx::sigaction sigactions[lx::nsig] {};
+    uint64_t sigpending = 0;        // process-directed pending signals
+    lx::siginfo siginfo_by_sig[lx::nsig + 1] {};
     uint32_t umask = 022;
     std::mutex out_mu;
     std::string output;   // captured fd 1/2 (last 64 KB)
     std::atomic<uint64_t> syscalls {0};
     double start_ms = 0, end_ms = 0;
     bool dry_run = false;
+    WaitQueue child_wq;             // wait4() sleepers
+    GuestThread* vfork_parent = nullptr;  // forked child: the suspended parent thread to release
 
     void append_output(int fd, std::string_view data);
+    size_t live_threads() const;
 };
 
 class Kernel {
@@ -93,6 +122,21 @@ public:
     std::string output_of(int pid);
     int kill_all();
     GuestProcess* find(int pid);   // caller holds mu
+    void reap(GuestProcess& p);    // frees memory + files of an exited process
+
+    // clone(2) for threads, fork (SIGCHLD only) and vfork (CLONE_VM|CLONE_VFORK).
+    // Forks run vfork-style: the child runs in the parent's address space
+    // while the parent waits, behind a copy-on-write snapshot that is undone
+    // when the child execs or exits. Returns the child's id or -errno.
+    int64_t do_clone(GuestThread& t, void* frame, uint64_t flags, uint64_t stack, uint64_t ptid, uint64_t ctid,
+                     uint64_t tls);
+    // execve(2): loads the new image into a fresh address space and resets
+    // the calling thread's CPU state. Returns 0 (t.no_retval set) or -errno
+    // with the old image intact.
+    int64_t do_execve(GuestThread& t, void* frame, const std::string& path, std::vector<std::string> argv,
+                      std::vector<std::string> envp);
+    int64_t do_wait4(GuestThread& t, int pid, int32_t* status_out, int options);
+    void release_vfork_parent(GuestProcess& p);
 
     // ---- guest filesystem (rlkernel.cpp, over rlvfs) ----
     // Absolute canonical guest path in; -errno out.
@@ -105,10 +149,27 @@ public:
 
     // ---- FEX ----
     bool ensure_fex(std::string& err);
+    FEXCore::Context::Context* fex_context();
     void handle_syscall(GuestThread& t, void* cpu_state_frame);  // syscalls.cpp
     void thread_main(GuestThread* t);                            // host thread body
-    void exit_thread(GuestThread& t, void* frame, int code, bool whole_group);
-    void reap(GuestProcess& p);   // frees memory + files of an exited process
+    // Ends the calling thread (whole_group: the process) with exit code
+    // `code`; term_signal != 0 records death by that signal for wait4.
+    void exit_thread(GuestThread& t, void* frame, int code, bool whole_group, int term_signal = 0);
+    static bool host_fault_hook(int sig, int code, uint64_t addr, uint64_t pc);
+
+    // ---- signals (signals.cpp) ----
+    // Queue a signal for a process / a thread (nullptr info = SI_USER from
+    // the caller). Ignored signals are discarded here, like Linux does.
+    int send_signal(GuestProcess& p, int sig, const lx::siginfo* info);
+    int send_signal_thread(GuestThread& t, int sig, const lx::siginfo* info);
+    bool has_deliverable(GuestThread& t) const;
+    // End of a syscall (RAX/RIP already set): delivers one pending signal,
+    // restarting the interrupted syscall when the action asks for it.
+    void deliver_signals(GuestThread& t, void* frame, int64_t syscall_ret);
+    int64_t sigreturn(GuestThread& t, void* frame);
+    // Blocks the calling thread until a deliverable signal arrives (pause,
+    // rt_sigsuspend): returns -EINTR.
+    int64_t wait_for_signal(GuestThread& t);
 
     // ---- log ----
     void strace(GuestThread& t, const char* name, const char* args, int64_t ret);
@@ -117,8 +178,9 @@ public:
     std::atomic<uint64_t> total_syscalls {0};
     std::atomic<bool> fex_ready {false};
     std::mutex mu;
+    std::mutex sig_mu;             // pending bits and siginfo
     std::map<int, std::unique_ptr<GuestProcess>> procs;
-    int next_pid = 1, next_tid = 1;
+    int next_id = 1;               // pids and tids share the number space (main thread tid == pid)
     uint64_t hlt_page = 0;
     uint64_t hwcap = 0, hwcap2 = 0;
     const double boot_ms = NowMs();   // /proc/uptime, btime
@@ -126,8 +188,12 @@ public:
 private:
     Kernel() = default;
     void* vfs_ = nullptr;
-    bool create_fex_thread(GuestThread& t, std::string& err);
+    bool create_fex_thread(GuestThread& t, std::string& err, const void* initial_state);
     void destroy_fex_thread(GuestThread& t);
+    bool start_host_thread(GuestThread& t, std::string& err);
+    int load_image(const std::string& exe, const std::vector<std::string>& argv, const std::vector<std::string>& envp,
+                   AddressSpace& mm, ExecLayout& layout, std::string& err, std::string* resolved_exe);
+    void process_exited(GuestProcess& p, GuestThread& t, int code, int term_signal);
 };
 
 }  // namespace rlk

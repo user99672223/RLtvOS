@@ -59,6 +59,20 @@ public:
     uint64_t mapped_bytes() const;
     size_t vma_count() const;
 
+    // ---- fork support: copy-on-write snapshots --------------------------------
+    // A forked child runs in its parent's address space while the parent is
+    // suspended (vfork-style). push_snapshot() write-protects every writable
+    // host page and copies the VMA table + brk; until pop_snapshot(), the
+    // first write to a tracked page (a guest store → host fault →
+    // cow_fault(); kernel writes → touched internally) saves the page's old
+    // contents. pop_snapshot() restores the saved pages, the VMA table and
+    // brk, and unmaps what was mapped since, so the parent resumes with its
+    // memory exactly as it left it. Snapshots nest (a child forking again).
+    void push_snapshot();
+    void pop_snapshot();
+    bool cow_fault(uint64_t addr);   // true: the write is now allowed, retry it
+    bool snapshot_active() const;
+
     // Program break, managed by the process (bookkeeping lives here so a
     // vfork child sharing the space sees the same values).
     uint64_t brk_start = 0, brk_cur = 0, brk_end = 0;
@@ -94,6 +108,18 @@ private:
                              uint64_t ino);
     void release_uncovered_host_pages(uint64_t start, uint64_t end);
     bool make_writable(uint64_t start, uint64_t end);
+
+    struct Snapshot {
+        std::map<uint64_t, Vma> vmas;
+        uint64_t brk_start, brk_cur, brk_end;
+        std::map<uint64_t, std::vector<uint8_t>> pages;  // host page → contents before the first write
+        std::vector<uint64_t> tracked;                     // sorted host pages write-protected for tracking
+        bool is_tracked(uint64_t hp) const;
+    };
+    std::vector<Snapshot> snaps_;
+    bool cow_tracked_locked(uint64_t hp) const;      // tracked and not yet saved in the top snapshot
+    void cow_touch_locked(uint64_t start, uint64_t end);  // save before a kernel write
+    std::vector<uint64_t> covered_host_pages_locked(const std::map<uint64_t, Vma>& vmas) const;
 };
 
 }  // namespace rlk

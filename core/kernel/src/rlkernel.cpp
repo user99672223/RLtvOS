@@ -297,7 +297,7 @@ std::string gen_global(Kernel& k, const std::string& name) {
             std::lock_guard<std::mutex> lk(k.mu);
             n = k.procs.size();
         }
-        snprintf(buf, sizeof buf, "0.10 0.05 0.01 1/%zu %d\n", n + 1, k.next_pid);
+        snprintf(buf, sizeof buf, "0.10 0.05 0.01 1/%zu %d\n", n + 1, k.next_id);
         return buf;
     }
     if (name == "filesystems") return "nodev\tsysfs\nnodev\ttmpfs\nnodev\tproc\nnodev\tdevtmpfs\nnodev\tdevpts\n\text4\n";
@@ -313,7 +313,7 @@ std::string gen_global(Kernel& k, const std::string& name) {
             s += buf;
         }
         snprintf(buf, sizeof buf, "intr 0\nctxt 0\nbtime %lld\nprocesses %d\nprocs_running 1\nprocs_blocked 0\n",
-                 (long long)(k.boot_ms / 1000.0), k.next_pid);
+                 (long long)(k.boot_ms / 1000.0), k.next_id);
         return s + buf;
     }
     if (name == "cmdline") return "BOOT_IMAGE=/vmlinuz root=/dev/rltvos ro quiet\n";

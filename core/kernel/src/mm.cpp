@@ -8,6 +8,7 @@
 #include <cerrno>
 #include <cstdio>
 #include <cstring>
+#include <iterator>
 
 #include "linux_abi.h"
 #include "log.h"
@@ -184,6 +185,9 @@ void AddressSpace::apply_host_prot(uint64_t start, uint64_t end) {
     };
     for (uint64_t p = hp; p < he; p += host_page()) {
         int u = covered_by_own(p) ? union_prot(p) : -1;
+        // A page tracked by an active fork snapshot stays write-protected
+        // until its old contents are saved (cow_fault / cow_touch).
+        if (u > 0 && cow_tracked_locked(p)) u &= ~lx::prot_write;
         if (u != run_prot) {
             flush(p);
             run_start = p;
@@ -288,6 +292,7 @@ int64_t AddressSpace::map_fixed_locked(uint64_t start, uint64_t len, int prot, b
         if (own) {
             const uint64_t hpe = hp + host_page();
             uint64_t zs = std::max(hp, start), ze = std::min(hpe, end);
+            cow_touch_locked(hp, hpe);
             ::mprotect(reinterpret_cast<void*>(hp), host_page(), host::kProtRead | host::kProtWrite);
             memset(reinterpret_cast<void*>(zs), 0, ze - zs);
         }
@@ -351,6 +356,7 @@ int64_t AddressSpace::unmap(uint64_t addr, uint64_t len) {
     if (len == 0) return -lx::einval;
     len = lx::PageUp(len);
     std::lock_guard<std::mutex> lk(mu_);
+    cow_touch_locked(addr, addr + len);  // a forked child unmapping: the parent wants the contents back
     erase_range_locked(addr, addr + len);
     release_uncovered_host_pages(addr, addr + len);
     invalidate(addr, addr + len);
@@ -390,6 +396,7 @@ bool AddressSpace::copy_in(uint64_t addr, const void* src, size_t len) {
         if (it == vmas_.begin() || std::prev(it)->second.end <= p) return false;
         p = std::prev(it)->second.end;
     }
+    cow_touch_locked(addr, addr + len);
     if (!make_writable(addr, addr + len)) return false;
     memcpy(reinterpret_cast<void*>(addr), src, len);
     apply_host_prot(addr, addr + len);
@@ -400,11 +407,110 @@ bool AddressSpace::copy_in(uint64_t addr, const void* src, size_t len) {
 bool AddressSpace::zero(uint64_t addr, size_t len) {
     if (len == 0) return true;
     std::lock_guard<std::mutex> lk(mu_);
+    cow_touch_locked(addr, addr + len);
     if (!make_writable(addr, addr + len)) return false;
     memset(reinterpret_cast<void*>(addr), 0, len);
     apply_host_prot(addr, addr + len);
     invalidate(lx::PageDown(addr), lx::PageUp(addr + len));
     return true;
+}
+
+// ---- fork snapshots (copy-on-write) --------------------------------------------------
+
+bool AddressSpace::Snapshot::is_tracked(uint64_t hp) const {
+    return std::binary_search(tracked.begin(), tracked.end(), hp);
+}
+
+bool AddressSpace::cow_tracked_locked(uint64_t hp) const {
+    if (snaps_.empty()) return false;
+    const Snapshot& s = snaps_.back();
+    return s.is_tracked(hp) && !s.pages.count(hp);
+}
+
+void AddressSpace::cow_touch_locked(uint64_t start, uint64_t end) {
+    if (snaps_.empty()) return;
+    Snapshot& s = snaps_.back();
+    for (uint64_t hp = host_down(start); hp < host_up(end); hp += host_page()) {
+        if (!s.is_tracked(hp) || s.pages.count(hp)) continue;
+        std::vector<uint8_t> copy(host_page());
+        memcpy(copy.data(), reinterpret_cast<const void*>(hp), host_page());  // readable: tracked pages keep R
+        s.pages.emplace(hp, std::move(copy));
+        apply_host_prot(hp, hp + host_page());  // saved → writable again
+    }
+}
+
+bool AddressSpace::cow_fault(uint64_t addr) {
+    std::lock_guard<std::mutex> lk(mu_);
+    if (snaps_.empty()) return false;
+    const uint64_t hp = host_down(addr);
+    Snapshot& s = snaps_.back();
+    if (!s.is_tracked(hp)) return false;
+    if (!s.pages.count(hp)) cow_touch_locked(hp, hp + host_page());
+    else apply_host_prot(hp, hp + host_page());  // already saved: a stale protection, refresh it
+    return true;
+}
+
+bool AddressSpace::snapshot_active() const {
+    std::lock_guard<std::mutex> lk(mu_);
+    return !snaps_.empty();
+}
+
+std::vector<uint64_t> AddressSpace::covered_host_pages_locked(const std::map<uint64_t, Vma>& vmas) const {
+    std::vector<uint64_t> out;
+    for (auto& [s, v] : vmas) {
+        for (uint64_t hp = host_down(v.start); hp < host_up(v.end); hp += host_page()) {
+            if (out.empty() || out.back() != hp) out.push_back(hp);
+        }
+    }
+    return out;  // sorted, unique (VMAs are ordered and disjoint)
+}
+
+void AddressSpace::push_snapshot() {
+    std::lock_guard<std::mutex> lk(mu_);
+    Snapshot s;
+    s.vmas = vmas_;
+    s.brk_start = brk_start;
+    s.brk_cur = brk_cur;
+    s.brk_end = brk_end;
+    for (uint64_t hp : covered_host_pages_locked(vmas_)) {
+        if (union_prot(hp) & lx::prot_write) s.tracked.push_back(hp);
+    }
+    snaps_.push_back(std::move(s));
+    // write-protect the tracked pages (apply_host_prot consults the top snapshot)
+    for (auto& [st, v] : vmas_) apply_host_prot(v.start, v.end);
+}
+
+void AddressSpace::pop_snapshot() {
+    std::lock_guard<std::mutex> lk(mu_);
+    if (snaps_.empty()) return;
+    Snapshot s = std::move(snaps_.back());
+    snaps_.pop_back();
+    const std::vector<uint64_t> cur = covered_host_pages_locked(vmas_);
+    const std::vector<uint64_t> want = covered_host_pages_locked(s.vmas);
+    // host pages the child mapped: release; pages it unmapped: map fresh
+    std::vector<uint64_t> extra, missing;
+    std::set_difference(cur.begin(), cur.end(), want.begin(), want.end(), std::back_inserter(extra));
+    std::set_difference(want.begin(), want.end(), cur.begin(), cur.end(), std::back_inserter(missing));
+    for (uint64_t hp : extra) {
+        ::munmap(reinterpret_cast<void*>(hp), host_page());
+        invalidate(hp, hp + host_page());
+    }
+    for (uint64_t hp : missing) {
+        if (!host_try_exact(hp, host_page(), host::kProtRead | host::kProtWrite)) {
+            Log("mm: pop_snapshot cannot remap 0x%llx (taken by someone else)", (unsigned long long)hp);
+        }
+    }
+    vmas_ = std::move(s.vmas);
+    brk_start = s.brk_start;
+    brk_cur = s.brk_cur;
+    brk_end = s.brk_end;
+    for (auto& [hp, bytes] : s.pages) {
+        ::mprotect(reinterpret_cast<void*>(hp), host_page(), host::kProtRead | host::kProtWrite);
+        memcpy(reinterpret_cast<void*>(hp), bytes.data(), host_page());
+        invalidate(hp, hp + host_page());
+    }
+    // protections per the restored table (and the outer snapshot's tracking, if any)
+    for (auto& [st, v] : vmas_) apply_host_prot(v.start, v.end);
 }
 
 }  // namespace rlk

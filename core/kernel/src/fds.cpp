@@ -162,6 +162,12 @@ FdTable::FdTable(const FdTable& o) {
     fds_ = o.fds_;
 }
 
+void FdTable::clone_from(const FdTable& o) {
+    std::lock_guard<std::mutex> lo(o.mu_);
+    std::lock_guard<std::mutex> lk(mu_);
+    fds_ = o.fds_;
+}
+
 int FdTable::alloc(std::shared_ptr<OpenFile> f, bool cloexec, int min_fd) {
     std::lock_guard<std::mutex> lk(mu_);
     if (min_fd < 0) return -lx::einval;

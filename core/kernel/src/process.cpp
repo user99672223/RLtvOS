@@ -1,6 +1,7 @@
-// process.cpp — process/thread lifecycle and the FEXCore glue.
-// FEXCore and host headers come first: linux_abi.h (via process.h) removes
-// the host macros they use inline.
+// process.cpp — process/thread lifecycle and the FEXCore glue: spawn from
+// the app, clone (threads, fork, vfork), execve, wait4, exit.
+// FEXCore and host headers come first: linux_abi.h (via process.h) is
+// macro-clean but FEX's headers use the host macros inline.
 #include <FEXCore/Core/Context.h>
 #include <FEXCore/Core/CoreState.h>
 #include <FEXCore/Core/SignalDelegator.h>
@@ -18,11 +19,13 @@
 #include <unistd.h>
 
 #include <algorithm>
+#include <array>
 #include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <vector>
 
+#include "futex.h"
 #include "log.h"
 #include "process.h"
 
@@ -46,6 +49,12 @@ void GuestProcess::append_output(int fd, std::string_view data) {
         if (nl == std::string_view::npos) break;
         start = nl + 1;
     }
+}
+
+size_t GuestProcess::live_threads() const {
+    size_t n = 0;
+    for (auto& t : threads) n += t->exited ? 0 : 1;
+    return n;
 }
 
 Kernel& Kernel::get() {
@@ -135,7 +144,38 @@ void init_segments(FEXCore::Core::CPUState& st) {
     st.cs_cached = CS::CalculateGDTBase(*cs);
 }
 
+// Host signal number → Linux signal number for a guest fault report.
+int linux_signal_of_host(int sig) {
+    switch (sig) {
+        case SIGSEGV: return lx::sigsegv;
+        case SIGBUS: return lx::sigbus;
+        case SIGILL: return lx::sigill;
+        case SIGTRAP: return lx::sigtrap;
+        case SIGFPE: return lx::sigfpe;
+        default: return lx::sigsegv;
+    }
+}
+
+bool waiter_interrupted(void* arg) {
+    auto* t = static_cast<GuestThread*>(arg);
+    if (t->in_vfork_wait) return false;
+    return Kernel::get().has_deliverable(*t) || t->proc->state.load() != (int)ProcState::Running;
+}
+
 }  // namespace
+
+FEXCore::Context::Context* Kernel::fex_context() {
+    return g_ctx;
+}
+
+bool Kernel::host_fault_hook(int sig, int code, uint64_t addr, uint64_t pc) {
+    (void)sig;
+    (void)code;
+    (void)pc;
+    GuestProcess* p = t_current_proc;
+    if (!p || !p->mm) return false;
+    return p->mm->cow_fault(addr);
+}
 
 bool Kernel::ensure_fex(std::string& err) {
     std::lock_guard<std::mutex> lk(mu);
@@ -176,16 +216,21 @@ bool Kernel::ensure_fex(std::string& err) {
         static_cast<uint8_t*>(hp)[0] = 0xF4;  // hlt: exit_group parks threads here
         hlt_page = reinterpret_cast<uint64_t>(hp);
         AddressSpace::set_invalidate_hook(&invalidate_range);
+        rlfex_set_fault_hook(&Kernel::host_fault_hook);
     }
     fex_ready = true;
     Log("kernel: FEX context ready (hwcap=0x%llx hwcap2=0x%llx)", (unsigned long long)hwcap, (unsigned long long)hwcap2);
     return true;
 }
 
-bool Kernel::create_fex_thread(GuestThread& t, std::string& err) {
+bool Kernel::create_fex_thread(GuestThread& t, std::string& err, const void* initial_state) {
     FEXCore::Core::CPUState st {};
-    st.rip = t.proc->layout.entry;
-    st.gregs[FEXCore::X86State::REG_RSP] = t.proc->layout.rsp;
+    if (initial_state) {
+        memcpy(&st, initial_state, sizeof st);  // CPUState is not copy-assignable; FEX memcpy's it too
+    } else {
+        st.rip = t.proc->layout.entry;
+        st.gregs[FEXCore::X86State::REG_RSP] = t.proc->layout.rsp;
+    }
     init_segments(st);
     auto* thread = g_ctx->CreateThread(&st);
     if (!thread) {
@@ -232,19 +277,77 @@ void Kernel::destroy_fex_thread(GuestThread& t) {
     }
 }
 
-void Kernel::exit_thread(GuestThread& t, void* frame_, int code, bool whole_group) {
+bool Kernel::start_host_thread(GuestThread& t, std::string& err) {
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setstacksize(&attr, 8u << 20);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    int prc = pthread_create(&t.host, &attr, [](void* p) -> void* {
+        Kernel::get().thread_main(static_cast<GuestThread*>(p));
+        return nullptr;
+    }, &t);
+    pthread_attr_destroy(&attr);
+    if (prc != 0) {
+        err = "pthread_create";
+        return false;
+    }
+    t.host_started = true;
+    return true;
+}
+
+void Kernel::release_vfork_parent(GuestProcess& p) {
+    GuestThread* parent = nullptr;
+    {
+        std::lock_guard<std::mutex> lk(mu);
+        parent = p.vfork_parent;
+        p.vfork_parent = nullptr;
+    }
+    if (parent) {
+        parent->vfork_done = true;
+        parent->waiter.notify();
+    }
+}
+
+void Kernel::process_exited(GuestProcess& p, GuestThread& t, int code, int term_signal) {
+    p.exit_code = code;
+    p.term_signal = term_signal;
+    p.end_ms = NowMs();
+    p.state = (int)ProcState::Zombie;
+    // Other threads of the group blocked in syscalls wake up and exit.
+    for (auto& th : p.threads) {
+        if (th.get() != &t && !th->exited) th->waiter.notify();
+    }
+    release_vfork_parent(p);
+    GuestProcess* parent = nullptr;
+    {
+        std::lock_guard<std::mutex> lk(mu);
+        parent = p.ppid ? find(p.ppid) : nullptr;
+        if (!parent || parent->state.load() != (int)ProcState::Running) p.reaped = true;  // nobody will wait
+    }
+    if (parent && !p.reaped) {
+        parent->child_wq.wake();
+        lx::siginfo si {};
+        si.si_signo = lx::sigchld;
+        si.si_code = term_signal ? lx::cld_killed : lx::cld_exited;
+        si.u.chld.pid = p.pid;
+        si.u.chld.uid = 1000;
+        si.u.chld.status = term_signal ? term_signal : code;
+        send_signal(*parent, lx::sigchld, &si);
+    }
+}
+
+void Kernel::exit_thread(GuestThread& t, void* frame_, int code, bool whole_group, int term_signal) {
     auto* frame = static_cast<FEXCore::Core::CpuStateFrame*>(frame_);
     t.exit_code = code;
     t.exited = true;
-    if (t.clear_child_tid) {
-        // CLONE_CHILD_CLEARTID: *tidptr = 0 (+ futex wake, no waiters yet)
-        *reinterpret_cast<uint32_t*>(t.clear_child_tid) = 0;
+    if (t.clear_child_tid && t.proc->mm) {
+        // CLONE_CHILD_CLEARTID: *tidptr = 0 and wake the joiner
+        uint32_t zero = 0;
+        t.proc->mm->copy_in(t.clear_child_tid, &zero, sizeof zero);
+        FutexTable::get().wake(reinterpret_cast<uint32_t*>(t.clear_child_tid), 1, ~0u);
+        t.clear_child_tid = 0;
     }
-    if (whole_group) {
-        t.proc->exit_code = code;
-        t.proc->end_ms = NowMs();
-        t.proc->state = (int)ProcState::Zombie;
-    }
+    if (whole_group || t.proc->live_threads() == 0) process_exited(*t.proc, t, code, term_signal);
     // Park the guest on a hlt: the dispatcher leaves ExecuteThread.
     frame->State.rip = hlt_page;
 }
@@ -253,6 +356,9 @@ void Kernel::thread_main(GuestThread* t) {
     FEXCore::Allocator::InitializeThread();
     t_current_proc = t->proc;
     t_current_thread = t;
+    t->waiter.interrupted = &waiter_interrupted;
+    t->waiter.interrupted_arg = t;
+    SetCurrentWaiter(&t->waiter);
     char name[32];
     snprintf(name, sizeof name, "guest %d/%d", t->proc->pid, t->tid);
 #ifdef __APPLE__
@@ -260,47 +366,44 @@ void Kernel::thread_main(GuestThread* t) {
 #else
     pthread_setname_np(pthread_self(), name);
 #endif
-    Log("kernel: pid %d tid %d start rip=0x%llx rsp=0x%llx", t->proc->pid, t->tid,
-        (unsigned long long)t->proc->layout.entry, (unsigned long long)t->proc->layout.rsp);
     auto* thread = static_cast<FEXCore::Core::InternalThreadState*>(t->fex_thread);
+    Log("kernel: pid %d tid %d start rip=0x%llx rsp=0x%llx", t->proc->pid, t->tid,
+        (unsigned long long)thread->CurrentFrame->State.rip,
+        (unsigned long long)thread->CurrentFrame->State.gregs[FEXCore::X86State::REG_RSP]);
     rlfex_fault_info fault {};
     struct Ctx {
         FEXCore::Core::InternalThreadState* th;
     } ctx {thread};
     const int rc = rlfex_run_guarded([](void* p) { g_ctx->ExecuteThread(static_cast<Ctx*>(p)->th); }, &ctx, thread, &fault);
     if (rc != 0) {
+        const int lsig = linux_signal_of_host(fault.signal);
         Log("kernel: pid %d tid %d FAULT signal=%d code=%d pc=0x%llx%s addr=0x%llx (last block-exit guest rip=0x%llx, "
-            "unaligned fixups so far=%llu)",
+            "unaligned fixups so far=%llu) -> killed by signal %d",
             t->proc->pid, t->tid, fault.signal, fault.code, (unsigned long long)fault.pc, fault.in_jit ? " (in JIT code)" : "",
             (unsigned long long)fault.addr, (unsigned long long)thread->CurrentFrame->State.rip,
-            (unsigned long long)fault.unaligned_fixups);
-        t->exit_code = 128 + fault.signal;
-        t->proc->exit_code = t->exit_code;
-        t->proc->end_ms = NowMs();
-        t->proc->state = (int)ProcState::Zombie;
+            (unsigned long long)fault.unaligned_fixups, lsig);
+        t->exit_code = 128 + lsig;
         t->exited = true;
+        process_exited(*t->proc, *t, 128 + lsig, lsig);
         // The FEX thread object is left alone: its state is unknown after a longjmp.
-        reap(*t->proc);
+        if (t->proc->live_threads() == 0) reap(*t->proc);
         return;
     }
     if (!t->exited) {
         // hlt reached without exit_group (bare program) — treat as exit(rax)
-        t->exit_code = (int)thread->CurrentFrame->State.gregs[FEXCore::X86State::REG_RAX];
-        t->exited = true;
-        t->proc->exit_code = t->exit_code;
-        t->proc->end_ms = NowMs();
-        t->proc->state = (int)ProcState::Zombie;
+        exit_thread(*t, thread->CurrentFrame, (int)thread->CurrentFrame->State.gregs[FEXCore::X86State::REG_RAX], false);
     }
     Log("kernel: pid %d tid %d exited code=%d after %llu syscalls, %.1f ms", t->proc->pid, t->tid, t->exit_code,
-        (unsigned long long)t->syscalls, t->proc->end_ms - t->proc->start_ms);
+        (unsigned long long)t->syscalls, NowMs() - t->proc->start_ms);
     destroy_fex_thread(*t);
-    reap(*t->proc);
+    if (t->proc->state.load() != (int)ProcState::Running && t->proc->live_threads() == 0) reap(*t->proc);
 }
 
 void Kernel::reap(GuestProcess& p) {
     // The table entry stays (ps, exit codes, /proc/<pid>); the memory and the
     // files go now — each exited process would otherwise keep ~72 MB of the
-    // ~6.5 GB address-space budget mapped.
+    // ~6.5 GB address-space budget mapped. A forked child that shares its
+    // parent's space only drops its reference.
     std::shared_ptr<AddressSpace> mm;
     {
         std::lock_guard<std::mutex> lk(mu);
@@ -309,6 +412,77 @@ void Kernel::reap(GuestProcess& p) {
         p.fds.clear();
     }
     mm.reset();  // unmaps + invalidates translations outside the kernel lock
+}
+
+// ------------------------------------------------------------------ loading
+
+int Kernel::load_image(const std::string& exe_in, const std::vector<std::string>& argv_in,
+                       const std::vector<std::string>& envp, AddressSpace& mm, ExecLayout& layout, std::string& err,
+                       std::string* resolved_exe) {
+    std::string exe = exe_in;
+    std::vector<std::string> argv = argv_in;
+    int e = 0;
+    lx::stat st {};
+    std::unique_ptr<FileSource> main;
+    for (int depth = 0; depth < 2; depth++) {
+        main = open_source(exe, e, &st);
+        if (!main) {
+            err = exe + ": " + ErrnoName(e);
+            return -e;
+        }
+        if ((st.st_mode & lx::s_ifmt) == lx::s_ifdir) {
+            err = exe + ": is a directory";
+            return -lx::eacces;
+        }
+        if (!(st.st_mode & 0111)) {
+            err = exe + ": not executable";
+            return -lx::eacces;
+        }
+        // "#!interp [arg]" → interp [arg] exe argv[1..]
+        char head[256] = {};
+        int64_t n = main->pread(head, sizeof head - 1, 0);
+        if (n >= 2 && head[0] == '#' && head[1] == '!') {
+            std::string line(head + 2, (size_t)n - 2);
+            line = line.substr(0, line.find('\n'));
+            size_t i = 0;
+            while (i < line.size() && (line[i] == ' ' || line[i] == '\t')) i++;
+            size_t j = i;
+            while (j < line.size() && line[j] != ' ' && line[j] != '\t' && line[j] != '\r') j++;
+            std::string interp = line.substr(i, j - i);
+            while (j < line.size() && (line[j] == ' ' || line[j] == '\t')) j++;
+            std::string arg = line.substr(j);
+            while (!arg.empty() && (arg.back() == ' ' || arg.back() == '\t' || arg.back() == '\r')) arg.pop_back();
+            if (interp.empty() || depth == 1) {
+                err = exe + ": bad interpreter line";
+                return -lx::enoexec;
+            }
+            std::vector<std::string> nargv;
+            nargv.push_back(interp);
+            if (!arg.empty()) nargv.push_back(arg);
+            nargv.push_back(exe);
+            for (size_t k = 1; k < argv.size(); k++) nargv.push_back(argv[k]);
+            argv = std::move(nargv);
+            exe = NormalizePath(interp);
+            continue;
+        }
+        break;
+    }
+    ExecParams params;
+    params.argv = argv;
+    params.envp = envp;
+    params.exec_path = exe;
+    params.hwcap = hwcap;
+    params.hwcap2 = hwcap2;
+    FillRandom(params.random.data(), params.random.size());
+    Kernel* self = this;
+    OpenFileFn open_fn = [self](const std::string& p) -> std::unique_ptr<FileSource> {
+        int oe = 0;
+        return self->open_source(NormalizePath(p), oe, nullptr);
+    };
+    int rc = ElfLoader::Load(mm, *main, params, open_fn, layout, err);
+    if (rc < 0) return rc;
+    if (resolved_exe) *resolved_exe = exe;
+    return 0;
 }
 
 // ------------------------------------------------------------------ spawn
@@ -334,38 +508,9 @@ int Kernel::spawn(const std::vector<std::string>& argv, const std::vector<std::s
     proc->start_ms = NowMs();
     proc->mm = std::make_shared<AddressSpace>();
     const std::string exe = argv[0].empty() || argv[0][0] != '/' ? NormalizePath(proc->cwd + "/" + argv[0]) : NormalizePath(argv[0]);
-    proc->exe = exe;
-    auto slash = exe.rfind('/');
-    proc->comm = exe.substr(slash == std::string::npos ? 0 : slash + 1).substr(0, 15);
 
-    int err = 0;
-    lx::stat st {};
-    auto main = open_source(exe, err, &st);
-    if (!main) {
-        char m[300];
-        snprintf(m, sizeof m, "{\"ok\":false,\"error\":\"%s: %s\"}", JsonEscape(exe).c_str(), ErrnoName(err));
-        reply = m;
-        return -err;
-    }
-    if ((st.st_mode & lx::s_ifmt) == lx::s_ifdir) {
-        reply = "{\"ok\":false,\"error\":\"is a directory\"}";
-        return -lx::eacces;
-    }
-
-    ExecParams params;
-    params.argv = argv;
-    params.envp = envp;
-    params.exec_path = exe;
-    params.hwcap = hwcap;
-    params.hwcap2 = hwcap2;
-    FillRandom(params.random.data(), params.random.size());
-    std::string lerr;
-    Kernel* self = this;
-    OpenFileFn open_fn = [self](const std::string& p) -> std::unique_ptr<FileSource> {
-        int e = 0;
-        return self->open_source(NormalizePath(p), e, nullptr);
-    };
-    int rc = ElfLoader::Load(*proc->mm, *main, params, open_fn, proc->layout, lerr);
+    std::string lerr, resolved;
+    int rc = load_image(exe, argv, envp, *proc->mm, proc->layout, lerr, &resolved);
     if (rc < 0) {
         char m[600];
         snprintf(m, sizeof m, "{\"ok\":false,\"stage\":\"load\",\"error\":\"%s\",\"errno\":\"%s\",\"exe\":\"%s\"}",
@@ -373,6 +518,9 @@ int Kernel::spawn(const std::vector<std::string>& argv, const std::vector<std::s
         reply = m;
         return rc;
     }
+    proc->exe = resolved;
+    auto slash = resolved.rfind('/');
+    proc->comm = resolved.substr(slash == std::string::npos ? 0 : slash + 1).substr(0, 15);
 
     // stdio: capture + log
     GuestProcess* praw = proc.get();
@@ -385,22 +533,23 @@ int Kernel::spawn(const std::vector<std::string>& argv, const std::vector<std::s
     GuestThread* t;
     {
         std::lock_guard<std::mutex> lk(mu);
-        pid = next_pid++;
+        pid = next_id++;
         proc->pid = pid;
-        proc->ppid = pid == 1 ? 0 : 1;
+        proc->ppid = 0;   // started by the app: nobody waits for it
         proc->pgid = proc->sid = pid;
         auto th = std::make_unique<GuestThread>();
-        th->tid = next_tid++;
+        th->tid = pid;    // main thread: tid == pid
         th->proc = proc.get();
         t = th.get();
         proc->threads.push_back(std::move(th));
         procs.emplace(pid, std::move(proc));
     }
     const std::string layout = ElfLoader::LayoutJson(praw->layout);
-    Log("kernel: pid %d exec %s (%s) %s", pid, exe.c_str(), dry_run ? "dry-run" : "run", layout.c_str());
+    Log("kernel: pid %d exec %s (%s) %s", pid, resolved.c_str(), dry_run ? "dry-run" : "run", layout.c_str());
 
     if (dry_run) {
         praw->state = (int)ProcState::Zombie;
+        praw->reaped = true;
         praw->exit_code = 0;
         praw->end_ms = NowMs();
         char head[160];
@@ -414,34 +563,229 @@ int Kernel::spawn(const std::vector<std::string>& argv, const std::vector<std::s
     std::string ferr;
     if (!ensure_fex(ferr)) {
         praw->state = (int)ProcState::Dead;
+        praw->reaped = true;
         reply = "{\"ok\":false,\"pid\":" + std::to_string(pid) + ",\"stage\":\"fex\",\"error\":\"" + JsonEscape(ferr) +
                 "\",\"layout\":" + layout + "}";
+        reap(*praw);
         return -lx::enoexec;
     }
-    if (!create_fex_thread(*t, ferr)) {
+    if (!create_fex_thread(*t, ferr, nullptr)) {
         praw->state = (int)ProcState::Dead;
+        praw->reaped = true;
         reply = "{\"ok\":false,\"pid\":" + std::to_string(pid) + ",\"stage\":\"thread\",\"error\":\"" + JsonEscape(ferr) + "\"}";
+        reap(*praw);
         return -lx::enomem;
     }
-    pthread_attr_t attr;
-    pthread_attr_init(&attr);
-    pthread_attr_setstacksize(&attr, 8u << 20);
-    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-    int prc = pthread_create(&t->host, &attr, [](void* p) -> void* {
-        Kernel::get().thread_main(static_cast<GuestThread*>(p));
-        return nullptr;
-    }, t);
-    pthread_attr_destroy(&attr);
-    if (prc != 0) {
+    if (!start_host_thread(*t, ferr)) {
         praw->state = (int)ProcState::Dead;
+        praw->reaped = true;
         destroy_fex_thread(*t);
         reply = "{\"ok\":false,\"error\":\"pthread_create\"}";
+        reap(*praw);
         return -lx::eagain;
     }
-    t->host_started = true;
     reply = "{\"ok\":true,\"pid\":" + std::to_string(pid) + ",\"dry_run\":false,\"layout\":" + layout + "}";
     return pid;
 }
+
+// ------------------------------------------------------------------ clone / fork / vfork
+
+int64_t Kernel::do_clone(GuestThread& t, void* frame_, uint64_t flags, uint64_t stack, uint64_t ptid, uint64_t ctid,
+                         uint64_t tls) {
+    auto* frame = static_cast<FEXCore::Core::CpuStateFrame*>(frame_);
+    GuestProcess& p = *t.proc;
+    const bool is_thread = flags & lx::clone_thread;
+    if (is_thread && !(flags & lx::clone_vm)) return -lx::einval;
+
+    // The child's CPU state: the parent's, after the syscall, returning 0.
+    FEXCore::Core::CPUState st {};
+    memcpy(&st, &frame->State, sizeof st);
+    st.rip = frame->State.rip + 2;
+    st.gregs[FEXCore::X86State::REG_RAX] = 0;
+    if (stack) st.gregs[FEXCore::X86State::REG_RSP] = stack;
+    if (flags & lx::clone_settls) st.fs_cached = tls;
+
+    if (is_thread) {
+        auto th = std::make_unique<GuestThread>();
+        GuestThread* traw = th.get();
+        {
+            std::lock_guard<std::mutex> lk(mu);
+            th->tid = next_id++;
+            th->proc = &p;
+            th->sigmask = t.sigmask;
+            th->clear_child_tid = (flags & lx::clone_child_cleartid) ? ctid : 0;
+            p.threads.push_back(std::move(th));
+        }
+        const int32_t tid = traw->tid;
+        if ((flags & lx::clone_parent_settid) && ptid) p.mm->copy_in(ptid, &tid, sizeof tid);
+        if ((flags & lx::clone_child_settid) && ctid) p.mm->copy_in(ctid, &tid, sizeof tid);
+        std::string err;
+        if (!create_fex_thread(*traw, err, &st) || !start_host_thread(*traw, err)) {
+            Log("kernel: clone thread failed: %s", err.c_str());
+            traw->exited = true;
+            destroy_fex_thread(*traw);
+            return -lx::eagain;
+        }
+        return tid;
+    }
+
+    // ---- fork / vfork: child in our address space, we wait ----
+    const bool vfork = (flags & lx::clone_vfork) && (flags & lx::clone_vm);
+    auto child = std::make_unique<GuestProcess>();
+    GuestProcess* craw = child.get();
+    child->ppid = p.pid;
+    child->pgid = p.pgid;
+    child->sid = p.sid;
+    child->exe = p.exe;
+    child->comm = p.comm;
+    child->cwd = p.cwd;
+    child->argv = p.argv;
+    child->envp = p.envp;
+    child->umask = p.umask;
+    memcpy(child->sigactions, p.sigactions, sizeof p.sigactions);
+    child->layout = p.layout;
+    child->start_ms = NowMs();
+    child->mm = p.mm;  // shared until execve
+    child->vfork_parent = &t;
+    auto th = std::make_unique<GuestThread>();
+    GuestThread* traw = th.get();
+    th->proc = craw;
+    th->sigmask = t.sigmask;
+    th->clear_child_tid = (flags & lx::clone_child_cleartid) ? ctid : 0;
+    {
+        std::lock_guard<std::mutex> lk(mu);
+        child->pid = next_id++;
+        th->tid = child->pid;
+        child->fds.clone_from(p.fds);
+        child->threads.push_back(std::move(th));
+        procs.emplace(child->pid, std::move(child));
+    }
+    const int32_t cpid = craw->pid;
+    if ((flags & lx::clone_parent_settid) && ptid) p.mm->copy_in(ptid, &cpid, sizeof cpid);
+    if (!vfork) p.mm->push_snapshot();  // from here on the child's writes are undone for us
+    if ((flags & lx::clone_child_settid) && ctid) p.mm->copy_in(ctid, &cpid, sizeof cpid);
+    t.vfork_done = false;
+    std::string err;
+    if (!create_fex_thread(*traw, err, &st) || !start_host_thread(*traw, err)) {
+        Log("kernel: fork failed: %s", err.c_str());
+        traw->exited = true;
+        destroy_fex_thread(*traw);
+        craw->vfork_parent = nullptr;
+        craw->state = (int)ProcState::Dead;
+        craw->reaped = true;
+        if (!vfork) p.mm->pop_snapshot();
+        reap(*craw);
+        return -lx::eagain;
+    }
+    Log("kernel: pid %d %s -> child pid %d%s", p.pid, vfork ? "vfork" : "fork", cpid, vfork ? "" : " (snapshot)");
+    // Wait until the child execs or exits (uninterruptible, like vfork).
+    t.in_vfork_wait = true;
+    for (;;) {
+        const uint64_t gen = t.waiter.prepare();
+        if (t.vfork_done) break;
+        t.waiter.wait(gen, 0);
+    }
+    t.in_vfork_wait = false;
+    if (!vfork) p.mm->pop_snapshot();
+    return cpid;
+}
+
+// ------------------------------------------------------------------ execve
+
+int64_t Kernel::do_execve(GuestThread& t, void* frame_, const std::string& path, std::vector<std::string> argv,
+                          std::vector<std::string> envp) {
+    auto* frame = static_cast<FEXCore::Core::CpuStateFrame*>(frame_);
+    GuestProcess& p = *t.proc;
+    if (argv.empty()) argv.push_back(path);
+    auto mm = std::make_shared<AddressSpace>();
+    ExecLayout layout;
+    std::string err, resolved;
+    int rc = load_image(path, argv, envp, *mm, layout, err, &resolved);
+    if (rc < 0) {
+        Log("kernel: pid %d execve %s failed: %s", p.pid, path.c_str(), err.c_str());
+        return rc;
+    }
+    if (p.live_threads() > 1) Log("kernel: pid %d execve with %zu live threads (not stopped yet)", p.pid, p.live_threads());
+    // Point of no return: swap the image in.
+    std::shared_ptr<AddressSpace> old;
+    {
+        std::lock_guard<std::mutex> lk(mu);
+        old = std::move(p.mm);
+        p.mm = mm;
+        p.layout = layout;
+        p.exe = resolved;
+        auto slash = resolved.rfind('/');
+        p.comm = resolved.substr(slash == std::string::npos ? 0 : slash + 1).substr(0, 15);
+        p.argv = argv;
+        p.envp = envp;
+        for (auto& sa : p.sigactions) {
+            if (sa.handler != lx::sig_ign) sa = lx::sigaction {};  // handlers → SIG_DFL, SIG_IGN stays
+        }
+        p.fds.close_on_exec();
+    }
+    t.altstack_flags = lx::ss_disable;
+    t.altstack_sp = t.altstack_size = 0;
+    t.clear_child_tid = 0;
+    t.robust_list = 0;
+    release_vfork_parent(p);   // the parent gets its memory back now
+    old.reset();               // last owner → unmapped and translations dropped
+    // Fresh CPU state for the new program.
+    auto& S = frame->State;
+    memset(S.gregs, 0, sizeof S.gregs);
+    S.rip = layout.entry;
+    S.gregs[FEXCore::X86State::REG_RSP] = layout.rsp;
+    S.fs_cached = 0;
+    S.gs_cached = 0;
+    memset(&S.xmm, 0, sizeof S.xmm);
+    memset(S.mm, 0, sizeof S.mm);
+    S.FCW = 0x37F;
+    S.AbridgedFTW = 0;
+    S.mxcsr = 0x1F80;
+    auto* thread = static_cast<FEXCore::Core::InternalThreadState*>(t.fex_thread);
+    g_ctx->SetFlagsFromCompactedEFLAGS(thread, 0x202);
+    S.callret_sp = reinterpret_cast<uint64_t>(thread->CallRetStackBase) + FEXCore::Core::InternalThreadState::CALLRET_STACK_SIZE / 4;
+    init_segments(S);
+    t.no_retval = true;
+    Log("kernel: pid %d execve %s %s", p.pid, resolved.c_str(), ElfLoader::LayoutJson(layout).c_str());
+    return 0;
+}
+
+// ------------------------------------------------------------------ wait4
+
+int64_t Kernel::do_wait4(GuestThread& t, int pid, int32_t* status_out, int options) {
+    GuestProcess& p = *t.proc;
+    for (;;) {
+        uint64_t gen;
+        {
+            std::lock_guard<std::mutex> lk(mu);
+            bool any = false;
+            for (auto& [cpid, c] : procs) {
+                if (c->ppid != p.pid || c->reaped) continue;
+                if (pid > 0 && cpid != pid) continue;
+                if (pid == 0 && c->pgid != p.pgid) continue;
+                if (pid < -1 && c->pgid != -pid) continue;
+                any = true;
+                if (c->state.load() == (int)ProcState::Running) continue;
+                const int st = c->term_signal ? lx::wstatus_signaled(c->term_signal) : lx::wstatus_exited(c->exit_code);
+                if (status_out) *status_out = st;
+                if (!(options & lx::wnowait)) c->reaped = true;
+                return cpid;
+            }
+            if (!any) return -lx::echild;
+            if (options & lx::wnohang) return 0;
+            p.child_wq.add(&t.waiter);
+            gen = t.waiter.prepare();
+        }
+        auto r = t.waiter.wait(gen, 0);
+        p.child_wq.remove(&t.waiter);
+        if (r == Waiter::Result::Interrupted) {
+            t.restartable = true;
+            return -lx::eintr;
+        }
+    }
+}
+
+// ------------------------------------------------------------------ status
 
 std::string Kernel::status_json() {
     std::lock_guard<std::mutex> lk(mu);
@@ -450,14 +794,15 @@ std::string Kernel::status_json() {
     bool first = true;
     for (auto& [pid, p] : procs) {
         const char* state = p->state == (int)ProcState::Running ? "running" : (p->state == (int)ProcState::Zombie ? "exited" : "dead");
-        char buf[700];
+        char buf[800];
         snprintf(buf, sizeof buf,
-                 "%s{\"pid\":%d,\"ppid\":%d,\"exe\":\"%s\",\"state\":\"%s\",\"exit_code\":%d,\"threads\":%zu,\"vmas\":%zu,"
-                 "\"mapped_bytes\":%llu,\"fds\":%zu,\"syscalls\":%llu,\"dry_run\":%s,\"ms\":%.1f}",
-                 first ? "" : ",", pid, p->ppid, JsonEscape(p->exe).c_str(), state, p->exit_code, p->threads.size(),
-                 p->mm ? p->mm->vma_count() : 0, (unsigned long long)(p->mm ? p->mm->mapped_bytes() : 0), p->fds.count(),
-                 (unsigned long long)p->syscalls.load(), p->dry_run ? "true" : "false",
-                 (p->end_ms > 0 ? p->end_ms : NowMs()) - p->start_ms);
+                 "%s{\"pid\":%d,\"ppid\":%d,\"exe\":\"%s\",\"state\":\"%s\",\"exit_code\":%d,\"term_signal\":%d,\"reaped\":%s,"
+                 "\"threads\":%zu,\"live_threads\":%zu,\"vmas\":%zu,\"mapped_bytes\":%llu,\"fds\":%zu,\"syscalls\":%llu,"
+                 "\"dry_run\":%s,\"ms\":%.1f}",
+                 first ? "" : ",", pid, p->ppid, JsonEscape(p->exe).c_str(), state, p->exit_code, p->term_signal,
+                 p->reaped ? "true" : "false", p->threads.size(), p->live_threads(), p->mm ? p->mm->vma_count() : 0,
+                 (unsigned long long)(p->mm ? p->mm->mapped_bytes() : 0), p->fds.count(), (unsigned long long)p->syscalls.load(),
+                 p->dry_run ? "true" : "false", (p->end_ms > 0 ? p->end_ms : NowMs()) - p->start_ms);
         s += buf;
         first = false;
     }
@@ -478,9 +823,10 @@ int Kernel::kill_all() {
     int n = 0;
     for (auto& [pid, p] : procs) {
         if (p->state == (int)ProcState::Running) {
-            // No async stop yet (needs the signal delegator): flag it; the
-            // next syscall of that process exits it.
+            // No async stop yet: flag it and wake blocked threads; each
+            // thread exits at its next syscall.
             p->state = (int)ProcState::Dead;
+            for (auto& th : p->threads) th->waiter.notify();
             n++;
         }
     }

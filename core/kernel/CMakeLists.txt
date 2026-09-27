@@ -13,7 +13,11 @@ add_library(rlkernel_base STATIC
   src/mm.cpp
   src/elf_loader.cpp
   src/fds.cpp
+  src/pipe.cpp
+  src/futex.cpp
 )
+find_package(Threads REQUIRED)
+target_link_libraries(rlkernel_base PUBLIC Threads::Threads)
 target_include_directories(rlkernel_base PUBLIC include src)
 target_compile_features(rlkernel_base PUBLIC cxx_std_20)
 target_compile_options(rlkernel_base PRIVATE -Wall -Wextra -Wno-unused-parameter -fno-strict-aliasing)
@@ -21,6 +25,7 @@ target_compile_options(rlkernel_base PRIVATE -Wall -Wextra -Wno-unused-parameter
 if(TARGET FEXCore)
   add_library(rlkernel STATIC
     src/process.cpp
+    src/signals.cpp
     src/syscalls.cpp
     src/rlkernel.cpp
   )

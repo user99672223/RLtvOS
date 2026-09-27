@@ -16,12 +16,19 @@
 #include <string>
 #include <vector>
 
+#include <atomic>
+#include <chrono>
+#include <thread>
+
 #include "elf_loader.h"
 #include "fds.h"
 #include "file_source.h"
+#include "futex.h"
 #include "linux_abi.h"
 #include "log.h"
 #include "mm.h"
+#include "pipe.h"
+#include "waitq.h"
 
 using namespace rlk;
 
@@ -446,10 +453,148 @@ static void test_loader_host_binary() {
     printf("note: no /bin/true on this host; skipping the host-binary test\n");
 }
 
+static void test_waitq() {
+    Waiter w;
+    WaitQueue q;
+    // a notify between prepare() and wait() is not lost
+    uint64_t gen = w.prepare();
+    w.notify();
+    CHECK(w.wait(gen, 0) == Waiter::Result::Ready);
+    // timeout
+    gen = w.prepare();
+    auto t0 = std::chrono::steady_clock::now();
+    CHECK(w.wait(gen, MonotonicNs() + 20 * 1000 * 1000) == Waiter::Result::Timeout);
+    CHECK(std::chrono::steady_clock::now() - t0 >= std::chrono::milliseconds(15));
+    // interruption
+    static bool flag = false;
+    w.interrupted = [](void*) { return flag; };
+    flag = true;
+    gen = w.prepare();
+    CHECK(w.wait(gen, 0) == Waiter::Result::Interrupted);
+    flag = false;
+    w.interrupted = nullptr;
+    // queue wake with bitsets
+    Waiter a, b;
+    a.bitset = 1;
+    b.bitset = 2;
+    q.add(&a);
+    q.add(&b);
+    uint64_t ga = a.prepare(), gb = b.prepare();
+    CHECK(q.wake(SIZE_MAX, 2) == 1);
+    CHECK(b.wait(gb, 1) == Waiter::Result::Ready);
+    CHECK(a.wait(ga, MonotonicNs() + 5 * 1000 * 1000) == Waiter::Result::Timeout);
+    q.remove(&a);
+    q.remove(&b);
+    CHECK(q.size() == 0);
+}
+
+static void test_pipe() {
+    std::shared_ptr<PipeFile> rd, wr;
+    MakePipe(rd, wr);
+    lx::stat st {};
+    CHECK(rd->fstat(st) == 0 && (st.st_mode & lx::s_ifmt) == lx::s_ififo);
+    CHECK(wr->read(nullptr, 1) == -lx::ebadf);
+    CHECK(rd->write("x", 1) == -lx::ebadf);
+    // basic transfer + FIONREAD
+    CHECK(wr->write("hello", 5) == 5);
+    int32_t avail = 0;
+    CHECK(rd->ioctl(lx::fionread, reinterpret_cast<uint64_t>(&avail)) == 0 && avail == 5);
+    char buf[16] = {};
+    CHECK(rd->read(buf, 3) == 3 && memcmp(buf, "hel", 3) == 0);
+    CHECK(rd->read(buf, 16) == 2 && memcmp(buf, "lo", 2) == 0);
+    // non-blocking empty read
+    rd->oflags |= lx::o_nonblock;
+    CHECK(rd->read(buf, 1) == -lx::eagain);
+    rd->oflags &= ~lx::o_nonblock;
+    // a blocked reader is woken by a writer on another thread
+    std::atomic<int> got {-1};
+    std::thread reader([&] {
+        char b[8];
+        got = (int)rd->read(b, sizeof b);
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(20));
+    CHECK(got == -1);
+    CHECK(wr->write("abc", 3) == 3);
+    reader.join();
+    CHECK(got == 3);
+    // a large write streams through a 64 KB ring while a reader drains it
+    std::vector<uint8_t> big(200000);
+    for (size_t i = 0; i < big.size(); i++) big[i] = (uint8_t)(i * 7);
+    std::atomic<size_t> drained {0};
+    bool mismatch = false;
+    std::thread drain([&] {
+        std::vector<uint8_t> chunk(4096);
+        size_t pos = 0;
+        while (pos < big.size()) {
+            int64_t n = rd->read(chunk.data(), chunk.size());
+            if (n <= 0) break;
+            if (memcmp(chunk.data(), big.data() + pos, (size_t)n) != 0) mismatch = true;
+            pos += (size_t)n;
+        }
+        drained = pos;
+    });
+    CHECK(wr->write(big.data(), big.size()) == (int64_t)big.size());
+    drain.join();
+    CHECK(drained == big.size());
+    CHECK(!mismatch);
+    // EOF once the last writer is gone; EPIPE once the last reader is gone
+    wr.reset();
+    CHECK(rd->read(buf, 1) == 0);
+    std::shared_ptr<PipeFile> rd2, wr2;
+    MakePipe(rd2, wr2);
+    rd2.reset();
+    CHECK(wr2->write("x", 1) == -lx::epipe);
+}
+
+static void test_futex() {
+    auto& ft = FutexTable::get();
+    alignas(4) uint32_t word = 1;
+    CHECK(ft.wait(&word, 2, 0, ~0u) == -lx::eagain);  // value mismatch
+    CHECK(ft.wait(&word, 1, MonotonicNs() + 10 * 1000 * 1000, ~0u) == -lx::etimedout);
+    CHECK(ft.wake(&word, 1, ~0u) == 0);
+    std::atomic<int> woken {0};
+    std::thread waiter([&] {
+        int r = ft.wait(&word, 1, MonotonicNs() + 2000 * 1000 * 1000LL, ~0u);
+        if (r == 0) woken = 1;
+        else woken = -1;
+    });
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    word = 0;
+    int n = 0;
+    for (int i = 0; i < 50 && n == 0; i++) {  // the waiter may not be queued yet
+        n = ft.wake(&word, 1, ~0u);
+        if (!n) std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    }
+    waiter.join();
+    CHECK(n == 1);
+    CHECK(woken == 1);
+    // requeue: one waiter moved from word to word2, woken there
+    alignas(4) uint32_t word2 = 0;
+    word = 5;
+    std::atomic<int> state {0};
+    std::thread w2([&] { state = ft.wait(&word, 5, MonotonicNs() + 2000 * 1000 * 1000LL, ~0u) == 0 ? 1 : -1; });
+    for (int i = 0; i < 100 && ft.requeue(&word, 0, 1, &word2, false, 0) == 0; i++) std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    for (int i = 0; i < 100 && ft.wake(&word2, 1, ~0u) == 0; i++) std::this_thread::sleep_for(std::chrono::milliseconds(2));
+    w2.join();
+    CHECK(state == 1);
+    // wake_op: FUTEX_OP_ADD 1 to word2, wake word2 if old == 0 → one waiter
+    word2 = 0;
+    std::atomic<int> s3 {0};
+    std::thread w3([&] { s3 = ft.wait(&word2, 0, MonotonicNs() + 2000 * 1000 * 1000LL, ~0u) == 0 ? 1 : -1; });
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    const uint32_t op = (1u << 28) | (0u << 24) | (1u << 12) | 0u;  // ADD 1, CMP_EQ 0
+    int n3 = ft.wake_op(&word, 1, &word2, 1, op);
+    w3.join();
+    CHECK_MSG(n3 == 1 && word2 == 1 && s3 == 1, "n3=%d word2=%u s3=%d", n3, word2, (int)s3);
+}
+
 int main() {
     test_normalize();
     test_address_space();
     test_fds();
+    test_waitq();
+    test_pipe();
+    test_futex();
     test_loader_images();
     test_loader_host_binary();
     if (g_failures) {

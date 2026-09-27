@@ -64,6 +64,12 @@ bool rlfex_platform_init(char* err, size_t cap);
 // Valid after rlfex_platform_init returned true.
 const FEXCore::HostFeatures& rlfex_host_features();
 
+// First look at a SIGSEGV/SIGBUS while a guest runs: the kernel's chance to
+// resolve it (copy-on-write page of a forked child). Return true when the
+// faulting access may be retried.
+using rlfex_fault_hook_fn = bool (*)(int sig, int code, uint64_t addr, uint64_t pc);
+void rlfex_set_fault_hook(rlfex_fault_hook_fn fn);
+
 // Runs fn(arg) on this thread with the fault guard armed for FEX thread
 // `thread` (may be null). A SIGBUS inside that thread's JIT code is first
 // offered to FEX's unaligned-access handler (TSO ldapur/stlur crossing 16

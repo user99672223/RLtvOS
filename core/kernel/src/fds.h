@@ -107,6 +107,7 @@ class FdTable {
 public:
     FdTable() = default;
     FdTable(const FdTable& o);  // dup for fork
+    void clone_from(const FdTable& o);  // same, into an existing (empty) table
     int alloc(std::shared_ptr<OpenFile> f, bool cloexec, int min_fd = 0);
     std::shared_ptr<OpenFile> get(int fd) const;
     int close(int fd);

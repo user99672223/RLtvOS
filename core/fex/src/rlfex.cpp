@@ -56,6 +56,7 @@ thread_local sigjmp_buf t_Jmp;
 thread_local FaultInfo t_Fault;
 thread_local Core::InternalThreadState* t_GuardThread = nullptr; // the FEX thread running under the guard
 std::atomic<uint64_t> g_UnalignedFixups {0};
+rlfex_fault_hook_fn g_FaultHook = nullptr;
 constexpr int GuardSignals[] = {SIGSEGV, SIGBUS, SIGILL, SIGTRAP, SIGFPE};
 struct sigaction g_Prev[NSIG] {};
 bool g_GuardInstalled = false;
@@ -71,6 +72,10 @@ void GuardHandler(int Sig, siginfo_t* SI, void* UC) {
 #endif
     Core::InternalThreadState* Thread = t_GuardThread;
     const bool InJIT = Thread && PC && Thread->CTX->IsAddressInCodeBuffer(Thread, PC);
+    const uint64_t Addr = SI ? reinterpret_cast<uint64_t>(SI->si_addr) : 0;
+    if ((Sig == SIGSEGV || Sig == SIGBUS) && g_FaultHook && g_FaultHook(Sig, SI ? SI->si_code : 0, Addr, PC)) {
+      return; // the kernel resolved it (copy-on-write page): retry the access
+    }
 #if defined(__aarch64__) || defined(__arm64__)
     if (Sig == SIGBUS && InJIT && U && U->uc_mcontext) {
       // FEX's TSO loads/stores (ldapur/stlur) fault when an access crosses a
@@ -91,7 +96,7 @@ void GuardHandler(int Sig, siginfo_t* SI, void* UC) {
 #endif
     t_Fault.Signal = Sig;
     t_Fault.Code = SI ? SI->si_code : 0;
-    t_Fault.Addr = SI ? reinterpret_cast<uint64_t>(SI->si_addr) : 0;
+    t_Fault.Addr = Addr;
     t_Fault.PC = PC;
     t_Fault.InJIT = InJIT;
     t_GuardActive = false;
@@ -448,6 +453,10 @@ bool PlatformInitLocked(const char*& Stage) {
 } // namespace
 
 // ------------------------------------------------------------------ kernel-facing API
+
+void rlfex_set_fault_hook(rlfex_fault_hook_fn Fn) {
+  g_FaultHook = Fn;
+}
 
 bool rlfex_platform_init(char* Err, size_t Cap) {
   std::lock_guard lk(g_Mutex);

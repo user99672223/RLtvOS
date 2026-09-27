@@ -219,6 +219,71 @@ struct winsize {
     uint16_t ws_row, ws_col, ws_xpixel, ws_ypixel;
 };
 
+// ---- signals: actions, flags, codes --------------------------------------------
+constexpr uint64_t sig_dfl = 0, sig_ign = 1;
+constexpr uint64_t sa_nocldstop = 1, sa_nocldwait = 2, sa_siginfo = 4, sa_onstack = 0x08000000, sa_restart = 0x10000000,
+                   sa_nodefer = 0x40000000, sa_resethand = 0x80000000;
+constexpr int si_user = 0, si_kernel = 0x80, si_queue = -1, si_tkill = -6;
+constexpr int cld_exited = 1, cld_killed = 2, cld_dumped = 3;
+constexpr int segv_maperr = 1, segv_accerr = 2, bus_adraln = 1, ill_illopc = 1, fpe_intdiv = 1;
+constexpr int ss_onstack = 1, ss_disable = 2;
+constexpr uint64_t minsigstksz = 2048;
+constexpr uint64_t sigbit(int sig) { return 1ull << (sig - 1); }
+
+// ---- clone / wait ----------------------------------------------------------------
+constexpr uint64_t clone_vm = 0x100, clone_fs = 0x200, clone_files = 0x400, clone_sighand = 0x800, clone_vfork = 0x4000,
+                   clone_parent = 0x8000, clone_thread = 0x10000, clone_settls = 0x80000, clone_parent_settid = 0x100000,
+                   clone_child_cleartid = 0x200000, clone_child_settid = 0x1000000, clone_csignal = 0xff;
+constexpr int wnohang = 1, wuntraced = 2, wexited = 4, wcontinued = 8, wnowait = 0x1000000;
+inline int wstatus_exited(int code) { return (code & 0xff) << 8; }
+inline int wstatus_signaled(int sig) { return sig & 0x7f; }
+
+// ---- signal frame layouts (x86-64, kernel's view) --------------------------------
+struct stack_t {  // 24 bytes
+    uint64_t ss_sp;
+    int32_t ss_flags;
+    int32_t pad;
+    uint64_t ss_size;
+};
+struct siginfo {  // 128 bytes
+    int32_t si_signo, si_errno, si_code, pad0;
+    union {
+        struct {
+            int32_t pid, uid;
+        } kill;
+        struct {
+            int32_t pid, uid, status, pad;
+            int64_t utime, stime;
+        } chld;
+        struct {
+            uint64_t addr;
+        } fault;
+        uint8_t raw[112];
+    } u;
+};
+struct sigcontext {  // 256 bytes
+    uint64_t r8, r9, r10, r11, r12, r13, r14, r15;
+    uint64_t rdi, rsi, rbp, rbx, rdx, rax, rcx, rsp, rip, eflags;
+    uint16_t cs, gs, fs, ss;
+    uint64_t err, trapno, oldmask, cr2;
+    uint64_t fpstate;  // pointer to the 512-byte fxsave area
+    uint64_t reserved[8];
+};
+struct ucontext {  // 304 bytes (the kernel's ucontext: 8-byte sigset)
+    uint64_t uc_flags, uc_link;
+    stack_t uc_stack;
+    sigcontext uc_mcontext;
+    uint64_t uc_sigmask;
+};
+struct rt_sigframe {  // 440 bytes; the fxsave area (512, 64-aligned) sits above it
+    uint64_t pretcode;  // the handler returns here: sa_restorer (rt_sigreturn)
+    ucontext uc;
+    siginfo info;
+};
+static_assert(sizeof(siginfo) == 128 && sizeof(sigcontext) == 256 && sizeof(ucontext) == 304 && sizeof(rt_sigframe) == 440,
+              "x86-64 signal frame layout");
+constexpr size_t fxsave_size = 512;
+
 // ---- ELF64 ----------------------------------------------------------------------
 constexpr uint16_t et_exec = 2, et_dyn = 3, em_x86_64 = 62;
 constexpr uint32_t pt_load = 1, pt_dynamic = 2, pt_interp = 3, pt_note = 4, pt_phdr = 6, pt_tls = 7,

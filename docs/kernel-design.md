@@ -204,3 +204,40 @@ phases drive `init` with the checkpoint scripts unchanged from the laptop.
 Each request from C1 on: run the laptop reference trace summary
 (`laptop/refs/summarize.py --diff ref.trace.gz tv-log.txt`) and fix every
 ENOSYS/wrong return before the next request.
+
+## 3. Processes, threads and signals (C3)
+
+- **Threads** (`clone` with CLONE_THREAD): a new `GuestThread` + FEXCore thread
+  in the same process with the given stack and TLS; CLONE_*_SETTID /
+  CHILD_CLEARTID honoured; thread exit clears the tid word and wakes its futex.
+- **fork** (`clone(SIGCHLD)`, `fork`): vfork-style — the child runs in the
+  parent's `AddressSpace` (shared `shared_ptr`) on its own host thread while
+  the parent blocks; `AddressSpace::push_snapshot()` write-protects every
+  writable host page and records the VMA table and brk. The child's first write
+  to a tracked page faults into `rlfex`'s guard → `Kernel::host_fault_hook`
+  → `cow_fault()`, which saves the old 16 KB and re-enables writing; kernel
+  writes into guest memory (`copy_in`, `zero`, `unmap`, `MAP_FIXED`) save the
+  page first. When the child execs or exits, `pop_snapshot()` unmaps what the
+  child mapped, restores the VMA table, brk and every saved page, drops the
+  translations of those pages and the parent continues. Snapshots nest.
+  **vfork** (CLONE_VM|CLONE_VFORK) does the same without a snapshot.
+- **execve**: loads the new image into a fresh `AddressSpace` (shebang
+  handled), swaps it in, closes CLOEXEC fds, resets handlers to SIG_DFL and
+  the calling thread's CPU state (registers, flags, FPU, callret stack) in
+  place; FEX's dispatcher then looks up the new RIP. The old space is dropped
+  (unmapped + translations invalidated) unless a forked child still shares it.
+- **Blocking**: every guest thread owns a `Waiter`; pipes, futex words, child
+  exit and timers keep it in `WaitQueue`s (prepare/notify generation counting,
+  no lost wakeups). A signal notifies the waiter → the syscall returns -EINTR
+  and is restarted after the handler when the action has SA_RESTART (or
+  transparently when the signal was dropped).
+- **Signals**: pending bits per thread and per process, ignored signals
+  dropped at send time; delivery at the end of a syscall builds the x86-64
+  `rt_sigframe` (ucontext with the CPUState registers, EFLAGS via
+  `ReconstructCompactedEFLAGS`, 512-byte fxsave area, siginfo) on the guest
+  stack or the sigaltstack and enters the handler; `rt_sigreturn` restores
+  everything. Default actions: terminate (recorded for wait4) or ignore.
+  Asynchronous delivery into JIT code is not implemented yet (see DECISIONS).
+- **wait4**: children are found through `ppid` in the process table; zombies
+  keep their entry until waited; a child whose parent is gone is reaped at
+  exit. `SIGCHLD` with CLD_EXITED/CLD_KILLED siginfo goes to the parent.
