@@ -8,9 +8,9 @@ laptop/refs/summarize.py) and `out/<name>/` (logs, snapshots).
 
 | name | what | lines | procs/threads | unique syscalls | ENOSYS | .gz | where |
 |------|------|------:|------:|------:|--------|-----:|-------|
-| c1 | static hello (write/exit_group) | 58 | 1 | 27 | none | 1.7 KB | here |
+| c1 | static hello (write/exit_group); `-static-pie` since request 002 | 58 | 1 | 27 | none | 1.6 KB | here |
 | c2 | dynamic glibc hello | 1,094 | 6 | 49 | none | 15 KB | here |
-| c3 | busybox sh pipeline + background job + threads-test | 770 | 17 | 48 | none | 10 KB | here |
+| c3 | busybox sh pipeline + background job + threads-test; **dynamic PIE busybox** since request 002 | 2,162 | 17 | 49 | none | 24 KB | here |
 | c4 | Xvfb :0 + xdpyinfo + xeyes + xdotool | 6,889 | 19 | 67 | none | 102 KB | here |
 | c5 | wine notepad under Xvfb (wineserver -f -p first) | 437,522 | 134 | 104 | none | 4.1 MB | here |
 | d1 | vkcube (llvmpipe; no GPU in REPO's sandbox) | 117,471 | 55 | 83 | none | 0.9 MB | here |
@@ -23,6 +23,15 @@ laptop/refs/summarize.py) and `out/<name>/` (logs, snapshots).
 gh release download refs-laptop-1 -R user99672223/RLtvOS -p 'e*.trace.gz' -D refs/
 sha256sum -c refs/e12.sha256
 ```
+
+## Re-recorded for request 002 (2026-09-27)
+The TV cannot map below 4 GB, so every guest executable must be PIE. `busybox` (dynamic, PIE)
+replaced `busybox-static` in the rootfs, and `hello-static` is now `-static-pie`.
+- c1 and c3 were re-recorded with those binaries, with the same command, network namespace and
+  redaction as below.
+- c3 grew from 770 to 2,162 lines: every busybox exec now goes through ld.so and libc.
+- c1's syscalls are unchanged.
+- The old c1/c3 traces are in git history (commit 7e25e51 and earlier).
 
 ## How they were made
 - c1–d2: REPO's `laptop/refs/run.sh c1 … d2` unchanged, but run inside its own network

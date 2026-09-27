@@ -1,4 +1,4 @@
-trace: /home/user/local_RLtvOS/refs/c1.trace.gz  lines=58 processes=1 time=22:54:23.924405..22:54:23.927062
+trace: /home/user/local_RLtvOS/refs/c1.trace.gz  lines=58 processes=1 time=01:48:26.769191..01:48:26.771139
 unique syscalls: 27   ENOSYS: none
 execve: 5:/usr/bin/sh; 5:/opt/rl/bin/hello-static
 exits: 5=0
