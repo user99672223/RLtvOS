@@ -1,0 +1,30 @@
+1 0.0 host: RLtvOS build-11 pid 1061 tvOS 27.0 crash-handler rc=0
+2 0.4 host: sysinfo {"cs_debugged":0,"hw_machine":"AppleTV14,1","hw_memsize":4167958528,"hw_model":"J255AP","hw_pagesize":16384,"kern_osversion":"24J361","ncpu":5,"pid":1061,"ptraced":0,"sigaltstack":"ok"}
+3 0.5 host: jit arena init rc=0 {"base":"0x1042fc000","size":16777216,"size_mb":16,"prot":"rwx","rwx_errno":0,"page":16384,"pages":1024}
+4 0.8 host: config {"jit_in_place":0}
+5 0.9 jit26: stage waiting-for-debugger
+6 0.9 host: jit26 start rc=0 pool=128 MB wait=60 s flags=0
+7 0.9 host: rlfex not linked in this build
+8 1.0 host: jit map probe {"ok":false,"stage":"mapped-only","method":"rwx-mmap","rwx_errno":0,"ptraced":0,"cs_debugged":0,"reason":"not executed: on tvOS 26+ a page runs only after a debugger wrote to it; use tv.py jit (authorizes the arena, then runs jittest --trust)"}
+9 1.2 host: va {"max_contiguous_gb":6,"contig_errno":12,"total_1gb_steps":7,"step_limit_gb":1024,"stop_errno":12,"lowest":"0x11a800000","highest":"0x7180000000"}
+10 1.2 host: rlcore 0.1 (clang 17.0, libc++ 190102, Sep 26 2026)
+11 6.8 rlcore: selftest ok
+12 6.8 host: rlcore selftest {"ok":true,"threads":4,"counter":400000,"tls_values":4,"exceptions":true,"alloc64mb":true,"ms":5.58,"version":"0.1 (clang 17.0, libc++ 190102, Sep 26 2026)","hardware_concurrency":5}
+13 6.9 host: mem {"available":2193898064,"available_mb":2092.3000000000002,"compressed":0,"external":20119552,"internal":5652480,"kr":0,"limit_estimate":2199912448,"peak_phys_footprint":6014384,"phys_footprint":6014384,"phys_footprint_mb":5.7000000000000002,"resident_size":26673152,"virtual_size":474677919744}
+14 10.0 host: metal device Apple A15 GPU screen 1920x1080@1.0
+15 19.1 host: debug server listening on 0.0.0.0:7777
+16 1657.5 jit26: ptraced=1 after 1.7 s (asked 60 s); pool 128 MB flags=0
+17 1657.5 jit26: stage preparing
+18 5930.6 jit26: prepared 128 MB at 0x106aec000 by debugger in 4.27 s
+19 5930.6 jit26: stage remapping
+20 5944.6 jit26: RW alias at 0x10eaec000 (cur=5 max=7) delta=134217728
+21 5944.6 jit26: stage testing
+22 5946.1 jit26: attached self-test ok: 42 43
+23 5946.1 jit26: stage detaching
+24 6102.7 jit26: detach serviced (ptraced now 1)
+25 6111.5 host: did become active
+26 6408.9 jit26: stage testing
+27 6410.7 jit26: detached self-test ok: 44 45 (ptraced=0)
+28 6410.8 jit26: stage ready
+29 7498.5 run: jittest cwd=/
+30 7500.5 jit26: self-test ok: 42 43 (ptraced=0)

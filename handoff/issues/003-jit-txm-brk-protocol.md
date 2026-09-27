@@ -130,3 +130,16 @@ debugserver address it can reach without root (`DEBUGSERVER_ADDR` / `DEBUGSERVER
   Then LAPTOP adds `cryptexd` install (idevice `install_ddi`, TSS personalization) to
   laptop/jit and re-runs request 001. No app changes are needed for this.
 - Skeleton impact: none yet. The debugger route exists; it only needs Apple's tvOS 27 DDI.
+
+## 2026-09-27 02:22 — SOLVED: JIT works on tvOS 27 / A15 (results/001-harness, PASS)
+- tvOS 27 DDI = Xcode 27's **tvOS Cryptex1 DDI** (build 27A9269, ProductClass 0xF4), taken from
+  GitHub Actions `runs-on: xcode-27` (`.github/workflows/laptop-tvos-ddi.yml`, doronz88's
+  update_ddi.py layout, 5-day artifact; LAPTOP keeps a copy in ~/rltvos/ddi/tvos27). Installed
+  with `rltvos-jit mount-ddi` (idevice cryptexd + TSS) in 5.8 s. It stays until the TV reboots;
+  `jit.sh` reinstalls it automatically when the debug services are missing.
+- universal.js flow end to end: attach 1.4 s → PrepareRegion(0,128 MB) → `_M` + 8192 page writes
+  (4.2 s) → Detach. App: attached 42/43, **detached 44/45**, jittest 42/43. +136 MB phys_footprint.
+- In-place (`jit_in_place=1`, app-mapped RX pool prepared by the debugger) works as well.
+- FEXCore JIT runs in the pool on the TV (build-15): selftest 3/7, see the result's FEX section.
+- Side effect: atvloadly/plumesign installs take ~11 min while the DDI is mounted
+  (RSD body 23584 bytes > 16374 read). Not ours to fix; INSTALL_TIMEOUT=1500.

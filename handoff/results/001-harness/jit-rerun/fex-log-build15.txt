@@ -1,0 +1,45 @@
+1 0.0 host: RLtvOS build-15 pid 1065 tvOS 27.0 crash-handler rc=0
+2 0.4 host: sysinfo {"cs_debugged":0,"hw_machine":"AppleTV14,1","hw_memsize":4167958528,"hw_model":"J255AP","hw_pagesize":16384,"kern_osversion":"24J361","ncpu":5,"pid":1065,"ptraced":0,"sigaltstack":"ok"}
+3 0.5 host: jit arena init rc=0 {"base":"0x106c00000","size":16777216,"size_mb":16,"prot":"rwx","rwx_errno":0,"page":16384,"pages":1024}
+4 0.7 host: config {"jit_in_place":0}
+5 0.8 host: jit26 start rc=0 pool=128 MB wait=60 s flags=0
+6 0.8 host: rlfex bound to the jit26 pool
+7 0.8 jit26: stage waiting-for-debugger
+8 0.9 host: jit map probe {"ok":false,"stage":"mapped-only","method":"rwx-mmap","rwx_errno":0,"ptraced":0,"cs_debugged":0,"reason":"not executed: on tvOS 26+ a page runs only after a debugger wrote to it; use tv.py jit (authorizes the arena, then runs jittest --trust)"}
+9 1.0 host: va {"max_contiguous_gb":6,"contig_errno":12,"total_1gb_steps":7,"step_limit_gb":1024,"stop_errno":12,"lowest":"0x107c00000","highest":"0x7180000000"}
+10 1.1 host: rlcore 0.1 (clang 17.0, libc++ 190102, Sep 27 2026)
+11 5.2 rlcore: selftest ok
+12 5.2 host: rlcore selftest {"ok":true,"threads":4,"counter":400000,"tls_values":4,"exceptions":true,"alloc64mb":true,"ms":4.06,"version":"0.1 (clang 17.0, libc++ 190102, Sep 27 2026)","hardware_concurrency":5}
+13 5.3 host: mem {"available":2193963600,"available_mb":2092.3000000000002,"compressed":0,"external":19529728,"internal":5586944,"kr":0,"limit_estimate":2199912448,"peak_phys_footprint":5948848,"phys_footprint":5948848,"phys_footprint_mb":5.7000000000000002,"resident_size":25935872,"virtual_size":474681376768}
+14 8.7 host: metal device Apple A15 GPU screen 1920x1080@1.0
+15 19.8 host: debug server listening on 0.0.0.0:7777
+16 1849.3 jit26: ptraced=1 after 1.8 s (asked 60 s); pool 128 MB flags=0
+17 1849.3 jit26: stage preparing
+18 6264.3 jit26: prepared 128 MB at 0x10a3ec000 by debugger in 4.42 s
+19 6264.4 jit26: stage remapping
+20 6279.7 jit26: RW alias at 0x1123ec000 (cur=5 max=7) delta=134217728
+21 6279.7 jit26: stage testing
+22 6281.3 jit26: attached self-test ok: 42 43
+23 6281.3 jit26: stage detaching
+24 6455.0 host: did become active
+25 6458.6 jit26: detach serviced (ptraced now 0)
+26 6764.8 jit26: stage testing
+27 6766.4 jit26: detached self-test ok: 44 45 (ptraced=0)
+28 6766.5 jit26: stage ready
+29 7590.8 run: jittest cwd=/
+30 7592.5 jit26: self-test ok: 42 43 (ptraced=0)
+31 40095.8 run: fex-selftest all cwd=/
+32 40097.9 fex: exec alloc #1 16 KB rw=0x1123ec000 rx=0x10a3ec000
+33 40097.9 fex: exec free 16 KB rw=0x1123ec000
+34 40101.8 fex: exec alloc #2 16 KB rw=0x1123ec000 rx=0x10a3ec000
+35 40103.2 rlfex: initialised {"ok":true,"version":"FEX-59f85d6-rltvos","init_ms":7.3,"page_size":16384,"probe":{"rw":"0x1123ec000","rx":"0x10a3ec000"},"host_features":{"aes":1,"crc":1,"sha":1,"lse":1,"afp":0,"rcpc":1,"tso_imm9":1,"pmull128":1,"cssc":0,"fcma":1,"flagm":1,"flagm2":1,"frintts":1,"rpres":0,"ecv":1,"wfxt":0,"i8mm":1,"dotprod":1,"clzero":1,"float_exceptions":1,"avx":1,"dcache_line":128,"cpus":5}}
+36 40103.3 host: rlfex init {"ok":true,"version":"FEX-59f85d6-rltvos","init_ms":7.3,"page_size":16384,"probe":{"rw":"0x1123ec000","rx":"0x10a3ec000"},"host_features":{"aes":1,"crc":1,"sha":1,"lse":1,"afp":0,"rcpc":1,"tso_imm9":1,"pmull128":1,"cssc":0,"fcma":1,"flagm":1,"flagm2":1,"frintts":1,"rpres":0,"ecv":1,"wfxt":0,"i8mm":1,"dotprod":1,"clzero":1,"float_exceptions":1,"avx":1,"dcache_line":128,"cpus":5}}
+37 40104.5 fex: exec alloc #3 16384 KB rw=0x1123f0000 rx=0x10a3f0000
+38 40107.3 rlfex: selftest add ok rax=24 expected=24 2.65 ms
+39 40107.5 rlfex: selftest loop FAIL rax=100 expected=5050 0.01 ms
+40 40107.6 rlfex: selftest sse FAIL rax=13 expected=42 0.01 ms
+41 40107.8 rlfex: selftest call ok rax=42 expected=42 0.01 ms
+42 40107.9 rlfex: selftest mem ok rax=42 expected=42 0.01 ms
+43 40108.1 rlfex: selftest syscall FAIL rax=0 expected=4242 0.01 ms
+44 40108.3 rlfex: selftest exit FAIL rax=0 expected=7 0.01 ms
+45 40108.4 host: fex selftest all: {"tests":[{"name":"add","ok":true,"expected":24,"run":{"ok":true,"rax":24,"rax_hex":"0x18","rip":"0x1039d0009","ms":2.649,"exit":"hlt","fault":{"signal":0,"pc":"0x0","addr":"0x0"},"syscalls":0}},{"name":"loop","ok":false,"expected":5050,"run":{"ok":true,"rax":100,"rax_hex":"0x64","rip":"0x1039d0009","ms":0.011,"exit":"hlt","fault":{"signal":0,"pc":"0x0","addr":"0x0"},"syscalls":0}},{"name":"sse","ok":false,"expected":42

@@ -1,0 +1,138 @@
+{
+  "active_processors": 5,
+  "app": "RLtvOS",
+  "build": "build-11",
+  "caches_dir": "/var/mobile/Containers/Data/Application/9A8C3D97-A3C0-4ACF-861C-122318969441/Library/Caches",
+  "config": {
+    "jit_in_place": 0
+  },
+  "core": {
+    "alloc64mb": true,
+    "counter": 400000,
+    "exceptions": true,
+    "hardware_concurrency": 5,
+    "ms": 5.58,
+    "ok": true,
+    "threads": 4,
+    "tls_values": 4,
+    "version": "0.1 (clang 17.0, libc++ 190102, Sep 26 2026)"
+  },
+  "crash_report_present": false,
+  "device": "Apple TV",
+  "fex": {
+    "init": {
+      "ok": false,
+      "stage": "not-initialised"
+    },
+    "linked": false,
+    "note": "app built without core/fex (see the build log's FEX step)"
+  },
+  "frames": 10,
+  "guest": {
+    "kernel": "none (phase A)",
+    "processes": []
+  },
+  "input_queued": 0,
+  "jit": {
+    "allocator": {
+      "free": 134217728,
+      "largest_free": 134217728,
+      "segments": 1,
+      "size": 134217728,
+      "used": 0
+    },
+    "attached_test": true,
+    "cs_debugged": 1,
+    "detach_serviced": true,
+    "detached": true,
+    "detached_test": true,
+    "error": "",
+    "in_place": {
+      "errno": 0,
+      "prepared": false,
+      "tried": false
+    },
+    "ok": true,
+    "pool": "0x106aec000",
+    "prepare_s": 4.27,
+    "prepared_by": "debugger",
+    "protect_kr": 0,
+    "ptraced": 0,
+    "ptraced_at_prepare": 1,
+    "remap_kr": 0,
+    "remap_s": 0.014,
+    "rw_alias": "0x10eaec000",
+    "size": 134217728,
+    "size_mb": 128,
+    "stage": "ready",
+    "unserviced_traps": 0,
+    "wait_s": 60,
+    "waited_s": 1.7
+  },
+  "jit_arena": {
+    "base": "0x1042fc000",
+    "page": 16384,
+    "pages": 1024,
+    "prot": "rwx",
+    "rwx_errno": 0,
+    "size": 16777216,
+    "size_mb": 16
+  },
+  "jit_probe": {
+    "cs_debugged": 0,
+    "method": "rwx-mmap",
+    "ok": false,
+    "ptraced": 0,
+    "reason": "not executed: on tvOS 26+ a page runs only after a debugger wrote to it; use tv.py jit (authorizes the arena, then runs jittest --trust)",
+    "rwx_errno": 0,
+    "stage": "mapped-only"
+  },
+  "last_jit_kill": "",
+  "log_next": 31,
+  "low_power": false,
+  "mem": {
+    "available": 2023815616,
+    "available_mb": 1930.1,
+    "compressed": 0,
+    "external": 24903680,
+    "internal": 158498816,
+    "kr": 0,
+    "limit_estimate": 2199912448,
+    "peak_phys_footprint": 176096832,
+    "phys_footprint": 176096832,
+    "phys_footprint_mb": 167.9,
+    "resident_size": 185991168,
+    "virtual_size": 474984906752
+  },
+  "physical_memory": 4167958528,
+  "pid": 1061,
+  "processors": 5,
+  "requests": 10,
+  "sysinfo": {
+    "cs_debugged": 0,
+    "hw_machine": "AppleTV14,1",
+    "hw_memsize": 4167958528,
+    "hw_model": "J255AP",
+    "hw_pagesize": 16384,
+    "kern_osversion": "24J361",
+    "ncpu": 5,
+    "pid": 1061,
+    "ptraced": 0,
+    "sigaltstack": "ok"
+  },
+  "thermal": "nominal",
+  "tvos": "27.0",
+  "uptime_s": 9.666679978370667,
+  "va": {
+    "contig_errno": 12,
+    "highest": "0x7180000000",
+    "lowest": "0x11a800000",
+    "max_contiguous_gb": 6,
+    "step_limit_gb": 1024,
+    "stop_errno": 12,
+    "total_1gb_steps": 7
+  },
+  "vfs": {
+    "mounted": false
+  }
+}

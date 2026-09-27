@@ -1,0 +1,30 @@
+[2026-09-27 00:24:13 WARN  idevice::xpc::format] Body length is 23584, but received bytes is 16374
+[2026-09-27 00:24:13 INFO  plumesign::commands::sign_rsd] Product Type: AppleTV14,1
+[2026-09-27 00:24:13 INFO  plumesign::commands::sign_rsd] Product Version: 27.0
+[2026-09-27 00:24:13 INFO  plumesign::commands::sign_rsd] Developer Mode: enabled
+[2026-09-27 00:24:13 INFO  plumesign::commands::sign_rsd] Personalized Image: not mounted
+[2026-09-27 00:24:13 INFO  plumesign::commands::sign_rsd] Detected app type: Default
+[2026-09-27 00:24:13 INFO  android_loader::android_library] Loading /data/PlumeImpactor/lib/x86_64/libCoreADI.so
+[2026-09-27 00:24:14 INFO  plumesign::commands::sign_rsd] Registering device: AppleTV (00008110-000A118821E1801E)
+[2026-09-27 00:24:15 INFO  plume_utils::signer] Signing bundle: /tmp/plume_stage_B39EA2EA-DCE9-4F7C-AC79-5CF783E9B24B/Payload/RLtvOS.app
+[2026-09-27 00:24:15 WARN  apple_codesign::signing] signing bundle at /tmp/plume_stage_B39EA2EA-DCE9-4F7C-AC79-5CF783E9B24B/Payload/RLtvOS.app
+[2026-09-27 00:24:15 WARN  apple_codesign::bundle_signing] signing bundle at /tmp/plume_stage_B39EA2EA-DCE9-4F7C-AC79-5CF783E9B24B/Payload/RLtvOS.app into /tmp/plume_stage_B39EA2EA-DCE9-4F7C-AC79-5CF783E9B24B/Payload/RLtvOS.app
+[2026-09-27 00:24:15 INFO  apple_codesign::bundle_signing] collecting code resources files
+[2026-09-27 00:24:15 INFO  apple_codesign::code_resources] sealing regular file embedded.mobileprovision
+[2026-09-27 00:24:15 INFO  apple_codesign::bundle_signing] writing sealed resources to /tmp/plume_stage_B39EA2EA-DCE9-4F7C-AC79-5CF783E9B24B/Payload/RLtvOS.app/_CodeSignature/CodeResources
+[2026-09-27 00:24:15 WARN  apple_codesign::bundle_signing] signing main executable RLtvOS
+[2026-09-27 00:24:15 INFO  apple_codesign::bundle_signing] setting main executable binary identifier to dev.rltvos.app.GBCWA7VWJ3 (derived from CFBundleIdentifier in Info.plist)
+[2026-09-27 00:24:15 INFO  apple_codesign::signing_settings] inferring default signing settings from Mach-O binary
+[2026-09-27 00:24:15 INFO  apple_codesign::macho_signing] signing Mach-O binary at index 0
+[2026-09-27 00:24:15 INFO  apple_codesign::macho_signing] deriving code requirements from signing certificate
+[2026-09-27 00:24:15 INFO  apple_codesign::macho_signing] deriving code requirements from signing certificate
+[2026-09-27 00:24:15 INFO  apple_codesign::macho_signing] binary targets tvOS >= 18.0.0 with SDK 18.5.0
+[2026-09-27 00:24:15 INFO  apple_codesign::macho_signing] entitlements imply executable segment flags: ExecutableSegmentFlags(ALLOW_UNSIGNED)
+[2026-09-27 00:24:15 INFO  apple_codesign::macho_signing] code directory version: 132096
+[2026-09-27 00:24:15 INFO  apple_codesign::macho_signing] total signature size: 37724 bytes
+[2026-09-27 00:24:15 INFO  apple_codesign::bundle_signing] writing signed main executable to /tmp/plume_stage_B39EA2EA-DCE9-4F7C-AC79-5CF783E9B24B/Payload/RLtvOS.app/RLtvOS
+[2026-09-27 00:24:15 INFO  plumesign::commands::sign_rsd] Installing to device: AppleTV
+[2026-09-27 00:24:16 INFO  plumesign::commands::sign_rsd] Archive bundle progress: 100%
+[2026-09-27 00:24:16 INFO  plumesign::commands::sign_rsd] AFC upload progress: 100%
+[2026-09-27 00:35:28 INFO  plumesign::commands::sign_rsd] Installation progress: 100%
+[2026-09-27 00:35:28 INFO  plumesign::commands::sign_rsd] Installation complete!

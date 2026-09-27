@@ -1,0 +1,4 @@
+{"event":"tunnel","t":0.194,"services":80}
+{"event":"attached","t":1.439,"pid":1055,"reply":"T11"}
+{"event":"prepared","t":5.815,"addr":"0x105fec000","len":134217728,"pages":8192,"allocated_by":"debugger","ms":4206,"regions":1}
+{"event":"detached","t":6.048,"reply":"OK","regions":1,"stops":2}
