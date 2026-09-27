@@ -52,6 +52,7 @@ struct InternalThreadState;
 struct rlfex_fault_info {
   int signal;
   int code;                    // siginfo si_code
+  int kind;                    // RLFEX_FAULT_* (below): what the exception syndrome said
   uint64_t pc;                 // host pc
   uint64_t addr;               // si_addr
   bool in_jit;                 // pc inside the thread's JIT code buffer
@@ -68,9 +69,16 @@ bool rlfex_platform_init(char* err, size_t cap);
 const FEXCore::HostFeatures& rlfex_host_features();
 
 // First look at a SIGSEGV/SIGBUS while a guest runs: the kernel's chance to
-// resolve it (copy-on-write page of a forked child). Return true when the
-// faulting access may be retried.
-using rlfex_fault_hook_fn = bool (*)(int sig, int code, uint64_t addr, uint64_t pc);
+// resolve it (copy-on-write page of a forked child). `kind` is one of the
+// RLFEX_FAULT_* values below (classified from the exception syndrome, never
+// from si_code: XNU gives every SIGBUS si_code 1). Alignment faults are never
+// offered (they are FEX's to back-patch). Return true when the faulting
+// access may be retried.
+#define RLFEX_FAULT_UNKNOWN 0
+#define RLFEX_FAULT_ALIGN 1
+#define RLFEX_FAULT_PERMISSION 2   // the page exists but forbids the access (write to a copy-on-write page)
+#define RLFEX_FAULT_TRANSLATION 3  // nothing mapped there
+using rlfex_fault_hook_fn = bool (*)(int sig, int kind, uint64_t addr, uint64_t pc);
 void rlfex_set_fault_hook(rlfex_fault_hook_fn fn);
 
 // Interrupts a guest host thread that is executing JIT code: rlfex_run_guarded

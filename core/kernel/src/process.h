@@ -185,7 +185,7 @@ public:
     // Ends the calling thread (whole_group: the process) with exit code
     // `code`; term_signal != 0 records death by that signal for wait4.
     void exit_thread(GuestThread& t, void* frame, int code, bool whole_group, int term_signal = 0);
-    static bool host_fault_hook(int sig, int code, uint64_t addr, uint64_t pc);
+    static bool host_fault_hook(int sig, int kind, uint64_t addr, uint64_t pc);  // kind: RLFEX_FAULT_*
     // Interrupts a thread of an exiting process that is spinning in JIT code
     // (it never reaches a syscall boundary otherwise). Caller holds mu.
     void kick_thread_locked(GuestThread& t);

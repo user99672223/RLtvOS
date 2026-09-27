@@ -80,7 +80,12 @@ public:
     // memory exactly as it left it. Snapshots nest (a child forking again).
     void push_snapshot();
     void pop_snapshot();
-    bool cow_fault(uint64_t addr);   // true: the write is now allowed, retry it
+    // A host write fault at addr: 0 = not a copy-on-write page (not ours),
+    // 1 = the page was saved now and is writable again (retry the access),
+    // 2 = already saved by another thread (a stale protection, refreshed:
+    //     retry) — never returned twice in a row for the same page on the
+    //     same thread, so a fault that is not a copy-on-write one falls through.
+    int cow_fault(uint64_t addr);
     bool snapshot_active() const;
 
     // Program break, managed by the process (bookkeeping lives here so a

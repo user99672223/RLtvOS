@@ -46,6 +46,7 @@ using namespace FEXCore;
 struct FaultInfo {
   int Signal {};
   int Code {};
+  int Kind {}; // RLFEX_FAULT_*
   uint64_t PC {};
   uint64_t Addr {};
   bool InJIT {};
@@ -60,6 +61,53 @@ rlfex_fault_hook_fn g_FaultHook = nullptr;
 constexpr int GuardSignals[] = {SIGSEGV, SIGBUS, SIGILL, SIGTRAP, SIGFPE, RLFEX_KICK_SIGNAL};
 struct sigaction g_Prev[NSIG] {};
 bool g_GuardInstalled = false;
+
+// Fault classification from the arm64 exception syndrome (ESR_EL1 as XNU
+// hands it to the signal handler in __es.__esr): data/instruction aborts
+// carry the fault status code in bits 5:0 — 0x21 alignment, 0x0D–0x0F
+// permission (copy-on-write pages), 0x04–0x0B translation/access flag
+// (unmapped) — and WnR (bit 6) says whether the access was a store.
+int ClassifyFault(const ucontext_t* U, int Sig, int SiCode) {
+#if defined(__aarch64__) || defined(__arm64__)
+  if (U && U->uc_mcontext) {
+    const uint32_t ESR = U->uc_mcontext->__es.__esr;
+    const uint32_t EC = ESR >> 26;
+    if (EC == 0x24 || EC == 0x25 || EC == 0x20 || EC == 0x21) {
+      const uint32_t FSC = ESR & 0x3F;
+      if (FSC == 0x21) {
+        return RLFEX_FAULT_ALIGN;
+      }
+      if ((FSC & 0x3C) == 0x0C) {
+        return RLFEX_FAULT_PERMISSION;
+      }
+      if ((FSC & 0x3C) == 0x04 || (FSC & 0x3C) == 0x08) {
+        return RLFEX_FAULT_TRANSLATION;
+      }
+      return RLFEX_FAULT_UNKNOWN;
+    }
+  }
+#endif
+  // No syndrome: si_code cannot tell an alignment fault from a protection
+  // fault (XNU reports both as SIGBUS, si_code 1), so the fault stays
+  // UNKNOWN — the kernel's hook is asked first (it claims a page at most
+  // once), then FEX's back-patcher.
+  (void)Sig;
+  (void)SiCode;
+  return RLFEX_FAULT_UNKNOWN;
+}
+
+bool FaultIsWrite(const ucontext_t* U) {
+#if defined(__aarch64__) || defined(__arm64__)
+  if (U && U->uc_mcontext) {
+    const uint32_t ESR = U->uc_mcontext->__es.__esr;
+    const uint32_t EC = ESR >> 26;
+    if (EC == 0x24 || EC == 0x25) {
+      return (ESR >> 6) & 1;
+    }
+  }
+#endif
+  return false;
+}
 
 void GuardHandler(int Sig, siginfo_t* SI, void* UC) {
   if (Sig == RLFEX_KICK_SIGNAL) {
@@ -82,6 +130,7 @@ void GuardHandler(int Sig, siginfo_t* SI, void* UC) {
     }
     t_Fault.Signal = Sig;
     t_Fault.Code = 0;
+    t_Fault.Kind = RLFEX_FAULT_UNKNOWN;
     t_Fault.Addr = 0;
     t_Fault.PC = PC;
     t_Fault.InJIT = true;
@@ -99,11 +148,15 @@ void GuardHandler(int Sig, siginfo_t* SI, void* UC) {
     Core::InternalThreadState* Thread = t_GuardThread;
     const bool InJIT = Thread && PC && Thread->CTX->IsAddressInCodeBuffer(Thread, PC);
     const uint64_t Addr = SI ? reinterpret_cast<uint64_t>(SI->si_addr) : 0;
-    if ((Sig == SIGSEGV || Sig == SIGBUS) && g_FaultHook && g_FaultHook(Sig, SI ? SI->si_code : 0, Addr, PC)) {
+    // What kind of fault: from the exception syndrome, not si_code — XNU
+    // reports every SIGBUS with si_code 1 (= BUS_ADRALN), copy-on-write
+    // write-protection faults included (result 005).
+    const int Kind = ClassifyFault(U, Sig, SI ? SI->si_code : 0);
+    if ((Sig == SIGSEGV || Sig == SIGBUS) && Kind != RLFEX_FAULT_ALIGN && g_FaultHook && g_FaultHook(Sig, Kind, Addr, PC)) {
       return; // the kernel resolved it (copy-on-write page): retry the access
     }
 #if defined(__aarch64__) || defined(__arm64__)
-    if (Sig == SIGBUS && InJIT && U && U->uc_mcontext) {
+    if (Sig == SIGBUS && InJIT && U && U->uc_mcontext && (Kind == RLFEX_FAULT_ALIGN || Kind == RLFEX_FAULT_UNKNOWN)) {
       // FEX's TSO loads/stores (ldapur/stlur) fault when an access crosses a
       // 16-byte boundary; Darwin reports that as SIGBUS. FEX back-patches the
       // instruction (plain access + half barrier, written through the pool's
@@ -122,6 +175,7 @@ void GuardHandler(int Sig, siginfo_t* SI, void* UC) {
 #endif
     t_Fault.Signal = Sig;
     t_Fault.Code = SI ? SI->si_code : 0;
+    t_Fault.Kind = Kind;
     t_Fault.Addr = Addr;
     t_Fault.PC = PC;
     t_Fault.InJIT = InJIT;
@@ -524,6 +578,7 @@ int rlfex_run_guarded(void (*Fn)(void*), void* Arg, FEXCore::Core::InternalThrea
   if (Out) {
     Out->signal = t_Fault.Signal;
     Out->code = t_Fault.Code;
+    Out->kind = t_Fault.Kind;
     Out->pc = t_Fault.PC;
     Out->addr = t_Fault.Addr;
     Out->in_jit = t_Fault.InJIT;

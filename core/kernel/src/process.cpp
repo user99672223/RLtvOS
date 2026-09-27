@@ -170,15 +170,28 @@ FEXCore::Context::Context* Kernel::fex_context() {
     return g_ctx;
 }
 
-bool Kernel::host_fault_hook(int sig, int code, uint64_t addr, uint64_t pc) {
+bool Kernel::host_fault_hook(int sig, int kind, uint64_t addr, uint64_t pc) {
+    (void)sig;
     (void)pc;
-    // An alignment fault (FEX's TSO ldapur/stlur crossing 16 bytes) is the
-    // JIT's to back-patch, never a copy-on-write page: result 004's forked
-    // child looped forever between this hook and an unaligned stlurh.
-    if (sig == SIGBUS && code == BUS_ADRALN) return false;
+    // Only a permission fault can be a copy-on-write page (result 004: an
+    // alignment fault claimed here looped forever; result 005: XNU's si_code
+    // cannot tell the two apart, the guard classifies from the syndrome).
+    if (kind == RLFEX_FAULT_ALIGN || kind == RLFEX_FAULT_TRANSLATION) return false;
     GuestProcess* p = t_current_proc;
     if (!p || !p->mm) return false;
-    return p->mm->cow_fault(addr);
+    return p->mm->cow_fault(addr) != 0;  // 1 saved now, 2 stale protection refreshed (once per page)
+}
+
+// The guest signal for a host fault: Linux x86 raises SIGSEGV for every
+// access fault (protection or translation) and SIGBUS for alignment and bus
+// errors, XNU raises SIGBUS for protection faults — the guard's
+// classification decides, the host signal is the fallback.
+int linux_signal_of_fault(const rlfex_fault_info& f) {
+    if (f.signal == SIGSEGV || f.signal == SIGBUS) {
+        if (f.kind == RLFEX_FAULT_PERMISSION || f.kind == RLFEX_FAULT_TRANSLATION) return lx::sigsegv;
+        if (f.kind == RLFEX_FAULT_ALIGN) return lx::sigbus;
+    }
+    return linux_signal_of_host(f.signal);
 }
 
 bool Kernel::ensure_fex(std::string& err) {
@@ -425,21 +438,25 @@ void Kernel::thread_main(GuestThread* t) {
         t->exit_code = code;
         t->exited = true;
         if (t->proc->state.load() == (int)ProcState::Running) process_exited(*t->proc, *t, code, t->proc->term_signal);
-        detach_fex_thread(*t);  // interrupted mid-block: the FEX thread object is leaked, like after a fault
+        destroy_fex_thread(*t);  // kicked in JIT code: no FEX lock was held (result 005: leaks cost 272 MB each)
         if (t->proc->live_threads() == 0) reap(*t->proc);
         return;
     }
     if (rc != 0) {
-        const int lsig = linux_signal_of_host(fault.signal);
-        Log("kernel: pid %d tid %d FAULT signal=%d code=%d pc=0x%llx%s addr=0x%llx (last block-exit guest rip=0x%llx, "
+        const int lsig = linux_signal_of_fault(fault);
+        Log("kernel: pid %d tid %d FAULT signal=%d code=%d kind=%d pc=0x%llx%s addr=0x%llx (last block-exit guest rip=0x%llx, "
             "unaligned fixups so far=%llu) -> killed by signal %d",
-            t->proc->pid, t->tid, fault.signal, fault.code, (unsigned long long)fault.pc, fault.in_jit ? " (in JIT code)" : "",
+            t->proc->pid, t->tid, fault.signal, fault.code, fault.kind, (unsigned long long)fault.pc, fault.in_jit ? " (in JIT code)" : "",
             (unsigned long long)fault.addr, (unsigned long long)thread->CurrentFrame->State.rip,
             (unsigned long long)fault.unaligned_fixups, lsig);
         t->exit_code = 128 + lsig;
         t->exited = true;
         process_exited(*t->proc, *t, 128 + lsig, lsig);
-        detach_fex_thread(*t);  // the FEX thread object is left alone: its state is unknown after a longjmp
+        // Out of JIT code the FEX thread holds no lock: destroy it (result
+        // 005: every leaked thread kept ~272 MB of address space). A fault
+        // inside FEX's own code leaves the object alone (its state is unknown).
+        if (fault.in_jit) destroy_fex_thread(*t);
+        else detach_fex_thread(*t);
         if (t->proc->live_threads() == 0) reap(*t->proc);
         return;
     }
@@ -881,8 +898,10 @@ int Kernel::kill_all() {
     int n = 0;
     for (auto& [pid, p] : procs) {
         if (p->state == (int)ProcState::Running) {
-            // No async stop yet: flag it and wake blocked threads; each
-            // thread exits at its next syscall.
+            // killall = SIGKILL from outside: blocked threads wake and exit at
+            // their syscall boundary, JIT-spinning ones are kicked.
+            p->term_signal = lx::sigkill;
+            p->exit_code = 128 + lx::sigkill;
             p->state = (int)ProcState::Dead;
             for (auto& th : p->threads) {
                 th->waiter.notify();

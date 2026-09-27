@@ -626,14 +626,19 @@ int64_t sys_flock(Sc& c) {
 
 void fill_statfs(uint64_t* f, uint64_t magic) {
     memset(f, 0, 120);
-    f[0] = magic;            // f_type
-    f[1] = 4096;             // f_bsize
-    f[2] = 12u << 20;        // f_blocks
-    f[3] = f[4] = 4u << 20;  // free / avail
-    f[5] = 1u << 20;         // files
-    f[6] = 1u << 19;         // ffree
-    f[8] = 255;              // namelen
-    f[9] = 4096;             // frsize
+    f[0] = magic;  // f_type
+    f[1] = 4096;   // f_bsize
+    if (magic == lx::tmpfs_magic) {  // the writable layer: "1 GB, mostly free" (it is app memory)
+        f[2] = 256u << 10;          // f_blocks (4 KB units)
+        f[3] = f[4] = 240u << 10;   // free / avail
+    } else {                        // the read-only image from the laptop: 48 GB, full
+        f[2] = 12u << 20;
+        f[3] = f[4] = magic == lx::proc_super_magic ? 0 : 1u << 18;
+    }
+    f[5] = 1u << 20;  // files
+    f[6] = 1u << 19;  // ffree
+    f[8] = 255;       // namelen
+    f[9] = 4096;      // frsize
 }
 
 uint64_t magic_for(const std::string& path, uint64_t dev) {

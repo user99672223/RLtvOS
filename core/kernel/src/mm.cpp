@@ -502,18 +502,29 @@ void AddressSpace::cow_touch_locked(uint64_t start, uint64_t end) {
     }
 }
 
-bool AddressSpace::cow_fault(uint64_t addr) {
+int AddressSpace::cow_fault(uint64_t addr) {
+    // The page this thread last claimed without progress: a second claim of
+    // the same page in a row means the fault is not a copy-on-write one (an
+    // alignment fault at a tracked page when the guard had no exception
+    // syndrome to classify it) — result 004 looped forever on exactly that.
+    static thread_local uint64_t t_stale_hp = ~0ull;
     std::lock_guard<std::mutex> lk(mu_);
-    if (snaps_.empty()) return false;
     const uint64_t hp = host_down(addr);
+    if (snaps_.empty()) return t_stale_hp = ~0ull, 0;
     Snapshot& s = snaps_.back();
-    if (!s.is_tracked(hp)) return false;
+    if (!s.is_tracked(hp)) return t_stale_hp = ~0ull, 0;
     // Only a store the guest is allowed to make can be a copy-on-write fault;
     // a store to a page the guest itself made read-only is its own fault.
-    if (!(union_prot(hp) & lx::prot_write)) return false;
-    if (!s.pages.count(hp)) cow_touch_locked(hp, hp + host_page());
-    else apply_host_prot(hp, hp + host_page());  // already saved (another thread): a stale protection, refresh it
-    return true;
+    if (!(union_prot(hp) & lx::prot_write)) return t_stale_hp = ~0ull, 0;
+    if (!s.pages.count(hp)) {
+        cow_touch_locked(hp, hp + host_page());
+        t_stale_hp = ~0ull;
+        return 1;
+    }
+    if (hp == t_stale_hp) return t_stale_hp = ~0ull, 0;
+    apply_host_prot(hp, hp + host_page());  // already saved (another thread): a stale protection, refresh it
+    t_stale_hp = hp;
+    return 2;
 }
 
 bool AddressSpace::snapshot_active() const {

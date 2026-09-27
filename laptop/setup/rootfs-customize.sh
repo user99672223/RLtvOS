@@ -25,6 +25,7 @@ esac
 gcc -O2 -o /opt/rl/bin/hello-dyn hello_dyn.c
 gcc -O2 -pthread -o /opt/rl/bin/threads-test threads_test.c
 gcc -O2 -o /opt/rl/bin/cpubench cpubench.c -lm   # FEX-vs-native speed proxy (issue 004)
+gcc -O2 -o /opt/rl/bin/crashtest crashtest.c      # deliberate faults: SIGSEGV paths, kick test
 if command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then
   x86_64-w64-mingw32-gcc -O2 -municode -o /opt/rl/bin/d3d11tri.exe d3d11tri.c \
     -ld3d11 -ldxgi -ld3dcompiler -ldxguid -luuid -luser32 -lgdi32 || echo "WARN: d3d11tri build failed"

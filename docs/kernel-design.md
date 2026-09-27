@@ -264,7 +264,15 @@ ENOSYS/wrong return before the next request.
   to a tracked page faults into `rlfex`'s guard → `Kernel::host_fault_hook`
   → `cow_fault()`, which saves the old 16 KB and re-enables writing; kernel
   writes into guest memory (`copy_in`, `zero`, `unmap`, `MAP_FIXED`) save the
-  page first. When the child execs or exits, `pop_snapshot()` unmaps what the
+  page first. The guard classifies each fault from the arm64 exception
+  syndrome (`uc_mcontext->__es.__esr`: fault status 0x21 alignment, 0x0D–0x0F
+  permission, 0x04–0x0B translation) because XNU reports every SIGBUS with
+  si_code 1, alignment and write-protection faults alike (result 005); only
+  permission/unknown faults reach the hook, alignment faults go straight to
+  FEX's back-patcher, and `cow_fault()` never claims the same already-saved
+  page twice in a row (result 004: a claimed alignment fault looped forever).
+  The guest signal follows the classification (SIGSEGV for permission and
+  translation faults, SIGBUS for alignment), not Darwin's signal number. When the child execs or exits, `pop_snapshot()` unmaps what the
   child mapped, restores the VMA table, brk and every saved page, drops the
   translations of those pages and the parent continues. Snapshots nest.
   **vfork** (CLONE_VM|CLONE_VFORK) does the same without a snapshot.

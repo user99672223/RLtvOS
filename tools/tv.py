@@ -980,21 +980,32 @@ def cmd_shot(a):
 
 
 def do_log(since=None, max_lines=4000, path=None, append=True):
+    """Fetches the app log from `since`; pages through the server's per-reply cap until it is drained."""
     st_ = load_state()
     if since is None:
         since = int(st_.get("log_next", 1))
-    stt, j = app_json("GET", f"/log?since={since}&max={max_lines}", timeout=30)
-    if stt != 200:
-        return {"ok": False, "http": stt, "error": j}
-    lines = j.get("lines", [])
+    lines, dropped, nxt, cursor = [], 0, since, since
+    while True:
+        stt, j = app_json("GET", f"/log?since={cursor}&max={max_lines}", timeout=30)
+        if stt != 200:
+            if lines:
+                break
+            return {"ok": False, "http": stt, "error": j}
+        got = j.get("lines", [])
+        lines.extend(got)
+        dropped += j.get("dropped", 0)
+        nxt = j.get("next", cursor)
+        if not got or nxt <= cursor or len(got) < max_lines:
+            break
+        cursor = nxt
     text = "".join(f"{l['seq']} {l['t']:.1f} {l['s']}\n" for l in lines)
     p = pathlib.Path(path) if path else out_dir("logs") / f"log-{_dt.date.today().isoformat()}.txt"
     p.parent.mkdir(parents=True, exist_ok=True)
     with open(p, "a" if append else "w") as f:
         f.write(text)
-    st_["log_next"] = j.get("next", since)
+    st_["log_next"] = nxt
     save_state(st_)
-    return {"ok": True, "since": since, "next": j.get("next"), "dropped": j.get("dropped", 0),
+    return {"ok": True, "since": since, "next": nxt, "dropped": dropped,
             "count": len(lines), "path": str(p), "tail": [l["s"] for l in lines[-15:]]}
 
 
