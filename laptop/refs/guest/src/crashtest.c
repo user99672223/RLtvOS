@@ -5,6 +5,9 @@
 //                            (mprotect) and returns; prints "recovered"
 //   crashtest abort          abort() → SIGABRT
 //   crashtest loop           busy loop that never syscalls (killall/kick test)
+//   crashtest fork-untouched a forked child writes to pages its parent mapped
+//                            but never touched (heap and stack); the parent
+//                            must see them unchanged afterwards
 // Exit codes: the signal's default action (128+sig from the shell) or 0.
 #define _GNU_SOURCE  // REG_ERR / REG_RIP in <ucontext.h>
 #include <signal.h>
@@ -12,6 +15,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/mman.h>
+#include <sys/wait.h>
 #include <ucontext.h>
 #include <unistd.h>
 
@@ -63,8 +67,30 @@ int main(int argc, char** argv) {
         printf("looping\n");
         for (volatile unsigned long i = 0;; i++) {
         }
+    } else if (!strcmp(mode, "fork-untouched")) {
+        // The child's first write to a page the parent never touched has no
+        // translation entry yet: the copy-on-write fault arrives as a
+        // translation fault, not a permission fault (result 006, C2).
+        const size_t len = 4u << 20;
+        unsigned char* m = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (m == MAP_FAILED) return 4;
+        printf("fork with %zu KB untouched\n", len >> 10);
+        pid_t pid = fork();
+        if (pid < 0) return 5;
+        if (pid == 0) {
+            m[0] = 1;
+            m[len - 1] = 2;                  // untouched heap pages
+            volatile char deep[1 << 20];     // untouched stack pages
+            memset((char*)deep, 3, sizeof deep);
+            _exit(m[0] + m[len - 1] + deep[12345] == 6 ? 0 : 7);
+        }
+        int st = 0;
+        waitpid(pid, &st, 0);
+        printf("child: %s %d; parent sees m[0]=%d m[last]=%d (expect 0 0)\n", WIFEXITED(st) ? "exit" : "signal",
+               WIFEXITED(st) ? WEXITSTATUS(st) : WTERMSIG(st), m[0], m[len - 1]);
+        return WIFEXITED(st) && WEXITSTATUS(st) == 0 && m[0] == 0 && m[len - 1] == 0 ? 0 : 6;
     } else {
-        fprintf(stderr, "usage: crashtest null-write|ro-write|handler|abort|loop\n");
+        fprintf(stderr, "usage: crashtest null-write|ro-write|handler|abort|loop|fork-untouched\n");
         return 2;
     }
     return 0;

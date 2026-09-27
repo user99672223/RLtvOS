@@ -107,7 +107,7 @@ constexpr unsigned rename_noreplace = 1, rename_exchange = 2, rename_whiteout = 
 constexpr int64_t utime_now = (1 << 30) - 1, utime_omit = (1 << 30) - 2;
 constexpr unsigned mfd_cloexec = 1, mfd_allow_sealing = 2;
 constexpr uint64_t tmpfs_magic = 0x01021994, proc_super_magic = 0x9fa0, ext4_super_magic = 0xEF53,
-                   sockfs_magic = 0x534F434B, pipefs_magic = 0x50495045;
+                   sockfs_magic = 0x534F434B, pipefs_magic = 0x50495045, sysfs_magic = 0x62656572;
 
 // ---- mmap ----------------------------------------------------------------
 constexpr int prot_none = 0, prot_read = 1, prot_write = 2, prot_exec = 4;

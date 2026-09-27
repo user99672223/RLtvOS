@@ -8,6 +8,7 @@
 // sleeps until the generation changes.
 #pragma once
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <cstddef>
@@ -78,7 +79,11 @@ public:
         }
     }
     // Wakes up to `max` waiters whose bitset intersects `bits`. Returns the count.
+    // Every call bumps wakes(), waiters or not: epoll's edge-triggered entries
+    // take "the file's queue was woken since my last scan" as the edge (what
+    // Linux's ep_poll_callback does by queueing the item on every wake-up).
     size_t wake(size_t max = SIZE_MAX, uint32_t bits = ~0u) {
+        wakes_.fetch_add(1, std::memory_order_acq_rel);
         std::vector<Waiter*> hit;
         {
             std::lock_guard<std::mutex> lk(mu_);
@@ -110,10 +115,12 @@ public:
         std::lock_guard<std::mutex> lk(mu_);
         return waiters_.size();
     }
+    uint64_t wakes() const { return wakes_.load(std::memory_order_acquire); }
 
 private:
     std::mutex mu_;
     std::vector<Waiter*> waiters_;
+    std::atomic<uint64_t> wakes_ {0};
 };
 
 // The Waiter of the guest thread running on this host thread (nullptr on app

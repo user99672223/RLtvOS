@@ -898,6 +898,12 @@ def do_launch(fresh=False, timeout=60):
         r = sh(fmt(launch_cmd, **placeholders(bundle_id=app_id)), timeout=120)
     else:
         r = atvremote(f"launch_app={app_id}", timeout=120)
+        if r["rc"] != 0 and "otSupported" in (r["err"] + r["out"]):
+            # pyatv's Companion channel is not ready right after the TV wakes
+            # ("launch_app is not supported" on the first try, result 006).
+            time.sleep(float(cfg("TV_LAUNCH_RETRY_S", "4")))
+            r = atvremote(f"launch_app={app_id}", timeout=120)
+            res["launch_retried"] = True
     res.update({"app_id": app_id, "launch_rc": r["rc"], "launch_err": r["err"][-800:], "launch_out": r["out"][-800:]})
     res["up"] = wait_app(True, timeout)
     if res["up"]:

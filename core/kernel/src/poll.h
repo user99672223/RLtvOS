@@ -84,7 +84,8 @@ private:
         uint32_t events = 0;
         uint64_t data = 0;
         bool disabled = false;     // EPOLLONESHOT fired
-        uint32_t last_mask = 0;    // EPOLLET edge detection
+        bool fresh = true;         // just added/modified: report the current state once, edge-triggered or not
+        uint64_t last_wakes = 0;   // EPOLLET: the file's wait-queue wake counters at the last scan
     };
     // One pass over the interest list (m_ held): fills out, returns the count.
     int scan_locked(PollTable* pt, lx::epoll_event* out, int max);

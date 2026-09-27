@@ -960,6 +960,26 @@ static void test_poll() {
     t3.join();
     CHECK(rd3->read(&c, 1) == 1);
     CHECK(ep->wait(evs, 8, MonotonicNs() + 20'000'000, false) == 0);
+    // Edge-triggered readiness is "woken since the last scan", not a mask
+    // change (result 006: Xvfb drained a client and its next request arrived
+    // before the next epoll_wait — a mask comparison never reported it again).
+    std::shared_ptr<PipeFile> rd4, wr4;
+    MakePipe(rd4, wr4);
+    char b4[8];
+    CHECK(ep->ctl(lx::epoll_ctl_add, 8, rd4, lx::epollin | lx::epollet, 0x88) == 0);
+    CHECK(ep->wait(evs, 8, 0, true) == 0);  // added while empty: nothing
+    CHECK(wr4->write("a", 1) == 1);
+    CHECK(ep->wait(evs, 8, 0, true) == 1 && evs[0].data == 0x88);
+    CHECK(ep->wait(evs, 8, 0, true) == 0);  // not drained, no new wake-up: no repeat
+    CHECK(wr4->write("b", 1) == 1);
+    CHECK(ep->wait(evs, 8, 0, true) == 1);  // more data is a new edge
+    CHECK(rd4->read(b4, sizeof b4) == 2);   // drained with no scan in between …
+    CHECK(wr4->write("c", 1) == 1);         // … and refilled before the next one
+    CHECK(ep->wait(evs, 8, 0, true) == 1 && evs[0].data == 0x88);  // the lost case
+    CHECK(ep->poll(nullptr) == 0);          // consumed: the set is not readable until the next wake-up
+    CHECK(ep->ctl(lx::epoll_ctl_mod, 8, rd4, lx::epollin | lx::epollet, 0x88) == 0);
+    CHECK(ep->wait(evs, 8, 0, true) == 1);  // MOD re-reports the current state (data still unread)
+    CHECK(ep->ctl(lx::epoll_ctl_del, 8, nullptr, 0, 0) == 0);
     // a file closed everywhere drops out of the interest list
     CHECK(ep->size() == 2);
     rd3.reset();

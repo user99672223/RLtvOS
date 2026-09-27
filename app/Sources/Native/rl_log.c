@@ -8,7 +8,9 @@
 #include <string.h>
 #include <time.h>
 
-#define RL_LOG_LINES 8192
+// 32 K lines: one Xvfb + xeyes run writes more than 8 K syscall lines (result
+// 006 lost Xvfb's start-up). ~15 MB of BSS, resident only as far as it filled.
+#define RL_LOG_LINES 32768
 #define RL_LOG_LINE_MAX 448
 
 typedef struct {

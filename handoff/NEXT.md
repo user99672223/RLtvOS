@@ -2,16 +2,23 @@
 
 ## repo
 
-- **State (2026-09-27):** A, B, C1, C2 **PASS**; C3 and C4 **PARTIAL** (result
-  005, build-25): everything but fork children works — threads, signals, kick,
-  reaping, the writable layer, AF_UNIX/epoll as exercised by Xvfb. Fork
-  children died because XNU reports the copy-on-write write-protection fault
-  as SIGBUS si_code 1 (= BUS_ADRALN) and build-25's hook left those to FEX.
-  **build-27** classifies faults from the exception syndrome (`__es.__esr`),
-  destroys FEX threads after a fault/kick (272 MB VA each in 005), gives
-  guests Linux signal numbers, records SIGKILL for killall, pages `tv.py log`,
-  fixes `df`, adds `crashtest`. **Open request: 006** (build-27): cpubench on
-  the TV, C3 A1–A3, C4 B2–B4, crashtest fault paths + VA check.
+- **State (2026-09-27):** A, B, C1, C2, **C3 PASS** (build-27, result 006);
+  C4 **PARTIAL**: Xvfb starts (xkbcomp via fork), sockets and xdpyinfo work,
+  `xeyes`/`xdotool` hung because edge-triggered epoll entries (Xorg's clients)
+  compared masks between scans and missed a drain-then-refill. **build-28**:
+  an EPOLLET edge = the file's wait queue woken since the entry's last scan
+  (`WaitQueue::wakes()` counter; kernel_test regression), translation faults
+  are offered to `cow_fault` too (a child's first write to a page the parent
+  never touched has no translation entry: result 006 C2 `kind=3`), statfs by
+  path (`/` = the image, `/proc` no blocks), log ring 32 K lines, `tv.py
+  launch` retries once after "launch_app is not supported", `crashtest
+  fork-untouched`. **Open request: 007** (build-28): C4 B2 (`kill $!`) + B3,
+  crashtest fork-untouched/ro-write/handler, df.
+- crashtest on the TV (result 006): null-write 139 kind=3, ro-write 139 but
+  kind=3 (untouched page: translation fault at the MMU even though the VMA
+  exists — the guest `si_code` ACCERR/MAPERR must come from the VMA table, not
+  the syndrome, when task 9 delivers SIGSEGV), handler not entered (task 9),
+  abort 134, loop kicked → 137/term_signal 9, no address-space loss per fault.
 - **Feasibility hold (issue 004 → 005):** the native game is 4.1–4.3 GB of
   private dirty anonymous memory + ~1.1 GB GPU buffers at 720p low; the TV
   kills at ~2.1 GB footprint (compressed and Metal memory count). Only

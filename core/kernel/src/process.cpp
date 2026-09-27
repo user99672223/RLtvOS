@@ -173,10 +173,12 @@ FEXCore::Context::Context* Kernel::fex_context() {
 bool Kernel::host_fault_hook(int sig, int kind, uint64_t addr, uint64_t pc) {
     (void)sig;
     (void)pc;
-    // Only a permission fault can be a copy-on-write page (result 004: an
-    // alignment fault claimed here looped forever; result 005: XNU's si_code
-    // cannot tell the two apart, the guard classifies from the syndrome).
-    if (kind == RLFEX_FAULT_ALIGN || kind == RLFEX_FAULT_TRANSLATION) return false;
+    // Alignment faults are FEX's (result 004: one claimed here looped forever;
+    // result 005: XNU's si_code cannot tell them apart, the guard classifies
+    // from the syndrome). A translation fault can still be ours: the first
+    // write to a tracked page nobody touched yet has no translation entry
+    // (result 006 C2 saw kind=3 for exactly that), so the page tables decide.
+    if (kind == RLFEX_FAULT_ALIGN) return false;
     GuestProcess* p = t_current_proc;
     if (!p || !p->mm) return false;
     return p->mm->cow_fault(addr) != 0;  // 1 saved now, 2 stale protection refreshed (once per page)

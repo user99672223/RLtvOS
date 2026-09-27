@@ -631,19 +631,29 @@ void fill_statfs(uint64_t* f, uint64_t magic) {
     if (magic == lx::tmpfs_magic) {  // the writable layer: "1 GB, mostly free" (it is app memory)
         f[2] = 256u << 10;          // f_blocks (4 KB units)
         f[3] = f[4] = 240u << 10;   // free / avail
-    } else {                        // the read-only image from the laptop: 48 GB, full
+    } else if (magic == lx::ext4_super_magic) {  // the image from the laptop: 48 GB, 1 GB free
         f[2] = 12u << 20;
-        f[3] = f[4] = magic == lx::proc_super_magic ? 0 : 1u << 18;
-    }
+        f[3] = f[4] = 1u << 18;
+    }  // proc / sysfs: no blocks at all, like Linux
     f[5] = 1u << 20;  // files
     f[6] = 1u << 19;  // ffree
     f[8] = 255;       // namelen
     f[9] = 4096;      // frsize
 }
 
+// What the guest sees as filesystems: one root (the image plus the writable
+// layer over it — a copied-up file is still "on /"), tmpfs at the boot-time
+// scratch directories, proc and sysfs. By path, not by st_dev: the overlay's
+// root directory itself lives in the upper layer (result 006: `df /` showed
+// the tmpfs numbers).
 uint64_t magic_for(const std::string& path, uint64_t dev) {
-    if (path == "/proc" || path.rfind("/proc/", 0) == 0) return lx::proc_super_magic;
-    if (dev == 0x14) return lx::tmpfs_magic;
+    (void)dev;
+    auto under = [&](const char* dir) { return path == dir || path.rfind(std::string(dir) + "/", 0) == 0; };
+    if (under("/proc")) return lx::proc_super_magic;
+    if (under("/sys")) return lx::sysfs_magic;
+    for (const char* d : {"/tmp", "/var/tmp", "/run", "/dev/shm"}) {
+        if (under(d)) return lx::tmpfs_magic;
+    }
     return lx::ext4_super_magic;
 }
 

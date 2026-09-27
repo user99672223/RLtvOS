@@ -103,8 +103,11 @@ our own: `OpenFile::poll(PollTable*)` returns the readiness bits and
 registers the caller's `Waiter` on the wait queues that change them
 (`poll.h`); `DoPoll` registers, checks, sleeps, repeats — the Linux
 poll_table pattern. `epoll` is an interest list scanned the same way
-(level-triggered; `EPOLLET` reports on the rising edge only;
-`EPOLLONESHOT` disarms). A signal interrupts any of them with `EINTR`
+(level-triggered; `EPOLLET` reports when the file's wait queue was woken
+since the entry's last scan — every `WaitQueue::wake()` bumps a counter the
+scan compares, the equivalent of Linux queueing the item on every wake-up;
+a mask comparison lost Xorg's drain-then-refill in result 006 — and once
+right after ADD/MOD; `EPOLLONESHOT` disarms). A signal interrupts any of them with `EINTR`
 (never restarted after a handler, like Linux; restarted transparently
 when the signal is ignored). Interval timers: one kernel thread posts
 `SIGALRM` at the deadline (`timers.cpp`); it is delivered at the next

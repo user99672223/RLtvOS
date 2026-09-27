@@ -152,7 +152,7 @@ int EpollFile::ctl(int op, int fd, const std::shared_ptr<OpenFile>& f, uint32_t 
             it->second.events = events;
             it->second.data = data;
             it->second.disabled = false;
-            it->second.last_mask = 0;
+            it->second.fresh = true;
             return 0;
         case lx::epoll_ctl_del:
             if (it == entries_.end()) return -lx::enoent;
@@ -162,7 +162,16 @@ int EpollFile::ctl(int op, int fd, const std::shared_ptr<OpenFile>& f, uint32_t 
     }
 }
 
+// Edge-triggered entries (Xorg registers every client this way): Linux puts the
+// item on the ready list at every wake-up of the file's wait queue, so an edge
+// is "woken since the last scan", never "the mask changed" — result 006's xeyes
+// hang was a mask comparison that missed a drain-then-refill between two scans.
 int EpollFile::scan_locked(PollTable* pt, lx::epoll_event* out, int max) {
+    // Without a caller's table (nowait) a scratch one still records each file's
+    // wait queues, whose wake counters drive the edge-triggered entries.
+    Waiter scratch;
+    PollTable spt(&scratch);
+    PollTable* use = pt ? pt : &spt;
     int n = 0;
     for (auto it = entries_.begin(); it != entries_.end();) {
         auto f = it->second.file.lock();
@@ -174,11 +183,23 @@ int EpollFile::scan_locked(PollTable* pt, lx::epoll_event* out, int max) {
         ++it;
         if (e.disabled) continue;
         const uint32_t want = e.events & ~(lx::epollet | lx::epolloneshot | lx::epollexclusive | lx::epollwakeup);
-        const uint32_t m = f->poll(pt) & (want | lx::epollerr | lx::epollhup);
-        const bool edge = e.events & lx::epollet;
-        const bool report = m && (!edge || m != e.last_mask);
-        e.last_mask = m;
-        if (!report) continue;
+        const uint32_t care = want | lx::epollerr | lx::epollhup;
+        // Register the waiter first (the caller may sleep on it), then read the
+        // wake counters, then the mask: a wake-up after the counter read either
+        // shows in the mask now or bumps a counter for the next scan, and since
+        // the waiter is already queued it also ends the caller's sleep.
+        const size_t q0 = use->queues.size();
+        uint32_t m = f->poll(use) & care;
+        if (e.events & lx::epollet) {
+            uint64_t wakes = 0;
+            for (size_t i = q0; i < use->queues.size(); i++) wakes += use->queues[i]->wakes();
+            m = f->poll(nullptr) & care;
+            const bool pending = e.fresh || wakes != e.last_wakes;
+            e.last_wakes = wakes;
+            e.fresh = false;
+            if (!pending) m = 0;
+        }
+        if (!m) continue;
         if (out && n < max) {
             out[n].events = m;
             out[n].data = e.data;
@@ -213,12 +234,25 @@ int64_t EpollFile::wait(lx::epoll_event* out, int max, int64_t deadline_ns, bool
 
 unsigned EpollFile::poll(PollTable* pt) {
     std::lock_guard<std::mutex> lk(m_);
-    // Level-triggered view: ready when any member is ready (edge state untouched).
+    // The set as one file: readable when a scan would report something (edge
+    // state left untouched; the caller's table is registered with every member).
+    Waiter scratch;
+    PollTable spt(&scratch);
+    PollTable* use = pt ? pt : &spt;
     for (auto& [fd, e] : entries_) {
         auto f = e.file.lock();
         if (!f || e.disabled) continue;
         const uint32_t want = e.events & ~(lx::epollet | lx::epolloneshot | lx::epollexclusive | lx::epollwakeup);
-        if (f->poll(pt) & (want | lx::epollerr | lx::epollhup)) return lx::pollin;
+        const uint32_t care = want | lx::epollerr | lx::epollhup;
+        const size_t q0 = use->queues.size();
+        uint32_t m = f->poll(use) & care;
+        if (e.events & lx::epollet) {
+            uint64_t wakes = 0;
+            for (size_t i = q0; i < use->queues.size(); i++) wakes += use->queues[i]->wakes();
+            m = f->poll(nullptr) & care;
+            if (!(e.fresh || wakes != e.last_wakes)) m = 0;
+        }
+        if (m) return lx::pollin;
     }
     return 0;
 }
