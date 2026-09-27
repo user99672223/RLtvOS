@@ -1,0 +1,49 @@
+{
+  "exited": true,
+  "http": 200,
+  "ok": true,
+  "output": "shell ok\n/usr/bin/sh 2\n",
+  "process": {
+    "dry_run": false,
+    "exe": "/usr/bin/sh",
+    "exit_code": 0,
+    "fds": 0,
+    "mapped_bytes": 0,
+    "ms": 85.5,
+    "pid": 2,
+    "ppid": 1,
+    "state": "exited",
+    "syscalls": 49,
+    "threads": 1,
+    "vmas": 0
+  },
+  "reply": {
+    "dry_run": false,
+    "layout": {
+      "auxv": "0x11afdbdd8",
+      "auxv_entries": 20,
+      "brk": "0x11d400000-0x121400000",
+      "entry": "0x1043992c0",
+      "interp": {
+        "base": "0x10437c000",
+        "entry": "0x1043992c0",
+        "range": "0x10437c000-0x1043b4000"
+      },
+      "main": {
+        "base": "0x1088b8000",
+        "dyn": true,
+        "entry": "0x1088bc760",
+        "interp": "/lib64/ld-linux-x86-64.so.2",
+        "path": "/usr/bin/dash",
+        "phdr": "0x1088b8040",
+        "phnum": 14,
+        "range": "0x1088b8000-0x1088db000"
+      },
+      "rsp": "0x11afdbd70",
+      "stack": "0x11a7dc000-0x11afdc000"
+    },
+    "ok": true,
+    "pid": 2,
+    "rc": 2
+  }
+}

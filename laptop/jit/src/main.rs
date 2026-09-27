@@ -89,6 +89,7 @@ struct Args {
     ddi: Option<String>,
     addr: Option<u64>,
     len: u64,
+    packets: Option<String>,
 }
 
 fn parse_args() -> Result<Args> {
@@ -96,7 +97,7 @@ fn parse_args() -> Result<Args> {
     let cmd = it.next().ok_or_else(|| anyhow!("usage: rltvos-jit probe|run --tv IP:PORT --pairing FILE ..."))?;
     let (mut tv, mut pairing, mut host) = (None, None, "rltvos-laptop".to_string());
     let (mut launch, mut pid, mut timeout, mut status, mut ddi) = (None, None, 900u64, None, None);
-    let (mut addr, mut len) = (None, 64u64);
+    let (mut addr, mut len, mut packets) = (None, 64u64, None);
     while let Some(a) = it.next() {
         let mut val = || it.next().ok_or_else(|| anyhow!("{a} needs a value"));
         match a.as_str() {
@@ -110,6 +111,7 @@ fn parse_args() -> Result<Args> {
             "--ddi" => ddi = Some(val()?),
             "--addr" => addr = Some(u64::from_str_radix(val()?.trim_start_matches("0x"), 16).context("--addr HEX")?),
             "--len" => len = val()?.parse().context("--len")?,
+            "--packets" => packets = Some(val()?),
             _ => bail!("unknown argument {a}"),
         }
     }
@@ -125,6 +127,7 @@ fn parse_args() -> Result<Args> {
         ddi,
         addr,
         len,
+        packets,
     })
 }
 
@@ -458,6 +461,103 @@ async fn peek(a: &Args, out: &Out) -> Result<()> {
     Ok(())
 }
 
+/// Read-only diagnostic: attach to PID, send each gdb-remote packet listed in FILE
+/// (one per line, e.g. `m1000,4` or `qProcessInfo`), print one JSON line per reply, detach.
+async fn gdb(a: &Args, out: &Out) -> Result<()> {
+    let (Some(pid), Some(file)) = (a.pid, a.packets.as_ref()) else {
+        bail!("gdb needs --pid PID --packets FILE");
+    };
+    let list = std::fs::read_to_string(file).with_context(|| format!("read {file}"))?;
+    let (_rpc, mut adapter, mut hs) = open_tunnel(a.tv, &a.pairing, &a.host).await?;
+    let mut dp: Dp = DebugProxyClient::connect_rsd(&mut adapter, &mut hs)
+        .await
+        .context("connect com.apple.internal.dt.remote.debugproxy")?;
+    dp.send_ack().await?;
+    dp.send_ack().await?;
+    cmd(&mut dp, "QStartNoAckMode").await?;
+    dp.set_ack_mode(false);
+    let r = cmd(&mut dp, &format!("vAttach;{pid:x}")).await?;
+    if r.starts_with('E') || r.is_empty() {
+        bail!("vAttach;{pid:x} failed: {r:?}");
+    }
+    let mut n = 0usize;
+    for p in list.lines().map(str::trim).filter(|l| !l.is_empty()) {
+        let reply = match cmd(&mut dp, p).await {
+            Ok(r) => r,
+            Err(e) => format!("ERROR {e:#}"),
+        };
+        out.event("reply", &[("packet", js(p)), ("reply", js(&reply))]);
+        n += 1;
+    }
+    let d = cmd(&mut dp, "D").await.unwrap_or_default();
+    out.event("detached", &[("pid", pid.to_string()), ("packets", n.to_string()), ("reply", js(&d))]);
+    Ok(())
+}
+
+/// Read-only diagnostic: attach to PID and walk its address space with
+/// qMemoryRegionInfo from --addr (default 0x100000000) up to 0x8000000000; one JSON
+/// line per mapped region (start, size, permissions, name), then totals; detach.
+async fn regions(a: &Args, out: &Out) -> Result<()> {
+    let Some(pid) = a.pid else { bail!("regions needs --pid PID") };
+    let (_rpc, mut adapter, mut hs) = open_tunnel(a.tv, &a.pairing, &a.host).await?;
+    let mut dp: Dp = DebugProxyClient::connect_rsd(&mut adapter, &mut hs)
+        .await
+        .context("connect com.apple.internal.dt.remote.debugproxy")?;
+    dp.send_ack().await?;
+    dp.send_ack().await?;
+    cmd(&mut dp, "QStartNoAckMode").await?;
+    dp.set_ack_mode(false);
+    let r = cmd(&mut dp, &format!("vAttach;{pid:x}")).await?;
+    if r.starts_with('E') || r.is_empty() {
+        bail!("vAttach;{pid:x} failed: {r:?}");
+    }
+    let (mut addr, end) = (a.addr.unwrap_or(0x1_0000_0000), 0x80_0000_0000u64);
+    let (mut mapped, mut n) = (0u64, 0u64);
+    let res: Result<()> = async {
+        while addr < end && n < 20000 {
+            let rep = cmd(&mut dp, &format!("qMemoryRegionInfo:{addr:x}")).await?;
+            let field = |k: &str| {
+                rep.split(';').find_map(|kv| kv.strip_prefix(k).map(str::to_string))
+            };
+            let start = field("start:").and_then(|v| u64::from_str_radix(&v, 16).ok()).unwrap_or(addr);
+            let size = field("size:").and_then(|v| u64::from_str_radix(&v, 16).ok()).unwrap_or(0);
+            if size == 0 {
+                out.event("stop", &[("addr", format!("\"0x{addr:x}\"")), ("reply", js(&rep))]);
+                break;
+            }
+            let perms = field("permissions:").unwrap_or_default();
+            if !perms.is_empty() {
+                mapped += size;
+                let name = field("name:").map(|h| {
+                    (0..h.len()).step_by(2).filter_map(|i| u8::from_str_radix(h.get(i..i + 2)?, 16).ok()).map(char::from).collect::<String>()
+                }).unwrap_or_default();
+                out.event("region", &[("start", format!("\"0x{start:x}\"")), ("size", size.to_string()), ("perms", js(&perms)), ("name", js(&name))]);
+            }
+            n += 1;
+            addr = start.saturating_add(size);
+        }
+        Ok(())
+    }.await;
+    let d = cmd(&mut dp, "D").await.unwrap_or_default();
+    res?;
+    out.event("regions-done", &[("queries", n.to_string()), ("mapped_bytes", mapped.to_string()), ("detach", js(&d))]);
+    Ok(())
+}
+
+/// Send a signal to PID through CoreDevice's appservice (e.g. 9 to kill an app that a
+/// dropped debugger session left stopped). `--len` carries the signal number (default 9).
+async fn signal(a: &Args, out: &Out) -> Result<()> {
+    let Some(pid) = a.pid else { bail!("signal needs --pid PID [--len SIGNAL]") };
+    let sig = if a.len == 64 { 9 } else { a.len as u32 };
+    let (_rpc, mut adapter, mut hs) = open_tunnel(a.tv, &a.pairing, &a.host).await?;
+    let mut apps = AppServiceClient::connect_rsd(&mut adapter, &mut hs)
+        .await
+        .context("connect com.apple.coredevice.appservice")?;
+    let r = apps.send_signal(pid as u32, sig).await.context("sendsignaltoprocess")?;
+    out.event("signal-sent", &[("pid", pid.to_string()), ("signal", sig.to_string()), ("reply", js(&format!("{r:?}")))]);
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() {
     let out = Out { status: None, t0: Instant::now() };
@@ -474,7 +574,10 @@ async fn main() {
         "run" => run(&a, &out).await,
         "mount-ddi" => mount_ddi(&a, &out).await,
         "peek" => peek(&a, &out).await,
-        c => Err(anyhow!("unknown command {c} (probe|mount-ddi|run|peek)")),
+        "gdb" => gdb(&a, &out).await,
+        "regions" => regions(&a, &out).await,
+        "signal" => signal(&a, &out).await,
+        c => Err(anyhow!("unknown command {c} (probe|mount-ddi|run|peek|gdb|regions|signal)")),
     };
     if let Err(e) = res {
         out.event("error", &[("error", js(&format!("{e:#}")))]);

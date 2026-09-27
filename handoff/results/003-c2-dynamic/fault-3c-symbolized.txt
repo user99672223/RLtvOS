@@ -1,0 +1,28 @@
+# step 3c fault (instance 1, app pid 1120): kernel: pid 4 tid 4 FAULT signal=11 code=2 pc=0x103011dec addr=0x0
+# 1. app memory at 0x103011dc0 (128 bytes, rltvos-jit gdb 'm103011dc0,80'):
+00013fd6f60300aa0004805259970494f50300aab84c0594b65200a9a07e01a90001805201038052569704941f7c00a9150800f9681240f9000500f9681240f9080000f9601200f9180400f9681a40f908050091681a00f9fd7b44a9f44f43a9f65742a9f85f41a9fa67c5a8c0035fd6f85fbca9f65701a9f44f02a9fd7b03a9
+# 2. unique match in build-20 Payload/RLtvOS.app/RLtvOS (__TEXT vmaddr 0x100000000, fileoff 0): fault pc = file offset 0x61dec -> unslid 0x100061dec, slide 0x2fb0000
+# 3. llvm-symbolizer --obj=RLtvOS.app.dSYM/.../RLtvOS 0x100061dec:
+FEXCore::Utils::IntrusivePooledAllocator::ClaimBufferImpl(unsigned long)
+# 4. llvm-objdump -d around the fault (x0 = return value of aligned_alloc = NULL):
+100061db0:     	ldr	x8, [x19]
+100061db4:     	ldr	x8, [x8, #0x10]
+100061db8:     	mov	x0, x19
+100061dbc:     	mov	x1, x20
+100061dc0:     	blr	x8
+100061dc4:     	mov	x22, x0
+100061dc8:     	mov	w0, #0x20               ; =32
+100061dcc:     	bl	0x100187b30 <__ZN7FEXCore9Allocator6mallocEm>
+100061dd0:     	mov	x21, x0
+100061dd4:     	bl	0x1001b50b4 <_write+0x1001b50b4>
+100061dd8:     	stp	x22, x20, [x21]
+100061ddc:     	stp	x0, xzr, [x21, #0x10]
+100061de0:     	mov	w0, #0x8                ; =8
+100061de4:     	mov	w1, #0x18               ; =24
+100061de8:     	bl	0x100187b40 <__ZN7FEXCore9Allocator13aligned_allocEmm>
+100061dec:     	stp	xzr, xzr, [x0]
+100061df0:     	str	x21, [x0, #0x10]
+100061df4:     	ldr	x8, [x19, #0x20]
+100061df8:     	str	x0, [x8, #0x8]
+100061dfc:     	ldr	x8, [x19, #0x20]
+# 5. same fault in instance 2 (app pid 1138) for the 4th guest process (hello-dyn): pc=0x102bc9dec = slide 0x2b68000 + 0x100061dec

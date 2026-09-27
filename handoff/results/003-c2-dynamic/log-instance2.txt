@@ -1,0 +1,908 @@
+1 0.0 host: RLtvOS build-20 pid 1138 tvOS 27.0 crash-handler rc=0
+2 0.4 host: sysinfo {"cs_debugged":0,"hw_machine":"AppleTV14,1","hw_memsize":4167958528,"hw_model":"J255AP","hw_pagesize":16384,"kern_osversion":"24J361","ncpu":5,"pid":1138,"ptraced":0,"sigaltstack":"ok"}
+3 0.5 host: jit arena init rc=0 {"base":"0x106c00000","size":16777216,"size_mb":16,"prot":"rwx","rwx_errno":0,"page":16384,"pages":1024}
+4 0.9 host: config {"jit_in_place":0}
+5 1.0 host: jit26 start rc=0 pool=128 MB wait=60 s flags=0
+6 1.0 jit26: stage waiting-for-debugger
+7 1.0 host: rlfex bound to the jit26 pool; kernel log bound
+8 1.0 host: jit map probe {"ok":false,"stage":"mapped-only","method":"rwx-mmap","rwx_errno":0,"ptraced":0,"cs_debugged":0,"reason":"not executed: on tvOS 26+ a page runs only after a debugger wrote to it; use tv.py jit (authorizes the arena, then runs jittest --trust)"}
+9 1.4 host: va {"max_contiguous_gb":6,"contig_errno":12,"total_1gb_steps":7,"step_limit_gb":1024,"stop_errno":12,"lowest":"0x107c00000","highest":"0x7180000000"}
+10 1.4 host: rlcore 0.1 (clang 17.0, libc++ 190102, Sep 27 2026)
+11 4.8 rlcore: selftest ok
+12 4.9 host: rlcore selftest {"ok":true,"threads":4,"counter":400000,"tls_values":4,"exceptions":true,"alloc64mb":true,"ms":3.41,"version":"0.1 (clang 17.0, libc++ 190102, Sep 27 2026)","hardware_concurrency":5}
+13 4.9 host: mem {"available":2194094696,"available_mb":2092.5,"compressed":0,"external":19251200,"internal":5472256,"kr":0,"limit_estimate":2199912448,"peak_phys_footprint":5817752,"phys_footprint":5817752,"phys_footprint_mb":5.5,"resident_size":25591808,"virtual_size":474680164352}
+14 11.4 host: metal device Apple A15 GPU screen 1920x1080@1.0
+15 24.7 host: debug server listening on 0.0.0.0:7777
+16 1857.8 jit26: ptraced=1 after 1.9 s (asked 60 s); pool 128 MB flags=0
+17 1857.8 jit26: stage preparing
+18 6327.8 jit26: prepared 128 MB at 0x10a3d8000 by debugger in 4.47 s
+19 6327.8 jit26: stage remapping
+20 6336.9 jit26: RW alias at 0x1123d8000 (cur=5 max=7) delta=134217728
+21 6336.9 jit26: stage testing
+22 6338.1 jit26: attached self-test ok: 42 43
+23 6338.1 jit26: stage detaching
+24 6497.1 jit26: detach serviced (ptraced now 0)
+25 6499.1 host: did become active
+26 6798.1 jit26: stage testing
+27 6799.1 jit26: detached self-test ok: 44 45 (ptraced=0)
+28 6799.1 jit26: stage ready
+29 7564.6 run: jittest cwd=/
+30 7565.8 jit26: self-test ok: 42 43 (ptraced=0)
+31 7662.7 run: vfs-mount http://192.168.1.133:8090 cwd=/
+32 8737.9 vfs: mount http://192.168.1.133:8090 → {"ok":true,"url":"http://192.168.1.133:8090","entries":70376,"files":55634,"bytes":48188621469,"manifest_gz_bytes":2989882,"roots":["rootfs","prefix","home","game"],"cache_dir":"/var/mobile/Containers/Data/Application/3D882E1C-3607-4D9E-81DC-2B74ACD0E7AC/Library/Caches/vfs-blocks","ms":1074.8}
+33 8738.0 kernel: guest filesystem attached
+34 390860.6 run: vaprobe2 cwd=/
+35 390874.7 host: va probe 2 {"none_256mb":{"steps":29,"gb":7.25,"stop_errno":12,"ms":0},"rw_noreserve_256mb":{"steps":29,"gb":7.25,"stop_errno":12,"ms":0},"rw_256mb":{"steps":29,"gb":7.25,"stop_errno":12,"ms":0},"vm_allocate_256mb":{"steps":29,"gb":7.25,"stop_kr":3,"ms":0},"none_64mb":{"steps":119,"gb":7.44,"stop_errno":12,"ms":0},"rw_touched_256mb":{"steps":8,"gb":2.00,"stop_errno":0,"ms":14},"rlimit_as":{"cur":9223372036854775807,"max":9223372036854775
+36 390969.4 run: exec /bin/ls -la /opt/rl/bin cwd=/
+37 390972.7 kernel: pid 1 exec /bin/ls (run) {"entry":"0x1067252c0","rsp":"0x11b3c7d80","main":{"path":"/usr/bin/ls","dyn":true,"base":"0x1066a0000","entry":"0x1066a6760","range":"0x1066a0000-0x1066c9000","phdr":"0x1066a0040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x106708000","entry":"0x1067252c0","range":"0x106708000-0x106740000"},"stack":"0x11abc8000-0x11b3c8000","brk":"0x11d800000-0x121800000","auxv":"0x11b3c7de8","auxv_e
+38 390972.7 fex: exec alloc #1 16 KB rw=0x1123d8000 rx=0x10a3d8000
+39 390972.7 fex: exec free 16 KB rw=0x1123d8000
+40 390973.3 fex: exec alloc #2 16 KB rw=0x1123d8000 rx=0x10a3d8000
+41 390973.4 kernel: FEX context ready (hwcap=0x278bfbff hwcap2=0x2)
+42 390973.6 fex: exec alloc #3 16384 KB rw=0x1123dc000 rx=0x10a3dc000
+43 390973.7 kernel: pid 1 tid 1 start rip=0x1067252c0 rsp=0x11b3c7d80
+44 390973.7 host: guest exec /bin/ls -la /opt/rl/bin → {"ok":true,"pid":1,"dry_run":false,"layout":{"entry":"0x1067252c0","rsp":"0x11b3c7d80","main":{"path":"/usr/bin/ls","dyn":true,"base":"0x1066a0000","entry":"0x1066a6760","range":"0x1066a0000-0x1066c9000","phdr":"0x1066a0040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x1067
+45 390977.4 [1] brk(0x0) = 0x11d800000
+46 390984.4 run: ps cwd=/
+47 391004.3 [1] access("/etc/ld.so.preload", 4) = -1 ENOENT
+48 391007.7 [1] openat(-100, "/etc/ld.so.cache", 0x80000, 00) = 3
+49 391007.8 [1] fstat(3, 0x11b3c6e60) = 0
+50 391008.5 [1] mmap(0x0, 32187, 0x1, 0x2, 3, 0x0) = 0x1067a0000
+51 391008.5 [1] close(3) = 0
+52 391009.7 [1] openat(-100, "/lib/x86_64-linux-gnu/libselinux.so.1", 0x80000, 00) = 3
+53 391070.2 [1] read(3, 0x11b3c6fd8, 832) = 832
+54 391072.5 [1] fstat(3, 0x11b3c6e60) = 0
+55 391072.5 [1] mmap(0x0, 8192, 0x3, 0x22, -1, 0x0) = 0x1067a8000
+56 391072.9 [1] mmap(0x0, 210640, 0x1, 0x802, 3, 0x0) = 0x1067ac000
+57 391073.0 [1] mmap(0x1067b3000, 131072, 0x5, 0x812, 3, 0x7000) = 0x1067b3000
+58 391073.1 [1] mmap(0x1067d3000, 36864, 0x1, 0x812, 3, 0x27000) = 0x1067d3000
+59 391073.1 [1] mmap(0x1067dc000, 8192, 0x3, 0x812, 3, 0x30000) = 0x1067dc000
+60 391073.1 [1] mmap(0x1067de000, 5840, 0x3, 0x32, -1, 0x0) = 0x1067de000
+61 391073.2 [1] close(3) = 0
+62 391073.6 [1] openat(-100, "/lib/x86_64-linux-gnu/libcap.so.2", 0x80000, 00) = 3
+63 391111.0 [1] read(3, 0x11b3c6fb8, 832) = 832
+64 391111.0 [1] fstat(3, 0x11b3c6e40) = 0
+65 391111.1 [1] mmap(0x0, 45128, 0x1, 0x802, 3, 0x0) = 0x1067e0000
+66 391111.2 [1] mmap(0x1067e3000, 20480, 0x5, 0x812, 3, 0x3000) = 0x1067e3000
+67 391111.2 [1] mmap(0x1067e8000, 8192, 0x1, 0x812, 3, 0x8000) = 0x1067e8000
+68 391111.3 [1] mmap(0x1067ea000, 8192, 0x3, 0x812, 3, 0xa000) = 0x1067ea000
+69 391111.3 [1] close(3) = 0
+70 391111.5 [1] openat(-100, "/lib/x86_64-linux-gnu/libc.so.6", 0x80000, 00) = 3
+71 391112.1 [1] read(3, 0x11b3c6f98, 832) = 832
+72 391112.2 [1] pread64(3, 0x11b3c6b50, 840, 64) = 840
+73 391112.3 [1] fstat(3, 0x11b3c6e20) = 0
+74 391112.3 [1] pread64(3, 0x11b3c6a30, 840, 64) = 840
+75 391113.6 [1] mmap(0x0, 2047568, 0x1, 0x802, 3, 0x0) = 0x10848c000
+76 391114.8 [1] mmap(0x1084b4000, 1454080, 0x5, 0x812, 3, 0x28000) = 0x1084b4000
+77 391115.1 [1] mmap(0x108617000, 352256, 0x1, 0x812, 3, 0x18b000) = 0x108617000
+78 391115.2 [1] mmap(0x10866d000, 24576, 0x3, 0x812, 3, 0x1e0000) = 0x10866d000
+79 391115.2 [1] mmap(0x108673000, 52816, 0x3, 0x32, -1, 0x0) = 0x108673000
+80 391115.2 [1] close(3) = 0
+81 391116.1 [1] openat(-100, "/lib/x86_64-linux-gnu/libpcre2-8.so.0", 0x80000, 00) = 3
+82 391271.0 [1] read(3, 0x11b3c6f78, 832) = 832
+83 391271.1 [1] fstat(3, 0x11b3c6e00) = 0
+84 391271.6 [1] mmap(0x0, 713544, 0x1, 0x802, 3, 0x0) = 0x108680000
+85 391272.0 [1] mmap(0x108683000, 503808, 0x5, 0x812, 3, 0x3000) = 0x108683000
+86 391272.1 [1] mmap(0x1086fe000, 192512, 0x1, 0x812, 3, 0x7e000) = 0x1086fe000
+87 391272.2 [1] mmap(0x10872d000, 8192, 0x3, 0x812, 3, 0xac000) = 0x10872d000
+88 391272.2 [1] close(3) = 0
+89 391274.8 [1] mmap(0x0, 8192, 0x3, 0x22, -1, 0x0) = 0x1067ec000
+90 391276.2 [1] arch_prctl(0x1002, 0x1067ecd40) = 0
+91 391276.8 [1] set_tid_address(0x1067ed010) = 1
+92 391276.9 [1] set_robust_list(0x1067ed020, 24) = 0
+93 391277.0 [1] rseq(0x1067ecba0, 0x20, 0x0) = -1 ENOSYS
+94 391288.9 [1] mprotect(0x10866d000, 16384, 0x1) = 0
+95 391290.1 [1] mprotect(0x10872d000, 4096, 0x1) = 0
+96 391290.2 [1] mprotect(0x1067ea000, 4096, 0x1) = 0
+97 391290.5 [1] mprotect(0x1067dc000, 4096, 0x1) = 0
+98 391291.1 [1] mprotect(0x1066c5000, 8192, 0x1) = 0
+99 391292.4 [1] mprotect(0x10673c000, 8192, 0x1) = 0
+100 391292.6 [1] prlimit_64(0, 3, 0x0, 0x11b3c79b0) = 0
+101 391293.1 [1] munmap(0x1067a0000, 32187) = 0
+102 391295.4 [1] prctl(23, 0x20, 0x0) = -1 EINVAL
+103 391295.5 [1] prctl(23, 0xf, 0x0) = -1 EINVAL
+104 391295.5 [1] prctl(23, 0x7, 0x0) = -1 EINVAL
+105 391295.5 [1] prctl(23, 0x3, 0x0) = -1 EINVAL
+106 391295.5 [1] prctl(23, 0x1, 0x0) = -1 EINVAL
+107 391295.5 [1] prctl(23, 0x0, 0x0) = -1 EINVAL
+108 391296.7 [1] statfs("/sys/fs/selinux", 0x11b3c7c00) = -1 ENOENT
+109 391296.8 [1] statfs("/selinux", 0x11b3c7c00) = -1 ENOENT
+110 391297.4 [1] getrandom(0x108678218, 8, 0x1) = 8
+111 391301.6 [1] brk(0x0) = 0x11d800000
+112 391301.7 [1] brk(0x11d821000) = 0x11d821000
+113 391304.1 [1] openat(-100, "/proc/filesystems", 0x80000, 00) = 3
+114 391306.0 [1] fstat(3, 0x11b3c7ae0) = 0
+115 391306.2 [1] read(3, 0x11d800500, 4096) = 69
+116 391307.7 [1] read(3, 0x11d800500, 4096) = 0
+117 391308.7 [1] close(3) = 0
+118 391310.7 [1] access("/etc/selinux/config", 0) = -1 ENOENT
+119 391318.2 [1] openat(-100, "/usr/lib/locale/locale-archive", 0x80000, 00) = -1 ENOENT
+120 391318.9 [1] openat(-100, "/usr/share/locale/locale.alias", 0x80000, 00) = -1 ENOENT
+121 391320.3 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_IDENTIFICATION", 0x80000, 00) = -1 ENOENT
+122 391320.4 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_IDENTIFICATION", 0x80000, 00) = 3
+123 391320.4 [1] fstat(3, 0x11b3c7900) = 0
+124 391336.7 [1] mmap(0x0, 258, 0x1, 0x2, 3, 0x0) = 0x1067a0000
+125 391336.7 [1] close(3) = 0
+126 391338.6 [1] openat(-100, "/usr/lib/x86_64-linux-gnu/gconv/gconv-modules.cache", 0x80000, 00) = 3
+127 391338.6 [1] fstat(3, 0x11b3c7710) = 0
+128 391350.8 [1] mmap(0x0, 27028, 0x1, 0x1, 3, 0x0) = 0x1067f4000
+129 391350.8 [1] close(3) = 0
+130 391350.8 [1] futex(0x10867272c, 129, 2147483647, 0x0, 0x3, 0) = 0
+131 391352.1 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_MEASUREMENT", 0x80000, 00) = -1 ENOENT
+132 391352.1 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_MEASUREMENT", 0x80000, 00) = 3
+133 391352.1 [1] fstat(3, 0x11b3c7900) = 0
+134 391360.4 [1] mmap(0x0, 23, 0x1, 0x2, 3, 0x0) = 0x1067a4000
+135 391360.4 [1] close(3) = 0
+136 391360.6 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_TELEPHONE", 0x80000, 00) = -1 ENOENT
+137 391360.6 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_TELEPHONE", 0x80000, 00) = 3
+138 391360.6 [1] fstat(3, 0x11b3c7900) = 0
+139 391371.0 [1] mmap(0x0, 47, 0x1, 0x2, 3, 0x0) = 0x1067fc000
+140 391371.0 [1] close(3) = 0
+141 391371.3 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_ADDRESS", 0x80000, 00) = -1 ENOENT
+142 391371.3 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_ADDRESS", 0x80000, 00) = 3
+143 391371.3 [1] fstat(3, 0x11b3c7900) = 0
+144 391381.0 [1] mmap(0x0, 127, 0x1, 0x2, 3, 0x0) = 0x108738000
+145 391381.0 [1] close(3) = 0
+146 391381.1 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_NAME", 0x80000, 00) = -1 ENOENT
+147 391381.1 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_NAME", 0x80000, 00) = 3
+148 391381.1 [1] fstat(3, 0x11b3c7900) = 0
+149 391391.1 [1] mmap(0x0, 62, 0x1, 0x2, 3, 0x0) = 0x10873c000
+150 391391.1 [1] close(3) = 0
+151 391391.2 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_PAPER", 0x80000, 00) = -1 ENOENT
+152 391391.2 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_PAPER", 0x80000, 00) = 3
+153 391391.2 [1] fstat(3, 0x11b3c7900) = 0
+154 391404.3 [1] mmap(0x0, 34, 0x1, 0x2, 3, 0x0) = 0x108740000
+155 391404.3 [1] close(3) = 0
+156 391404.5 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_MESSAGES", 0x80000, 00) = -1 ENOENT
+157 391404.5 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_MESSAGES", 0x80000, 00) = 3
+158 391404.5 [1] fstat(3, 0x11b3c7900) = 0
+159 391404.5 [1] close(3) = 0
+160 391404.6 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_MESSAGES/SYS_LC_MESSAGES", 0x80000, 00) = 3
+161 391404.6 [1] fstat(3, 0x11b3c7900) = 0
+162 391413.7 [1] mmap(0x0, 48, 0x1, 0x2, 3, 0x0) = 0x108744000
+163 391413.7 [1] close(3) = 0
+164 391413.9 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_MONETARY", 0x80000, 00) = -1 ENOENT
+165 391413.9 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_MONETARY", 0x80000, 00) = 3
+166 391413.9 [1] fstat(3, 0x11b3c7900) = 0
+167 391423.9 [1] mmap(0x0, 270, 0x1, 0x2, 3, 0x0) = 0x108748000
+168 391424.0 [1] close(3) = 0
+169 391424.1 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_COLLATE", 0x80000, 00) = -1 ENOENT
+170 391424.1 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_COLLATE", 0x80000, 00) = 3
+171 391424.1 [1] fstat(3, 0x11b3c7900) = 0
+172 391435.9 [1] mmap(0x0, 1406, 0x1, 0x2, 3, 0x0) = 0x10874c000
+173 391435.9 [1] close(3) = 0
+174 391436.1 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_TIME", 0x80000, 00) = -1 ENOENT
+175 391436.1 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_TIME", 0x80000, 00) = 3
+176 391436.1 [1] fstat(3, 0x11b3c7900) = 0
+177 391446.5 [1] mmap(0x0, 3360, 0x1, 0x2, 3, 0x0) = 0x108750000
+178 391446.5 [1] close(3) = 0
+179 391446.7 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_NUMERIC", 0x80000, 00) = -1 ENOENT
+180 391446.7 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_NUMERIC", 0x80000, 00) = 3
+181 391446.7 [1] fstat(3, 0x11b3c7900) = 0
+182 391460.5 [1] mmap(0x0, 50, 0x1, 0x2, 3, 0x0) = 0x108754000
+183 391460.5 [1] close(3) = 0
+184 391460.7 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_CTYPE", 0x80000, 00) = -1 ENOENT
+185 391460.7 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_CTYPE", 0x80000, 00) = 3
+186 391460.7 [1] fstat(3, 0x11b3c7900) = 0
+187 391544.2 run: ps cwd=/
+188 391545.4 [1] mmap(0x0, 367708, 0x1, 0x2, 3, 0x0) = 0x108758000
+189 391545.4 [1] close(3) = 0
+190 391550.8 [1] ioctl(1, 0x5401, 0x11b3c7b30) = -1 ENOTTY
+191 391558.5 [1] statx(-100, "/opt/rl/bin", 0x900, 0x25e, 0x11b3c76b0) = -1 ENOSYS
+192 391558.8 [1] newfstatat(-100, "/opt/rl/bin", 0x11b3c74f0, 0x900) = 0
+193 391559.4 [1] llistxattr("/opt/rl/bin", 0x11b3c783c) = -1 EOPNOTSUPP
+194 391561.4 [1] lgetxattr("/opt/rl/bin", 0x1067d48be) = -1 EOPNOTSUPP
+195 391561.6 [1] lgetxattr("/opt/rl/bin", 0x1066bd555) = -1 EOPNOTSUPP
+196 391561.7 [1] lgetxattr("/opt/rl/bin", 0x1066bd565) = -1 EOPNOTSUPP
+197 391561.7 [1] lgetxattr("/opt/rl/bin", 0x1066bd57d) = -1 EOPNOTSUPP
+198 391566.7 [1] socket(1, 526337, 0) = -1 EAFNOSUPPORT
+199 391566.8 [1] socket(1, 526337, 0) = -1 EAFNOSUPPORT
+200 391568.3 [1] newfstatat(-100, "/etc/nsswitch.conf", 0x11b3c73f0, 0x0) = 0
+201 391568.4 [1] newfstatat(-100, "/", 0x11b3c7510, 0x0) = 0
+202 391568.4 [1] openat(-100, "/etc/nsswitch.conf", 0x80000, 00) = 3
+203 391568.4 [1] fstat(3, 0x11b3c7330) = 0
+204 391578.3 [1] read(3, 0x11d808620, 4096) = 494
+205 391579.3 [1] read(3, 0x11d808620, 4096) = 0
+206 391579.7 [1] fstat(3, 0x11b3c73f0) = 0
+207 391579.7 [1] close(3) = 0
+208 391580.9 [1] openat(-100, "/etc/passwd", 0x80000, 00) = 3
+209 391581.6 [1] fstat(3, 0x11b3c7480) = 0
+210 391581.7 [1] lseek(3, 0, 0) = 0
+211 391591.6 [1] read(3, 0x11d808620, 4096) = 953
+212 391592.8 [1] close(3) = 0
+213 391596.4 [1] socket(1, 526337, 0) = -1 EAFNOSUPPORT
+214 391596.4 [1] socket(1, 526337, 0) = -1 EAFNOSUPPORT
+215 391597.5 [1] newfstatat(-100, "/etc/nsswitch.conf", 0x11b3c73c0, 0x0) = 0
+216 391597.6 [1] openat(-100, "/etc/group", 0x80000, 00) = 3
+217 391597.6 [1] fstat(3, 0x11b3c7450) = 0
+218 391597.6 [1] lseek(3, 0, 0) = 0
+219 391609.4 [1] read(3, 0x11d80a290, 4096) = 555
+220 391609.9 [1] close(3) = 0
+221 391613.4 [1] openat(-100, "/opt/rl/bin", 0x90800, 00) = 3
+222 391613.5 [1] fstat(3, 0x11b3c7790) = 0
+223 391613.8 [1] getdents64(3, 0x11d80a2c0, 32768) = 176
+224 391613.8 [1] statx(-100, "/opt/rl/bin/.", 0x900, 0x25e, 0x11b3c7300) = -1 ENOSYS
+225 391613.8 [1] newfstatat(-100, "/opt/rl/bin/.", 0x11b3c7140, 0x900) = 0
+226 391614.0 [1] statx(-100, "/opt/rl/bin/..", 0x900, 0x25e, 0x11b3c7300) = -1 ENOSYS
+227 391614.0 [1] newfstatat(-100, "/opt/rl/bin/..", 0x11b3c7140, 0x900) = 0
+228 391614.0 [1] statx(-100, "/opt/rl/bin/d3d11tri.exe", 0x900, 0x25e, 0x11b3c72f0) = -1 ENOSYS
+229 391614.0 [1] newfstatat(-100, "/opt/rl/bin/d3d11tri.exe", 0x11b3c7130, 0x900) = 0
+230 391614.0 [1] statx(-100, "/opt/rl/bin/hello-dyn", 0x900, 0x25e, 0x11b3c7300) = -1 ENOSYS
+231 391614.0 [1] newfstatat(-100, "/opt/rl/bin/hello-dyn", 0x11b3c7140, 0x900) = 0
+232 391614.0 [1] statx(-100, "/opt/rl/bin/hello-static", 0x900, 0x25e, 0x11b3c72f0) = -1 ENOSYS
+233 391614.0 [1] newfstatat(-100, "/opt/rl/bin/hello-static", 0x11b3c7130, 0x900) = 0
+234 391614.0 [1] statx(-100, "/opt/rl/bin/threads-test", 0x900, 0x25e, 0x11b3c72f0) = -1 ENOSYS
+235 391614.0 [1] newfstatat(-100, "/opt/rl/bin/threads-test", 0x11b3c7130, 0x900) = 0
+236 391614.0 [1] getdents64(3, 0x11d80a2c0, 32768) = 0
+237 391614.1 [1] close(3) = 0
+238 391616.4 [1] fstat(1, 0x11b3c76d0) = 0
+239 391621.4 [1] openat(-100, "/etc/localtime", 0x80000, 00) = 3
+240 391621.5 [1] fstat(3, 0x11b3c66a0) = 0
+241 391621.8 [1] fstat(3, 0x11b3c64d0) = 0
+242 391630.8 [1] read(3, 0x11d80b2a0, 4096) = 114
+243 391631.0 [1] lseek(3, -60, 1) = 54
+244 391631.0 [1] read(3, 0x11d80b2a0, 4096) = 60
+245 391631.1 [1] close(3) = 0
+246 391633.0 [1] clock_gettime(0, 0x1066c8390) = 0
+247 391640.0 guest[1] stdout: total 522
+248 391640.0 guest[1] stdout: drwxrwxr-x 6 root root      0 Sep 27 01:34 .
+249 391640.0 guest[1] stdout: drwxrwxr-x 5 root root      0 Sep 27 01:34 ..
+250 391640.0 guest[1] stdout: -rwxrwxr-x 1 root root 486115 Sep 27 01:34 d3d11tri.exe
+251 391640.0 guest[1] stdout: -rwxrwxr-x 1 root root  16680 Sep 27 01:34 hello-dyn
+252 391640.0 guest[1] stdout: -rwxrwxr-x 1 root root  13632 Sep 27 01:34 hello-static
+253 391640.0 guest[1] stdout: -rwxrwxr-x 1 root root  16840 Sep 27 01:34 threads-test
+254 391640.0 [1] write(1, "total 522\ndrwxrwxr-x 6 root root      0 Sep 27 01:34 .\ndrwxrwxr-"...", 322) = 322
+255 391640.0 [1] close(1) = 0
+256 391640.0 [1] close(2) = 0
+257 391642.3 [1] exit_group(0) = 0
+258 391642.3 kernel: pid 1 tid 1 exited code=0 after 204 syscalls, 672.6 ms
+259 392055.3 run: ps cwd=/
+260 392067.6 run: guest-out 1 cwd=/
+261 392169.9 run: vaprobe2 cwd=/
+262 392184.3 host: va probe 2 {"none_256mb":{"steps":21,"gb":5.25,"stop_errno":12,"ms":0},"rw_noreserve_256mb":{"steps":21,"gb":5.25,"stop_errno":12,"ms":0},"rw_256mb":{"steps":21,"gb":5.25,"stop_errno":12,"ms":0},"vm_allocate_256mb":{"steps":21,"gb":5.25,"stop_kr":3,"ms":0},"none_64mb":{"steps":87,"gb":5.44,"stop_errno":12,"ms":0},"rw_touched_256mb":{"steps":8,"gb":2.00,"stop_errno":0,"ms":14},"rlimit_as":{"cur":9223372036854775807,"max":92233720368547758
+263 411673.9 run: exec /usr/bin/env cwd=/
+264 411703.7 kernel: pid 2 exec /usr/bin/env (run) {"entry":"0x1067252c0","rsp":"0x11b3c7da0","main":{"path":"/usr/bin/env","dyn":true,"base":"0x1066a4000","entry":"0x1066a7c10","range":"0x1066a4000-0x1066b2000","phdr":"0x1066a4040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x106708000","entry":"0x1067252c0","range":"0x106708000-0x106740000"},"stack":"0x11abc8000-0x11b3c8000","brk":"0x11d800000-0x121800000","auxv":"0x11b3c7df8","
+265 411703.9 kernel: pid 2 tid 2 start rip=0x1067252c0 rsp=0x11b3c7da0
+266 411703.9 host: guest exec /usr/bin/env → {"ok":true,"pid":2,"dry_run":false,"layout":{"entry":"0x1067252c0","rsp":"0x11b3c7da0","main":{"path":"/usr/bin/env","dyn":true,"base":"0x1066a4000","entry":"0x1066a7c10","range":"0x1066a4000-0x1066b2000","phdr":"0x1066a4040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x106
+267 411705.8 [2] brk(0x0) = 0x11d800000
+268 411717.5 run: ps cwd=/
+269 411733.5 [2] access("/etc/ld.so.preload", 4) = -1 ENOENT
+270 411737.0 [2] openat(-100, "/etc/ld.so.cache", 0x80000, 00) = 3
+271 411737.1 [2] fstat(3, 0x11b3c6e80) = 0
+272 411737.2 [2] mmap(0x0, 32187, 0x1, 0x2, 3, 0x0) = 0x1066b8000
+273 411737.2 [2] close(3) = 0
+274 411738.4 [2] openat(-100, "/lib/x86_64-linux-gnu/libc.so.6", 0x80000, 00) = 3
+275 411738.4 [2] read(3, 0x11b3c6ff8, 832) = 832
+276 411738.5 [2] pread64(3, 0x11b3c6bb0, 840, 64) = 840
+277 411740.4 [2] fstat(3, 0x11b3c6e80) = 0
+278 411740.4 [2] mmap(0x0, 8192, 0x3, 0x22, -1, 0x0) = 0x1066c0000
+279 411740.5 [2] pread64(3, 0x11b3c6a90, 840, 64) = 840
+280 411741.5 [2] mmap(0x0, 2047568, 0x1, 0x802, 3, 0x0) = 0x10848c000
+281 411742.4 [2] mmap(0x1084b4000, 1454080, 0x5, 0x812, 3, 0x28000) = 0x1084b4000
+282 411742.7 [2] mmap(0x108617000, 352256, 0x1, 0x812, 3, 0x18b000) = 0x108617000
+283 411742.7 [2] mmap(0x10866d000, 24576, 0x3, 0x812, 3, 0x1e0000) = 0x10866d000
+284 411742.7 [2] mmap(0x108673000, 52816, 0x3, 0x32, -1, 0x0) = 0x108673000
+285 411742.7 [2] close(3) = 0
+286 411746.1 [2] mmap(0x0, 12288, 0x3, 0x22, -1, 0x0) = 0x1066c4000
+287 411746.1 [2] arch_prctl(0x1002, 0x1066c4740) = 0
+288 411746.7 [2] set_tid_address(0x1066c4a10) = 2
+289 411746.7 [2] set_robust_list(0x1066c4a20, 24) = 0
+290 411746.8 [2] rseq(0x1066c4680, 0x20, 0x0) = -1 ENOSYS
+291 411756.8 [2] mprotect(0x10866d000, 16384, 0x1) = 0
+292 411758.3 [2] mprotect(0x1066b0000, 4096, 0x1) = 0
+293 411759.2 [2] mprotect(0x10673c000, 8192, 0x1) = 0
+294 411759.3 [2] prlimit_64(0, 3, 0x0, 0x11b3c79d0) = 0
+295 411759.7 [2] munmap(0x1066b8000, 32187) = 0
+296 411766.0 [2] getrandom(0x108678218, 8, 0x1) = 8
+297 411768.6 [2] brk(0x0) = 0x11d800000
+298 411768.7 [2] brk(0x11d821000) = 0x11d821000
+299 411769.4 [2] openat(-100, "/usr/lib/locale/locale-archive", 0x80000, 00) = -1 ENOENT
+300 411771.0 [2] openat(-100, "/usr/share/locale/locale.alias", 0x80000, 00) = -1 ENOENT
+301 411772.2 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_IDENTIFICATION", 0x80000, 00) = -1 ENOENT
+302 411772.2 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_IDENTIFICATION", 0x80000, 00) = 3
+303 411772.3 [2] fstat(3, 0x11b3c7860) = 0
+304 411772.3 [2] mmap(0x0, 258, 0x1, 0x2, 3, 0x0) = 0x1066b8000
+305 411772.4 [2] close(3) = 0
+306 411773.5 [2] openat(-100, "/usr/lib/x86_64-linux-gnu/gconv/gconv-modules.cache", 0x80000, 00) = 3
+307 411773.5 [2] fstat(3, 0x11b3c7670) = 0
+308 411773.5 [2] mmap(0x0, 27028, 0x1, 0x1, 3, 0x0) = 0x1067a0000
+309 411773.5 [2] close(3) = 0
+310 411773.5 [2] futex(0x10867272c, 129, 2147483647, 0x0, 0x3, 0) = 0
+311 411774.2 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_MEASUREMENT", 0x80000, 00) = -1 ENOENT
+312 411774.2 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_MEASUREMENT", 0x80000, 00) = 3
+313 411774.2 [2] fstat(3, 0x11b3c7860) = 0
+314 411774.2 [2] mmap(0x0, 23, 0x1, 0x2, 3, 0x0) = 0x1066bc000
+315 411774.2 [2] close(3) = 0
+316 411774.3 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_TELEPHONE", 0x80000, 00) = -1 ENOENT
+317 411774.3 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_TELEPHONE", 0x80000, 00) = 3
+318 411774.3 [2] fstat(3, 0x11b3c7860) = 0
+319 411774.3 [2] mmap(0x0, 47, 0x1, 0x2, 3, 0x0) = 0x1066c8000
+320 411774.3 [2] close(3) = 0
+321 411774.4 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_ADDRESS", 0x80000, 00) = -1 ENOENT
+322 411774.4 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_ADDRESS", 0x80000, 00) = 3
+323 411774.4 [2] fstat(3, 0x11b3c7860) = 0
+324 411774.4 [2] mmap(0x0, 127, 0x1, 0x2, 3, 0x0) = 0x1067a8000
+325 411774.4 [2] close(3) = 0
+326 411774.4 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_NAME", 0x80000, 00) = -1 ENOENT
+327 411774.4 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_NAME", 0x80000, 00) = 3
+328 411774.4 [2] fstat(3, 0x11b3c7860) = 0
+329 411774.5 [2] mmap(0x0, 62, 0x1, 0x2, 3, 0x0) = 0x1067ac000
+330 411774.5 [2] close(3) = 0
+331 411774.5 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_PAPER", 0x80000, 00) = -1 ENOENT
+332 411774.5 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_PAPER", 0x80000, 00) = 3
+333 411774.5 [2] fstat(3, 0x11b3c7860) = 0
+334 411774.5 [2] mmap(0x0, 34, 0x1, 0x2, 3, 0x0) = 0x1067b0000
+335 411774.5 [2] close(3) = 0
+336 411774.5 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_MESSAGES", 0x80000, 00) = -1 ENOENT
+337 411774.6 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_MESSAGES", 0x80000, 00) = 3
+338 411774.6 [2] fstat(3, 0x11b3c7860) = 0
+339 411774.6 [2] close(3) = 0
+340 411774.6 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_MESSAGES/SYS_LC_MESSAGES", 0x80000, 00) = 3
+341 411774.6 [2] fstat(3, 0x11b3c7860) = 0
+342 411774.6 [2] mmap(0x0, 48, 0x1, 0x2, 3, 0x0) = 0x1067b4000
+343 411774.6 [2] close(3) = 0
+344 411774.6 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_MONETARY", 0x80000, 00) = -1 ENOENT
+345 411774.6 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_MONETARY", 0x80000, 00) = 3
+346 411774.6 [2] fstat(3, 0x11b3c7860) = 0
+347 411774.6 [2] mmap(0x0, 270, 0x1, 0x2, 3, 0x0) = 0x1067b8000
+348 411774.6 [2] close(3) = 0
+349 411774.7 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_COLLATE", 0x80000, 00) = -1 ENOENT
+350 411774.7 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_COLLATE", 0x80000, 00) = 3
+351 411774.7 [2] fstat(3, 0x11b3c7860) = 0
+352 411774.7 [2] mmap(0x0, 1406, 0x1, 0x2, 3, 0x0) = 0x1067bc000
+353 411774.7 [2] close(3) = 0
+354 411774.7 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_TIME", 0x80000, 00) = -1 ENOENT
+355 411774.7 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_TIME", 0x80000, 00) = 3
+356 411774.7 [2] fstat(3, 0x11b3c7860) = 0
+357 411774.8 [2] mmap(0x0, 3360, 0x1, 0x2, 3, 0x0) = 0x1067c0000
+358 411774.8 [2] close(3) = 0
+359 411774.8 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_NUMERIC", 0x80000, 00) = -1 ENOENT
+360 411774.8 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_NUMERIC", 0x80000, 00) = 3
+361 411774.8 [2] fstat(3, 0x11b3c7860) = 0
+362 411774.8 [2] mmap(0x0, 50, 0x1, 0x2, 3, 0x0) = 0x1067c4000
+363 411774.8 [2] close(3) = 0
+364 411774.9 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_CTYPE", 0x80000, 00) = -1 ENOENT
+365 411774.9 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_CTYPE", 0x80000, 00) = 3
+366 411774.9 [2] fstat(3, 0x11b3c7860) = 0
+367 411775.0 [2] mmap(0x0, 367708, 0x1, 0x2, 3, 0x0) = 0x108680000
+368 411775.1 [2] close(3) = 0
+369 411778.3 [2] fstat(1, 0x11b3c77b0) = 0
+370 411779.1 guest[2] stdout: PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+371 411779.1 guest[2] stdout: HOME=/home/user
+372 411779.1 guest[2] stdout: USER=user
+373 411779.1 guest[2] stdout: LOGNAME=user
+374 411779.1 guest[2] stdout: LANG=C.UTF-8
+375 411779.1 guest[2] stdout: TERM=dumb
+376 411779.1 guest[2] stdout: TMPDIR=/tmp
+377 411779.1 [2] write(1, "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bi"...", 140) = 140
+378 411779.3 [2] close(1) = 0
+379 411780.3 [2] close(2) = 0
+380 411781.4 [2] exit_group(0) = 0
+381 411781.4 kernel: pid 2 tid 2 exited code=0 after 106 syscalls, 107.4 ms
+382 412248.7 run: ps cwd=/
+383 412263.2 run: guest-out 2 cwd=/
+384 412370.8 run: vaprobe2 cwd=/
+385 412384.6 host: va probe 2 {"none_256mb":{"steps":13,"gb":3.25,"stop_errno":12,"ms":0},"rw_noreserve_256mb":{"steps":13,"gb":3.25,"stop_errno":12,"ms":0},"rw_256mb":{"steps":13,"gb":3.25,"stop_errno":12,"ms":0},"vm_allocate_256mb":{"steps":13,"gb":3.25,"stop_kr":3,"ms":0},"none_64mb":{"steps":55,"gb":3.44,"stop_errno":12,"ms":0},"rw_touched_256mb":{"steps":8,"gb":2.00,"stop_errno":0,"ms":13},"rlimit_as":{"cur":9223372036854775807,"max":92233720368547758
+386 412486.2 run: exec /usr/bin/sh -c echo one | tr o 0 cwd=/
+387 412487.3 kernel: pid 3 exec /usr/bin/sh (run) {"entry":"0x1067252c0","rsp":"0x11b3c7d80","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x1067a0000","entry":"0x1067a4760","range":"0x1067a0000-0x1067c3000","phdr":"0x1067a0040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x106708000","entry":"0x1067252c0","range":"0x106708000-0x106740000"},"stack":"0x11abc8000-0x11b3c8000","brk":"0x11d800000-0x121800000","auxv":"0x11b3c7de8","
+388 412487.5 kernel: pid 3 tid 3 start rip=0x1067252c0 rsp=0x11b3c7d80
+389 412487.5 host: guest exec /usr/bin/sh -c echo one | tr o 0 → {"ok":true,"pid":3,"dry_run":false,"layout":{"entry":"0x1067252c0","rsp":"0x11b3c7d80","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x1067a0000","entry":"0x1067a4760","range":"0x1067a0000-0x1067c3000","phdr":"0x1067a0040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x10
+390 412489.4 [3] brk(0x0) = 0x11d800000
+391 412500.8 run: ps cwd=/
+392 412516.2 [3] access("/etc/ld.so.preload", 4) = -1 ENOENT
+393 412519.7 [3] openat(-100, "/etc/ld.so.cache", 0x80000, 00) = 3
+394 412519.8 [3] fstat(3, 0x11b3c6e60) = 0
+395 412519.9 [3] mmap(0x0, 32187, 0x1, 0x2, 3, 0x0) = 0x1066ac000
+396 412519.9 [3] close(3) = 0
+397 412521.0 [3] openat(-100, "/lib/x86_64-linux-gnu/libc.so.6", 0x80000, 00) = 3
+398 412521.1 [3] read(3, 0x11b3c6fd8, 832) = 832
+399 412521.1 [3] pread64(3, 0x11b3c6b90, 840, 64) = 840
+400 412523.1 [3] fstat(3, 0x11b3c6e60) = 0
+401 412523.1 [3] mmap(0x0, 8192, 0x3, 0x22, -1, 0x0) = 0x1066b8000
+402 412523.2 [3] pread64(3, 0x11b3c6a70, 840, 64) = 840
+403 412524.1 [3] mmap(0x0, 2047568, 0x1, 0x802, 3, 0x0) = 0x10848c000
+404 412525.0 [3] mmap(0x1084b4000, 1454080, 0x5, 0x812, 3, 0x28000) = 0x1084b4000
+405 412525.3 [3] mmap(0x108617000, 352256, 0x1, 0x812, 3, 0x18b000) = 0x108617000
+406 412525.3 [3] mmap(0x10866d000, 24576, 0x3, 0x812, 3, 0x1e0000) = 0x10866d000
+407 412525.4 [3] mmap(0x108673000, 52816, 0x3, 0x32, -1, 0x0) = 0x108673000
+408 412525.4 [3] close(3) = 0
+409 412529.1 [3] mmap(0x0, 12288, 0x3, 0x22, -1, 0x0) = 0x1066bc000
+410 412529.1 [3] arch_prctl(0x1002, 0x1066bc740) = 0
+411 412529.6 [3] set_tid_address(0x1066bca10) = 3
+412 412529.7 [3] set_robust_list(0x1066bca20, 24) = 0
+413 412529.7 [3] rseq(0x1066bc680, 0x20, 0x0) = -1 ENOSYS
+414 412540.4 [3] mprotect(0x10866d000, 16384, 0x1) = 0
+415 412541.9 [3] mprotect(0x1067be000, 8192, 0x1) = 0
+416 412542.8 [3] mprotect(0x10673c000, 8192, 0x1) = 0
+417 412542.9 [3] prlimit_64(0, 3, 0x0, 0x11b3c79b0) = 0
+418 412543.3 [3] munmap(0x1066ac000, 32187) = 0
+419 412544.5 [3] getuid() = 1000
+420 412544.5 [3] getgid() = 1000
+421 412544.5 [3] getpid() = 3
+422 412545.0 [3] rt_sigaction(17, 0x11b3c78b0, 0x0, 8) = 0
+423 412545.1 [3] geteuid() = 1000
+424 412546.3 [3] getrandom(0x108678218, 8, 0x1) = 8
+425 412549.1 [3] brk(0x0) = 0x11d800000
+426 412549.2 [3] brk(0x11d821000) = 0x11d821000
+427 412549.6 [3] getppid() = 1
+428 412552.2 [3] getcwd(0x11d8003f0, 4096) = 2
+429 412555.5 [3] geteuid() = 1000
+430 412555.5 [3] getegid() = 1000
+431 412555.6 [3] rt_sigaction(2, 0x0, 0x11b3c7a60, 8) = 0
+432 412555.6 [3] rt_sigaction(2, 0x11b3c79c0, 0x0, 8) = 0
+433 412555.6 [3] rt_sigaction(3, 0x0, 0x11b3c7a60, 8) = 0
+434 412555.6 [3] rt_sigaction(3, 0x11b3c79c0, 0x0, 8) = 0
+435 412555.6 [3] rt_sigaction(15, 0x0, 0x11b3c7a70, 8) = 0
+436 412555.6 [3] rt_sigaction(15, 0x11b3c79d0, 0x0, 8) = 0
+437 412561.2 [3] pipe2(0x11b3c7b20, 0x0, 0x4, 0x8) = -1 ENOSYS
+438 412561.3 [3] close(-1) = -1 EBADF
+439 412562.0 guest[3] stderr: /usr/bin/sh: 0: 
+440 412562.0 [3] write(2, "/usr/bin/sh: 0: ", 16) = 16
+441 412562.1 guest[3] stderr: Pipe call failed
+442 412562.1 [3] write(2, "Pipe call failed", 16) = 16
+443 412562.3 guest[3] stderr: 
+444 412562.3 [3] write(2, "\n", 1) = 1
+445 412562.8 [3] exit_group(2) = 0
+446 412562.8 kernel: pid 3 tid 3 exited code=2 after 52 syscalls, 76.5 ms
+447 413017.6 run: ps cwd=/
+448 413030.0 run: guest-out 3 cwd=/
+449 413142.1 run: vaprobe2 cwd=/
+450 413150.9 host: va probe 2 {"none_256mb":{"steps":5,"gb":1.25,"stop_errno":12,"ms":0},"rw_noreserve_256mb":{"steps":5,"gb":1.25,"stop_errno":12,"ms":0},"rw_256mb":{"steps":5,"gb":1.25,"stop_errno":12,"ms":0},"vm_allocate_256mb":{"steps":5,"gb":1.25,"stop_kr":3,"ms":0},"none_64mb":{"steps":23,"gb":1.44,"stop_errno":12,"ms":0},"rw_touched_256mb":{"steps":5,"gb":1.25,"stop_errno":12,"ms":9},"rlimit_as":{"cur":9223372036854775807,"max":9223372036854775807},
+1 0.0 host: RLtvOS build-20 pid 1138 tvOS 27.0 crash-handler rc=0
+2 0.4 host: sysinfo {"cs_debugged":0,"hw_machine":"AppleTV14,1","hw_memsize":4167958528,"hw_model":"J255AP","hw_pagesize":16384,"kern_osversion":"24J361","ncpu":5,"pid":1138,"ptraced":0,"sigaltstack":"ok"}
+3 0.5 host: jit arena init rc=0 {"base":"0x106c00000","size":16777216,"size_mb":16,"prot":"rwx","rwx_errno":0,"page":16384,"pages":1024}
+4 0.9 host: config {"jit_in_place":0}
+5 1.0 host: jit26 start rc=0 pool=128 MB wait=60 s flags=0
+6 1.0 jit26: stage waiting-for-debugger
+7 1.0 host: rlfex bound to the jit26 pool; kernel log bound
+8 1.0 host: jit map probe {"ok":false,"stage":"mapped-only","method":"rwx-mmap","rwx_errno":0,"ptraced":0,"cs_debugged":0,"reason":"not executed: on tvOS 26+ a page runs only after a debugger wrote to it; use tv.py jit (authorizes the arena, then runs jittest --trust)"}
+9 1.4 host: va {"max_contiguous_gb":6,"contig_errno":12,"total_1gb_steps":7,"step_limit_gb":1024,"stop_errno":12,"lowest":"0x107c00000","highest":"0x7180000000"}
+10 1.4 host: rlcore 0.1 (clang 17.0, libc++ 190102, Sep 27 2026)
+11 4.8 rlcore: selftest ok
+12 4.9 host: rlcore selftest {"ok":true,"threads":4,"counter":400000,"tls_values":4,"exceptions":true,"alloc64mb":true,"ms":3.41,"version":"0.1 (clang 17.0, libc++ 190102, Sep 27 2026)","hardware_concurrency":5}
+13 4.9 host: mem {"available":2194094696,"available_mb":2092.5,"compressed":0,"external":19251200,"internal":5472256,"kr":0,"limit_estimate":2199912448,"peak_phys_footprint":5817752,"phys_footprint":5817752,"phys_footprint_mb":5.5,"resident_size":25591808,"virtual_size":474680164352}
+14 11.4 host: metal device Apple A15 GPU screen 1920x1080@1.0
+15 24.7 host: debug server listening on 0.0.0.0:7777
+16 1857.8 jit26: ptraced=1 after 1.9 s (asked 60 s); pool 128 MB flags=0
+17 1857.8 jit26: stage preparing
+18 6327.8 jit26: prepared 128 MB at 0x10a3d8000 by debugger in 4.47 s
+19 6327.8 jit26: stage remapping
+20 6336.9 jit26: RW alias at 0x1123d8000 (cur=5 max=7) delta=134217728
+21 6336.9 jit26: stage testing
+22 6338.1 jit26: attached self-test ok: 42 43
+23 6338.1 jit26: stage detaching
+24 6497.1 jit26: detach serviced (ptraced now 0)
+25 6499.1 host: did become active
+26 6798.1 jit26: stage testing
+27 6799.1 jit26: detached self-test ok: 44 45 (ptraced=0)
+28 6799.1 jit26: stage ready
+29 7564.6 run: jittest cwd=/
+30 7565.8 jit26: self-test ok: 42 43 (ptraced=0)
+31 7662.7 run: vfs-mount http://192.168.1.133:8090 cwd=/
+32 8737.9 vfs: mount http://192.168.1.133:8090 → {"ok":true,"url":"http://192.168.1.133:8090","entries":70376,"files":55634,"bytes":48188621469,"manifest_gz_bytes":2989882,"roots":["rootfs","prefix","home","game"],"cache_dir":"/var/mobile/Containers/Data/Application/3D882E1C-3607-4D9E-81DC-2B74ACD0E7AC/Library/Caches/vfs-blocks","ms":1074.8}
+33 8738.0 kernel: guest filesystem attached
+34 390860.6 run: vaprobe2 cwd=/
+35 390874.7 host: va probe 2 {"none_256mb":{"steps":29,"gb":7.25,"stop_errno":12,"ms":0},"rw_noreserve_256mb":{"steps":29,"gb":7.25,"stop_errno":12,"ms":0},"rw_256mb":{"steps":29,"gb":7.25,"stop_errno":12,"ms":0},"vm_allocate_256mb":{"steps":29,"gb":7.25,"stop_kr":3,"ms":0},"none_64mb":{"steps":119,"gb":7.44,"stop_errno":12,"ms":0},"rw_touched_256mb":{"steps":8,"gb":2.00,"stop_errno":0,"ms":14},"rlimit_as":{"cur":9223372036854775807,"max":9223372036854775
+36 390969.4 run: exec /bin/ls -la /opt/rl/bin cwd=/
+37 390972.7 kernel: pid 1 exec /bin/ls (run) {"entry":"0x1067252c0","rsp":"0x11b3c7d80","main":{"path":"/usr/bin/ls","dyn":true,"base":"0x1066a0000","entry":"0x1066a6760","range":"0x1066a0000-0x1066c9000","phdr":"0x1066a0040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x106708000","entry":"0x1067252c0","range":"0x106708000-0x106740000"},"stack":"0x11abc8000-0x11b3c8000","brk":"0x11d800000-0x121800000","auxv":"0x11b3c7de8","auxv_e
+38 390972.7 fex: exec alloc #1 16 KB rw=0x1123d8000 rx=0x10a3d8000
+39 390972.7 fex: exec free 16 KB rw=0x1123d8000
+40 390973.3 fex: exec alloc #2 16 KB rw=0x1123d8000 rx=0x10a3d8000
+41 390973.4 kernel: FEX context ready (hwcap=0x278bfbff hwcap2=0x2)
+42 390973.6 fex: exec alloc #3 16384 KB rw=0x1123dc000 rx=0x10a3dc000
+43 390973.7 kernel: pid 1 tid 1 start rip=0x1067252c0 rsp=0x11b3c7d80
+44 390973.7 host: guest exec /bin/ls -la /opt/rl/bin → {"ok":true,"pid":1,"dry_run":false,"layout":{"entry":"0x1067252c0","rsp":"0x11b3c7d80","main":{"path":"/usr/bin/ls","dyn":true,"base":"0x1066a0000","entry":"0x1066a6760","range":"0x1066a0000-0x1066c9000","phdr":"0x1066a0040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x1067
+45 390977.4 [1] brk(0x0) = 0x11d800000
+46 390984.4 run: ps cwd=/
+47 391004.3 [1] access("/etc/ld.so.preload", 4) = -1 ENOENT
+48 391007.7 [1] openat(-100, "/etc/ld.so.cache", 0x80000, 00) = 3
+49 391007.8 [1] fstat(3, 0x11b3c6e60) = 0
+50 391008.5 [1] mmap(0x0, 32187, 0x1, 0x2, 3, 0x0) = 0x1067a0000
+51 391008.5 [1] close(3) = 0
+52 391009.7 [1] openat(-100, "/lib/x86_64-linux-gnu/libselinux.so.1", 0x80000, 00) = 3
+53 391070.2 [1] read(3, 0x11b3c6fd8, 832) = 832
+54 391072.5 [1] fstat(3, 0x11b3c6e60) = 0
+55 391072.5 [1] mmap(0x0, 8192, 0x3, 0x22, -1, 0x0) = 0x1067a8000
+56 391072.9 [1] mmap(0x0, 210640, 0x1, 0x802, 3, 0x0) = 0x1067ac000
+57 391073.0 [1] mmap(0x1067b3000, 131072, 0x5, 0x812, 3, 0x7000) = 0x1067b3000
+58 391073.1 [1] mmap(0x1067d3000, 36864, 0x1, 0x812, 3, 0x27000) = 0x1067d3000
+59 391073.1 [1] mmap(0x1067dc000, 8192, 0x3, 0x812, 3, 0x30000) = 0x1067dc000
+60 391073.1 [1] mmap(0x1067de000, 5840, 0x3, 0x32, -1, 0x0) = 0x1067de000
+61 391073.2 [1] close(3) = 0
+62 391073.6 [1] openat(-100, "/lib/x86_64-linux-gnu/libcap.so.2", 0x80000, 00) = 3
+63 391111.0 [1] read(3, 0x11b3c6fb8, 832) = 832
+64 391111.0 [1] fstat(3, 0x11b3c6e40) = 0
+65 391111.1 [1] mmap(0x0, 45128, 0x1, 0x802, 3, 0x0) = 0x1067e0000
+66 391111.2 [1] mmap(0x1067e3000, 20480, 0x5, 0x812, 3, 0x3000) = 0x1067e3000
+67 391111.2 [1] mmap(0x1067e8000, 8192, 0x1, 0x812, 3, 0x8000) = 0x1067e8000
+68 391111.3 [1] mmap(0x1067ea000, 8192, 0x3, 0x812, 3, 0xa000) = 0x1067ea000
+69 391111.3 [1] close(3) = 0
+70 391111.5 [1] openat(-100, "/lib/x86_64-linux-gnu/libc.so.6", 0x80000, 00) = 3
+71 391112.1 [1] read(3, 0x11b3c6f98, 832) = 832
+72 391112.2 [1] pread64(3, 0x11b3c6b50, 840, 64) = 840
+73 391112.3 [1] fstat(3, 0x11b3c6e20) = 0
+74 391112.3 [1] pread64(3, 0x11b3c6a30, 840, 64) = 840
+75 391113.6 [1] mmap(0x0, 2047568, 0x1, 0x802, 3, 0x0) = 0x10848c000
+76 391114.8 [1] mmap(0x1084b4000, 1454080, 0x5, 0x812, 3, 0x28000) = 0x1084b4000
+77 391115.1 [1] mmap(0x108617000, 352256, 0x1, 0x812, 3, 0x18b000) = 0x108617000
+78 391115.2 [1] mmap(0x10866d000, 24576, 0x3, 0x812, 3, 0x1e0000) = 0x10866d000
+79 391115.2 [1] mmap(0x108673000, 52816, 0x3, 0x32, -1, 0x0) = 0x108673000
+80 391115.2 [1] close(3) = 0
+81 391116.1 [1] openat(-100, "/lib/x86_64-linux-gnu/libpcre2-8.so.0", 0x80000, 00) = 3
+82 391271.0 [1] read(3, 0x11b3c6f78, 832) = 832
+83 391271.1 [1] fstat(3, 0x11b3c6e00) = 0
+84 391271.6 [1] mmap(0x0, 713544, 0x1, 0x802, 3, 0x0) = 0x108680000
+85 391272.0 [1] mmap(0x108683000, 503808, 0x5, 0x812, 3, 0x3000) = 0x108683000
+86 391272.1 [1] mmap(0x1086fe000, 192512, 0x1, 0x812, 3, 0x7e000) = 0x1086fe000
+87 391272.2 [1] mmap(0x10872d000, 8192, 0x3, 0x812, 3, 0xac000) = 0x10872d000
+88 391272.2 [1] close(3) = 0
+89 391274.8 [1] mmap(0x0, 8192, 0x3, 0x22, -1, 0x0) = 0x1067ec000
+90 391276.2 [1] arch_prctl(0x1002, 0x1067ecd40) = 0
+91 391276.8 [1] set_tid_address(0x1067ed010) = 1
+92 391276.9 [1] set_robust_list(0x1067ed020, 24) = 0
+93 391277.0 [1] rseq(0x1067ecba0, 0x20, 0x0) = -1 ENOSYS
+94 391288.9 [1] mprotect(0x10866d000, 16384, 0x1) = 0
+95 391290.1 [1] mprotect(0x10872d000, 4096, 0x1) = 0
+96 391290.2 [1] mprotect(0x1067ea000, 4096, 0x1) = 0
+97 391290.5 [1] mprotect(0x1067dc000, 4096, 0x1) = 0
+98 391291.1 [1] mprotect(0x1066c5000, 8192, 0x1) = 0
+99 391292.4 [1] mprotect(0x10673c000, 8192, 0x1) = 0
+100 391292.6 [1] prlimit_64(0, 3, 0x0, 0x11b3c79b0) = 0
+101 391293.1 [1] munmap(0x1067a0000, 32187) = 0
+102 391295.4 [1] prctl(23, 0x20, 0x0) = -1 EINVAL
+103 391295.5 [1] prctl(23, 0xf, 0x0) = -1 EINVAL
+104 391295.5 [1] prctl(23, 0x7, 0x0) = -1 EINVAL
+105 391295.5 [1] prctl(23, 0x3, 0x0) = -1 EINVAL
+106 391295.5 [1] prctl(23, 0x1, 0x0) = -1 EINVAL
+107 391295.5 [1] prctl(23, 0x0, 0x0) = -1 EINVAL
+108 391296.7 [1] statfs("/sys/fs/selinux", 0x11b3c7c00) = -1 ENOENT
+109 391296.8 [1] statfs("/selinux", 0x11b3c7c00) = -1 ENOENT
+110 391297.4 [1] getrandom(0x108678218, 8, 0x1) = 8
+111 391301.6 [1] brk(0x0) = 0x11d800000
+112 391301.7 [1] brk(0x11d821000) = 0x11d821000
+113 391304.1 [1] openat(-100, "/proc/filesystems", 0x80000, 00) = 3
+114 391306.0 [1] fstat(3, 0x11b3c7ae0) = 0
+115 391306.2 [1] read(3, 0x11d800500, 4096) = 69
+116 391307.7 [1] read(3, 0x11d800500, 4096) = 0
+117 391308.7 [1] close(3) = 0
+118 391310.7 [1] access("/etc/selinux/config", 0) = -1 ENOENT
+119 391318.2 [1] openat(-100, "/usr/lib/locale/locale-archive", 0x80000, 00) = -1 ENOENT
+120 391318.9 [1] openat(-100, "/usr/share/locale/locale.alias", 0x80000, 00) = -1 ENOENT
+121 391320.3 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_IDENTIFICATION", 0x80000, 00) = -1 ENOENT
+122 391320.4 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_IDENTIFICATION", 0x80000, 00) = 3
+123 391320.4 [1] fstat(3, 0x11b3c7900) = 0
+124 391336.7 [1] mmap(0x0, 258, 0x1, 0x2, 3, 0x0) = 0x1067a0000
+125 391336.7 [1] close(3) = 0
+126 391338.6 [1] openat(-100, "/usr/lib/x86_64-linux-gnu/gconv/gconv-modules.cache", 0x80000, 00) = 3
+127 391338.6 [1] fstat(3, 0x11b3c7710) = 0
+128 391350.8 [1] mmap(0x0, 27028, 0x1, 0x1, 3, 0x0) = 0x1067f4000
+129 391350.8 [1] close(3) = 0
+130 391350.8 [1] futex(0x10867272c, 129, 2147483647, 0x0, 0x3, 0) = 0
+131 391352.1 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_MEASUREMENT", 0x80000, 00) = -1 ENOENT
+132 391352.1 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_MEASUREMENT", 0x80000, 00) = 3
+133 391352.1 [1] fstat(3, 0x11b3c7900) = 0
+134 391360.4 [1] mmap(0x0, 23, 0x1, 0x2, 3, 0x0) = 0x1067a4000
+135 391360.4 [1] close(3) = 0
+136 391360.6 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_TELEPHONE", 0x80000, 00) = -1 ENOENT
+137 391360.6 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_TELEPHONE", 0x80000, 00) = 3
+138 391360.6 [1] fstat(3, 0x11b3c7900) = 0
+139 391371.0 [1] mmap(0x0, 47, 0x1, 0x2, 3, 0x0) = 0x1067fc000
+140 391371.0 [1] close(3) = 0
+141 391371.3 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_ADDRESS", 0x80000, 00) = -1 ENOENT
+142 391371.3 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_ADDRESS", 0x80000, 00) = 3
+143 391371.3 [1] fstat(3, 0x11b3c7900) = 0
+144 391381.0 [1] mmap(0x0, 127, 0x1, 0x2, 3, 0x0) = 0x108738000
+145 391381.0 [1] close(3) = 0
+146 391381.1 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_NAME", 0x80000, 00) = -1 ENOENT
+147 391381.1 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_NAME", 0x80000, 00) = 3
+148 391381.1 [1] fstat(3, 0x11b3c7900) = 0
+149 391391.1 [1] mmap(0x0, 62, 0x1, 0x2, 3, 0x0) = 0x10873c000
+150 391391.1 [1] close(3) = 0
+151 391391.2 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_PAPER", 0x80000, 00) = -1 ENOENT
+152 391391.2 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_PAPER", 0x80000, 00) = 3
+153 391391.2 [1] fstat(3, 0x11b3c7900) = 0
+154 391404.3 [1] mmap(0x0, 34, 0x1, 0x2, 3, 0x0) = 0x108740000
+155 391404.3 [1] close(3) = 0
+156 391404.5 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_MESSAGES", 0x80000, 00) = -1 ENOENT
+157 391404.5 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_MESSAGES", 0x80000, 00) = 3
+158 391404.5 [1] fstat(3, 0x11b3c7900) = 0
+159 391404.5 [1] close(3) = 0
+160 391404.6 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_MESSAGES/SYS_LC_MESSAGES", 0x80000, 00) = 3
+161 391404.6 [1] fstat(3, 0x11b3c7900) = 0
+162 391413.7 [1] mmap(0x0, 48, 0x1, 0x2, 3, 0x0) = 0x108744000
+163 391413.7 [1] close(3) = 0
+164 391413.9 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_MONETARY", 0x80000, 00) = -1 ENOENT
+165 391413.9 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_MONETARY", 0x80000, 00) = 3
+166 391413.9 [1] fstat(3, 0x11b3c7900) = 0
+167 391423.9 [1] mmap(0x0, 270, 0x1, 0x2, 3, 0x0) = 0x108748000
+168 391424.0 [1] close(3) = 0
+169 391424.1 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_COLLATE", 0x80000, 00) = -1 ENOENT
+170 391424.1 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_COLLATE", 0x80000, 00) = 3
+171 391424.1 [1] fstat(3, 0x11b3c7900) = 0
+172 391435.9 [1] mmap(0x0, 1406, 0x1, 0x2, 3, 0x0) = 0x10874c000
+173 391435.9 [1] close(3) = 0
+174 391436.1 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_TIME", 0x80000, 00) = -1 ENOENT
+175 391436.1 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_TIME", 0x80000, 00) = 3
+176 391436.1 [1] fstat(3, 0x11b3c7900) = 0
+177 391446.5 [1] mmap(0x0, 3360, 0x1, 0x2, 3, 0x0) = 0x108750000
+178 391446.5 [1] close(3) = 0
+179 391446.7 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_NUMERIC", 0x80000, 00) = -1 ENOENT
+180 391446.7 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_NUMERIC", 0x80000, 00) = 3
+181 391446.7 [1] fstat(3, 0x11b3c7900) = 0
+182 391460.5 [1] mmap(0x0, 50, 0x1, 0x2, 3, 0x0) = 0x108754000
+183 391460.5 [1] close(3) = 0
+184 391460.7 [1] openat(-100, "/usr/lib/locale/C.UTF-8/LC_CTYPE", 0x80000, 00) = -1 ENOENT
+185 391460.7 [1] openat(-100, "/usr/lib/locale/C.utf8/LC_CTYPE", 0x80000, 00) = 3
+186 391460.7 [1] fstat(3, 0x11b3c7900) = 0
+187 391544.2 run: ps cwd=/
+188 391545.4 [1] mmap(0x0, 367708, 0x1, 0x2, 3, 0x0) = 0x108758000
+189 391545.4 [1] close(3) = 0
+190 391550.8 [1] ioctl(1, 0x5401, 0x11b3c7b30) = -1 ENOTTY
+191 391558.5 [1] statx(-100, "/opt/rl/bin", 0x900, 0x25e, 0x11b3c76b0) = -1 ENOSYS
+192 391558.8 [1] newfstatat(-100, "/opt/rl/bin", 0x11b3c74f0, 0x900) = 0
+193 391559.4 [1] llistxattr("/opt/rl/bin", 0x11b3c783c) = -1 EOPNOTSUPP
+194 391561.4 [1] lgetxattr("/opt/rl/bin", 0x1067d48be) = -1 EOPNOTSUPP
+195 391561.6 [1] lgetxattr("/opt/rl/bin", 0x1066bd555) = -1 EOPNOTSUPP
+196 391561.7 [1] lgetxattr("/opt/rl/bin", 0x1066bd565) = -1 EOPNOTSUPP
+197 391561.7 [1] lgetxattr("/opt/rl/bin", 0x1066bd57d) = -1 EOPNOTSUPP
+198 391566.7 [1] socket(1, 526337, 0) = -1 EAFNOSUPPORT
+199 391566.8 [1] socket(1, 526337, 0) = -1 EAFNOSUPPORT
+200 391568.3 [1] newfstatat(-100, "/etc/nsswitch.conf", 0x11b3c73f0, 0x0) = 0
+201 391568.4 [1] newfstatat(-100, "/", 0x11b3c7510, 0x0) = 0
+202 391568.4 [1] openat(-100, "/etc/nsswitch.conf", 0x80000, 00) = 3
+203 391568.4 [1] fstat(3, 0x11b3c7330) = 0
+204 391578.3 [1] read(3, 0x11d808620, 4096) = 494
+205 391579.3 [1] read(3, 0x11d808620, 4096) = 0
+206 391579.7 [1] fstat(3, 0x11b3c73f0) = 0
+207 391579.7 [1] close(3) = 0
+208 391580.9 [1] openat(-100, "/etc/passwd", 0x80000, 00) = 3
+209 391581.6 [1] fstat(3, 0x11b3c7480) = 0
+210 391581.7 [1] lseek(3, 0, 0) = 0
+211 391591.6 [1] read(3, 0x11d808620, 4096) = 953
+212 391592.8 [1] close(3) = 0
+213 391596.4 [1] socket(1, 526337, 0) = -1 EAFNOSUPPORT
+214 391596.4 [1] socket(1, 526337, 0) = -1 EAFNOSUPPORT
+215 391597.5 [1] newfstatat(-100, "/etc/nsswitch.conf", 0x11b3c73c0, 0x0) = 0
+216 391597.6 [1] openat(-100, "/etc/group", 0x80000, 00) = 3
+217 391597.6 [1] fstat(3, 0x11b3c7450) = 0
+218 391597.6 [1] lseek(3, 0, 0) = 0
+219 391609.4 [1] read(3, 0x11d80a290, 4096) = 555
+220 391609.9 [1] close(3) = 0
+221 391613.4 [1] openat(-100, "/opt/rl/bin", 0x90800, 00) = 3
+222 391613.5 [1] fstat(3, 0x11b3c7790) = 0
+223 391613.8 [1] getdents64(3, 0x11d80a2c0, 32768) = 176
+224 391613.8 [1] statx(-100, "/opt/rl/bin/.", 0x900, 0x25e, 0x11b3c7300) = -1 ENOSYS
+225 391613.8 [1] newfstatat(-100, "/opt/rl/bin/.", 0x11b3c7140, 0x900) = 0
+226 391614.0 [1] statx(-100, "/opt/rl/bin/..", 0x900, 0x25e, 0x11b3c7300) = -1 ENOSYS
+227 391614.0 [1] newfstatat(-100, "/opt/rl/bin/..", 0x11b3c7140, 0x900) = 0
+228 391614.0 [1] statx(-100, "/opt/rl/bin/d3d11tri.exe", 0x900, 0x25e, 0x11b3c72f0) = -1 ENOSYS
+229 391614.0 [1] newfstatat(-100, "/opt/rl/bin/d3d11tri.exe", 0x11b3c7130, 0x900) = 0
+230 391614.0 [1] statx(-100, "/opt/rl/bin/hello-dyn", 0x900, 0x25e, 0x11b3c7300) = -1 ENOSYS
+231 391614.0 [1] newfstatat(-100, "/opt/rl/bin/hello-dyn", 0x11b3c7140, 0x900) = 0
+232 391614.0 [1] statx(-100, "/opt/rl/bin/hello-static", 0x900, 0x25e, 0x11b3c72f0) = -1 ENOSYS
+233 391614.0 [1] newfstatat(-100, "/opt/rl/bin/hello-static", 0x11b3c7130, 0x900) = 0
+234 391614.0 [1] statx(-100, "/opt/rl/bin/threads-test", 0x900, 0x25e, 0x11b3c72f0) = -1 ENOSYS
+235 391614.0 [1] newfstatat(-100, "/opt/rl/bin/threads-test", 0x11b3c7130, 0x900) = 0
+236 391614.0 [1] getdents64(3, 0x11d80a2c0, 32768) = 0
+237 391614.1 [1] close(3) = 0
+238 391616.4 [1] fstat(1, 0x11b3c76d0) = 0
+239 391621.4 [1] openat(-100, "/etc/localtime", 0x80000, 00) = 3
+240 391621.5 [1] fstat(3, 0x11b3c66a0) = 0
+241 391621.8 [1] fstat(3, 0x11b3c64d0) = 0
+242 391630.8 [1] read(3, 0x11d80b2a0, 4096) = 114
+243 391631.0 [1] lseek(3, -60, 1) = 54
+244 391631.0 [1] read(3, 0x11d80b2a0, 4096) = 60
+245 391631.1 [1] close(3) = 0
+246 391633.0 [1] clock_gettime(0, 0x1066c8390) = 0
+247 391640.0 guest[1] stdout: total 522
+248 391640.0 guest[1] stdout: drwxrwxr-x 6 root root      0 Sep 27 01:34 .
+249 391640.0 guest[1] stdout: drwxrwxr-x 5 root root      0 Sep 27 01:34 ..
+250 391640.0 guest[1] stdout: -rwxrwxr-x 1 root root 486115 Sep 27 01:34 d3d11tri.exe
+251 391640.0 guest[1] stdout: -rwxrwxr-x 1 root root  16680 Sep 27 01:34 hello-dyn
+252 391640.0 guest[1] stdout: -rwxrwxr-x 1 root root  13632 Sep 27 01:34 hello-static
+253 391640.0 guest[1] stdout: -rwxrwxr-x 1 root root  16840 Sep 27 01:34 threads-test
+254 391640.0 [1] write(1, "total 522\ndrwxrwxr-x 6 root root      0 Sep 27 01:34 .\ndrwxrwxr-"...", 322) = 322
+255 391640.0 [1] close(1) = 0
+256 391640.0 [1] close(2) = 0
+257 391642.3 [1] exit_group(0) = 0
+258 391642.3 kernel: pid 1 tid 1 exited code=0 after 204 syscalls, 672.6 ms
+259 392055.3 run: ps cwd=/
+260 392067.6 run: guest-out 1 cwd=/
+261 392169.9 run: vaprobe2 cwd=/
+262 392184.3 host: va probe 2 {"none_256mb":{"steps":21,"gb":5.25,"stop_errno":12,"ms":0},"rw_noreserve_256mb":{"steps":21,"gb":5.25,"stop_errno":12,"ms":0},"rw_256mb":{"steps":21,"gb":5.25,"stop_errno":12,"ms":0},"vm_allocate_256mb":{"steps":21,"gb":5.25,"stop_kr":3,"ms":0},"none_64mb":{"steps":87,"gb":5.44,"stop_errno":12,"ms":0},"rw_touched_256mb":{"steps":8,"gb":2.00,"stop_errno":0,"ms":14},"rlimit_as":{"cur":9223372036854775807,"max":92233720368547758
+263 411673.9 run: exec /usr/bin/env cwd=/
+264 411703.7 kernel: pid 2 exec /usr/bin/env (run) {"entry":"0x1067252c0","rsp":"0x11b3c7da0","main":{"path":"/usr/bin/env","dyn":true,"base":"0x1066a4000","entry":"0x1066a7c10","range":"0x1066a4000-0x1066b2000","phdr":"0x1066a4040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x106708000","entry":"0x1067252c0","range":"0x106708000-0x106740000"},"stack":"0x11abc8000-0x11b3c8000","brk":"0x11d800000-0x121800000","auxv":"0x11b3c7df8","
+265 411703.9 kernel: pid 2 tid 2 start rip=0x1067252c0 rsp=0x11b3c7da0
+266 411703.9 host: guest exec /usr/bin/env → {"ok":true,"pid":2,"dry_run":false,"layout":{"entry":"0x1067252c0","rsp":"0x11b3c7da0","main":{"path":"/usr/bin/env","dyn":true,"base":"0x1066a4000","entry":"0x1066a7c10","range":"0x1066a4000-0x1066b2000","phdr":"0x1066a4040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x106
+267 411705.8 [2] brk(0x0) = 0x11d800000
+268 411717.5 run: ps cwd=/
+269 411733.5 [2] access("/etc/ld.so.preload", 4) = -1 ENOENT
+270 411737.0 [2] openat(-100, "/etc/ld.so.cache", 0x80000, 00) = 3
+271 411737.1 [2] fstat(3, 0x11b3c6e80) = 0
+272 411737.2 [2] mmap(0x0, 32187, 0x1, 0x2, 3, 0x0) = 0x1066b8000
+273 411737.2 [2] close(3) = 0
+274 411738.4 [2] openat(-100, "/lib/x86_64-linux-gnu/libc.so.6", 0x80000, 00) = 3
+275 411738.4 [2] read(3, 0x11b3c6ff8, 832) = 832
+276 411738.5 [2] pread64(3, 0x11b3c6bb0, 840, 64) = 840
+277 411740.4 [2] fstat(3, 0x11b3c6e80) = 0
+278 411740.4 [2] mmap(0x0, 8192, 0x3, 0x22, -1, 0x0) = 0x1066c0000
+279 411740.5 [2] pread64(3, 0x11b3c6a90, 840, 64) = 840
+280 411741.5 [2] mmap(0x0, 2047568, 0x1, 0x802, 3, 0x0) = 0x10848c000
+281 411742.4 [2] mmap(0x1084b4000, 1454080, 0x5, 0x812, 3, 0x28000) = 0x1084b4000
+282 411742.7 [2] mmap(0x108617000, 352256, 0x1, 0x812, 3, 0x18b000) = 0x108617000
+283 411742.7 [2] mmap(0x10866d000, 24576, 0x3, 0x812, 3, 0x1e0000) = 0x10866d000
+284 411742.7 [2] mmap(0x108673000, 52816, 0x3, 0x32, -1, 0x0) = 0x108673000
+285 411742.7 [2] close(3) = 0
+286 411746.1 [2] mmap(0x0, 12288, 0x3, 0x22, -1, 0x0) = 0x1066c4000
+287 411746.1 [2] arch_prctl(0x1002, 0x1066c4740) = 0
+288 411746.7 [2] set_tid_address(0x1066c4a10) = 2
+289 411746.7 [2] set_robust_list(0x1066c4a20, 24) = 0
+290 411746.8 [2] rseq(0x1066c4680, 0x20, 0x0) = -1 ENOSYS
+291 411756.8 [2] mprotect(0x10866d000, 16384, 0x1) = 0
+292 411758.3 [2] mprotect(0x1066b0000, 4096, 0x1) = 0
+293 411759.2 [2] mprotect(0x10673c000, 8192, 0x1) = 0
+294 411759.3 [2] prlimit_64(0, 3, 0x0, 0x11b3c79d0) = 0
+295 411759.7 [2] munmap(0x1066b8000, 32187) = 0
+296 411766.0 [2] getrandom(0x108678218, 8, 0x1) = 8
+297 411768.6 [2] brk(0x0) = 0x11d800000
+298 411768.7 [2] brk(0x11d821000) = 0x11d821000
+299 411769.4 [2] openat(-100, "/usr/lib/locale/locale-archive", 0x80000, 00) = -1 ENOENT
+300 411771.0 [2] openat(-100, "/usr/share/locale/locale.alias", 0x80000, 00) = -1 ENOENT
+301 411772.2 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_IDENTIFICATION", 0x80000, 00) = -1 ENOENT
+302 411772.2 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_IDENTIFICATION", 0x80000, 00) = 3
+303 411772.3 [2] fstat(3, 0x11b3c7860) = 0
+304 411772.3 [2] mmap(0x0, 258, 0x1, 0x2, 3, 0x0) = 0x1066b8000
+305 411772.4 [2] close(3) = 0
+306 411773.5 [2] openat(-100, "/usr/lib/x86_64-linux-gnu/gconv/gconv-modules.cache", 0x80000, 00) = 3
+307 411773.5 [2] fstat(3, 0x11b3c7670) = 0
+308 411773.5 [2] mmap(0x0, 27028, 0x1, 0x1, 3, 0x0) = 0x1067a0000
+309 411773.5 [2] close(3) = 0
+310 411773.5 [2] futex(0x10867272c, 129, 2147483647, 0x0, 0x3, 0) = 0
+311 411774.2 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_MEASUREMENT", 0x80000, 00) = -1 ENOENT
+312 411774.2 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_MEASUREMENT", 0x80000, 00) = 3
+313 411774.2 [2] fstat(3, 0x11b3c7860) = 0
+314 411774.2 [2] mmap(0x0, 23, 0x1, 0x2, 3, 0x0) = 0x1066bc000
+315 411774.2 [2] close(3) = 0
+316 411774.3 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_TELEPHONE", 0x80000, 00) = -1 ENOENT
+317 411774.3 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_TELEPHONE", 0x80000, 00) = 3
+318 411774.3 [2] fstat(3, 0x11b3c7860) = 0
+319 411774.3 [2] mmap(0x0, 47, 0x1, 0x2, 3, 0x0) = 0x1066c8000
+320 411774.3 [2] close(3) = 0
+321 411774.4 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_ADDRESS", 0x80000, 00) = -1 ENOENT
+322 411774.4 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_ADDRESS", 0x80000, 00) = 3
+323 411774.4 [2] fstat(3, 0x11b3c7860) = 0
+324 411774.4 [2] mmap(0x0, 127, 0x1, 0x2, 3, 0x0) = 0x1067a8000
+325 411774.4 [2] close(3) = 0
+326 411774.4 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_NAME", 0x80000, 00) = -1 ENOENT
+327 411774.4 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_NAME", 0x80000, 00) = 3
+328 411774.4 [2] fstat(3, 0x11b3c7860) = 0
+329 411774.5 [2] mmap(0x0, 62, 0x1, 0x2, 3, 0x0) = 0x1067ac000
+330 411774.5 [2] close(3) = 0
+331 411774.5 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_PAPER", 0x80000, 00) = -1 ENOENT
+332 411774.5 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_PAPER", 0x80000, 00) = 3
+333 411774.5 [2] fstat(3, 0x11b3c7860) = 0
+334 411774.5 [2] mmap(0x0, 34, 0x1, 0x2, 3, 0x0) = 0x1067b0000
+335 411774.5 [2] close(3) = 0
+336 411774.5 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_MESSAGES", 0x80000, 00) = -1 ENOENT
+337 411774.6 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_MESSAGES", 0x80000, 00) = 3
+338 411774.6 [2] fstat(3, 0x11b3c7860) = 0
+339 411774.6 [2] close(3) = 0
+340 411774.6 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_MESSAGES/SYS_LC_MESSAGES", 0x80000, 00) = 3
+341 411774.6 [2] fstat(3, 0x11b3c7860) = 0
+342 411774.6 [2] mmap(0x0, 48, 0x1, 0x2, 3, 0x0) = 0x1067b4000
+343 411774.6 [2] close(3) = 0
+344 411774.6 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_MONETARY", 0x80000, 00) = -1 ENOENT
+345 411774.6 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_MONETARY", 0x80000, 00) = 3
+346 411774.6 [2] fstat(3, 0x11b3c7860) = 0
+347 411774.6 [2] mmap(0x0, 270, 0x1, 0x2, 3, 0x0) = 0x1067b8000
+348 411774.6 [2] close(3) = 0
+349 411774.7 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_COLLATE", 0x80000, 00) = -1 ENOENT
+350 411774.7 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_COLLATE", 0x80000, 00) = 3
+351 411774.7 [2] fstat(3, 0x11b3c7860) = 0
+352 411774.7 [2] mmap(0x0, 1406, 0x1, 0x2, 3, 0x0) = 0x1067bc000
+353 411774.7 [2] close(3) = 0
+354 411774.7 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_TIME", 0x80000, 00) = -1 ENOENT
+355 411774.7 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_TIME", 0x80000, 00) = 3
+356 411774.7 [2] fstat(3, 0x11b3c7860) = 0
+357 411774.8 [2] mmap(0x0, 3360, 0x1, 0x2, 3, 0x0) = 0x1067c0000
+358 411774.8 [2] close(3) = 0
+359 411774.8 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_NUMERIC", 0x80000, 00) = -1 ENOENT
+360 411774.8 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_NUMERIC", 0x80000, 00) = 3
+361 411774.8 [2] fstat(3, 0x11b3c7860) = 0
+362 411774.8 [2] mmap(0x0, 50, 0x1, 0x2, 3, 0x0) = 0x1067c4000
+363 411774.8 [2] close(3) = 0
+364 411774.9 [2] openat(-100, "/usr/lib/locale/C.UTF-8/LC_CTYPE", 0x80000, 00) = -1 ENOENT
+365 411774.9 [2] openat(-100, "/usr/lib/locale/C.utf8/LC_CTYPE", 0x80000, 00) = 3
+366 411774.9 [2] fstat(3, 0x11b3c7860) = 0
+367 411775.0 [2] mmap(0x0, 367708, 0x1, 0x2, 3, 0x0) = 0x108680000
+368 411775.1 [2] close(3) = 0
+369 411778.3 [2] fstat(1, 0x11b3c77b0) = 0
+370 411779.1 guest[2] stdout: PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+371 411779.1 guest[2] stdout: HOME=/home/user
+372 411779.1 guest[2] stdout: USER=user
+373 411779.1 guest[2] stdout: LOGNAME=user
+374 411779.1 guest[2] stdout: LANG=C.UTF-8
+375 411779.1 guest[2] stdout: TERM=dumb
+376 411779.1 guest[2] stdout: TMPDIR=/tmp
+377 411779.1 [2] write(1, "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bi"...", 140) = 140
+378 411779.3 [2] close(1) = 0
+379 411780.3 [2] close(2) = 0
+380 411781.4 [2] exit_group(0) = 0
+381 411781.4 kernel: pid 2 tid 2 exited code=0 after 106 syscalls, 107.4 ms
+382 412248.7 run: ps cwd=/
+383 412263.2 run: guest-out 2 cwd=/
+384 412370.8 run: vaprobe2 cwd=/
+385 412384.6 host: va probe 2 {"none_256mb":{"steps":13,"gb":3.25,"stop_errno":12,"ms":0},"rw_noreserve_256mb":{"steps":13,"gb":3.25,"stop_errno":12,"ms":0},"rw_256mb":{"steps":13,"gb":3.25,"stop_errno":12,"ms":0},"vm_allocate_256mb":{"steps":13,"gb":3.25,"stop_kr":3,"ms":0},"none_64mb":{"steps":55,"gb":3.44,"stop_errno":12,"ms":0},"rw_touched_256mb":{"steps":8,"gb":2.00,"stop_errno":0,"ms":13},"rlimit_as":{"cur":9223372036854775807,"max":92233720368547758
+386 412486.2 run: exec /usr/bin/sh -c echo one | tr o 0 cwd=/
+387 412487.3 kernel: pid 3 exec /usr/bin/sh (run) {"entry":"0x1067252c0","rsp":"0x11b3c7d80","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x1067a0000","entry":"0x1067a4760","range":"0x1067a0000-0x1067c3000","phdr":"0x1067a0040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x106708000","entry":"0x1067252c0","range":"0x106708000-0x106740000"},"stack":"0x11abc8000-0x11b3c8000","brk":"0x11d800000-0x121800000","auxv":"0x11b3c7de8","
+388 412487.5 kernel: pid 3 tid 3 start rip=0x1067252c0 rsp=0x11b3c7d80
+389 412487.5 host: guest exec /usr/bin/sh -c echo one | tr o 0 → {"ok":true,"pid":3,"dry_run":false,"layout":{"entry":"0x1067252c0","rsp":"0x11b3c7d80","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x1067a0000","entry":"0x1067a4760","range":"0x1067a0000-0x1067c3000","phdr":"0x1067a0040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x10
+390 412489.4 [3] brk(0x0) = 0x11d800000
+391 412500.8 run: ps cwd=/
+392 412516.2 [3] access("/etc/ld.so.preload", 4) = -1 ENOENT
+393 412519.7 [3] openat(-100, "/etc/ld.so.cache", 0x80000, 00) = 3
+394 412519.8 [3] fstat(3, 0x11b3c6e60) = 0
+395 412519.9 [3] mmap(0x0, 32187, 0x1, 0x2, 3, 0x0) = 0x1066ac000
+396 412519.9 [3] close(3) = 0
+397 412521.0 [3] openat(-100, "/lib/x86_64-linux-gnu/libc.so.6", 0x80000, 00) = 3
+398 412521.1 [3] read(3, 0x11b3c6fd8, 832) = 832
+399 412521.1 [3] pread64(3, 0x11b3c6b90, 840, 64) = 840
+400 412523.1 [3] fstat(3, 0x11b3c6e60) = 0
+401 412523.1 [3] mmap(0x0, 8192, 0x3, 0x22, -1, 0x0) = 0x1066b8000
+402 412523.2 [3] pread64(3, 0x11b3c6a70, 840, 64) = 840
+403 412524.1 [3] mmap(0x0, 2047568, 0x1, 0x802, 3, 0x0) = 0x10848c000
+404 412525.0 [3] mmap(0x1084b4000, 1454080, 0x5, 0x812, 3, 0x28000) = 0x1084b4000
+405 412525.3 [3] mmap(0x108617000, 352256, 0x1, 0x812, 3, 0x18b000) = 0x108617000
+406 412525.3 [3] mmap(0x10866d000, 24576, 0x3, 0x812, 3, 0x1e0000) = 0x10866d000
+407 412525.4 [3] mmap(0x108673000, 52816, 0x3, 0x32, -1, 0x0) = 0x108673000
+408 412525.4 [3] close(3) = 0
+409 412529.1 [3] mmap(0x0, 12288, 0x3, 0x22, -1, 0x0) = 0x1066bc000
+410 412529.1 [3] arch_prctl(0x1002, 0x1066bc740) = 0
+411 412529.6 [3] set_tid_address(0x1066bca10) = 3
+412 412529.7 [3] set_robust_list(0x1066bca20, 24) = 0
+413 412529.7 [3] rseq(0x1066bc680, 0x20, 0x0) = -1 ENOSYS
+414 412540.4 [3] mprotect(0x10866d000, 16384, 0x1) = 0
+415 412541.9 [3] mprotect(0x1067be000, 8192, 0x1) = 0
+416 412542.8 [3] mprotect(0x10673c000, 8192, 0x1) = 0
+417 412542.9 [3] prlimit_64(0, 3, 0x0, 0x11b3c79b0) = 0
+418 412543.3 [3] munmap(0x1066ac000, 32187) = 0
+419 412544.5 [3] getuid() = 1000
+420 412544.5 [3] getgid() = 1000
+421 412544.5 [3] getpid() = 3
+422 412545.0 [3] rt_sigaction(17, 0x11b3c78b0, 0x0, 8) = 0
+423 412545.1 [3] geteuid() = 1000
+424 412546.3 [3] getrandom(0x108678218, 8, 0x1) = 8
+425 412549.1 [3] brk(0x0) = 0x11d800000
+426 412549.2 [3] brk(0x11d821000) = 0x11d821000
+427 412549.6 [3] getppid() = 1
+428 412552.2 [3] getcwd(0x11d8003f0, 4096) = 2
+429 412555.5 [3] geteuid() = 1000
+430 412555.5 [3] getegid() = 1000
+431 412555.6 [3] rt_sigaction(2, 0x0, 0x11b3c7a60, 8) = 0
+432 412555.6 [3] rt_sigaction(2, 0x11b3c79c0, 0x0, 8) = 0
+433 412555.6 [3] rt_sigaction(3, 0x0, 0x11b3c7a60, 8) = 0
+434 412555.6 [3] rt_sigaction(3, 0x11b3c79c0, 0x0, 8) = 0
+435 412555.6 [3] rt_sigaction(15, 0x0, 0x11b3c7a70, 8) = 0
+436 412555.6 [3] rt_sigaction(15, 0x11b3c79d0, 0x0, 8) = 0
+437 412561.2 [3] pipe2(0x11b3c7b20, 0x0, 0x4, 0x8) = -1 ENOSYS
+438 412561.3 [3] close(-1) = -1 EBADF
+439 412562.0 guest[3] stderr: /usr/bin/sh: 0: 
+440 412562.0 [3] write(2, "/usr/bin/sh: 0: ", 16) = 16
+441 412562.1 guest[3] stderr: Pipe call failed
+442 412562.1 [3] write(2, "Pipe call failed", 16) = 16
+443 412562.3 guest[3] stderr: 
+444 412562.3 [3] write(2, "\n", 1) = 1
+445 412562.8 [3] exit_group(2) = 0
+446 412562.8 kernel: pid 3 tid 3 exited code=2 after 52 syscalls, 76.5 ms
+447 413017.6 run: ps cwd=/
+448 413030.0 run: guest-out 3 cwd=/
+449 413142.1 run: vaprobe2 cwd=/
+450 413150.9 host: va probe 2 {"none_256mb":{"steps":5,"gb":1.25,"stop_errno":12,"ms":0},"rw_noreserve_256mb":{"steps":5,"gb":1.25,"stop_errno":12,"ms":0},"rw_256mb":{"steps":5,"gb":1.25,"stop_errno":12,"ms":0},"vm_allocate_256mb":{"steps":5,"gb":1.25,"stop_kr":3,"ms":0},"none_64mb":{"steps":23,"gb":1.44,"stop_errno":12,"ms":0},"rw_touched_256mb":{"steps":5,"gb":1.25,"stop_errno":12,"ms":9},"rlimit_as":{"cur":9223372036854775807,"max":9223372036854775807},
+451 517373.5 run: exec /opt/rl/bin/hello-dyn cwd=/
+452 517376.0 kernel: pid 4 exec /opt/rl/bin/hello-dyn (run) {"entry":"0x1067252c0","rsp":"0x11b3c7d90","main":{"path":"/opt/rl/bin/hello-dyn","dyn":true,"base":"0x1066b8000","entry":"0x1066b9380","range":"0x1066b8000-0x1066bd000","phdr":"0x1066b8040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x106708000","entry":"0x1067252c0","range":"0x106708000-0x106740000"},"stack":"0x11abc8000-0x11b3c8000","brk":"0x11d800000-0x121800000","aux
+453 517376.2 kernel: pid 4 tid 4 start rip=0x1067252c0 rsp=0x11b3c7d90
+454 517376.3 host: guest exec /opt/rl/bin/hello-dyn → {"ok":true,"pid":4,"dry_run":false,"layout":{"entry":"0x1067252c0","rsp":"0x11b3c7d90","main":{"path":"/opt/rl/bin/hello-dyn","dyn":true,"base":"0x1066b8000","entry":"0x1066b9380","range":"0x1066b8000-0x1066bd000","phdr":"0x1066b8040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"bas
+455 517376.3 kernel: pid 4 tid 4 FAULT signal=11 code=2 pc=0x102bc9dec addr=0x0 (last block-exit guest rip=0x1067252c0, unaligned fixups so far=55)
+456 517387.2 run: ps cwd=/
+457 517401.8 run: guest-out 4 cwd=/
+458 526180.5 run: ps cwd=/

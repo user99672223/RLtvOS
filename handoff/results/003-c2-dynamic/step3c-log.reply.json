@@ -1,0 +1,25 @@
+{
+  "count": 218,
+  "dropped": 0,
+  "next": 219,
+  "ok": true,
+  "path": "handoff/results/003-c2-dynamic/step3c-log.txt",
+  "since": 1,
+  "tail": [
+    "[3] brk(0x0) = 0x11d400000",
+    "[3] brk(0x11d421000) = 0x11d421000",
+    "guest[3] stdout: busybox ok",
+    "[3] write(1, \"busybox ok\\n\", 11) = 11",
+    "[3] exit_group(0) = 0",
+    "kernel: pid 3 tid 3 exited code=0 after 48 syscalls, 239.4 ms",
+    "run: ps cwd=/",
+    "run: guest-out 3 cwd=/",
+    "run: exec /bin/ls -la /opt/rl/bin cwd=/",
+    "kernel: pid 4 exec /bin/ls (run) {\"entry\":\"0x1088a92c0\",\"rsp\":\"0x11afdbd80\",\"main\":{\"path\":\"/usr/bin/ls\",\"dyn\":true,\"base\":\"0x1088c4000\",\"entry\":\"0x1088ca760\",\"range\":\"0x1088c4000-0x1088ed000\",\"phdr\":\"0x1088c4040\",\"phnum\":14,\"interp\":\"/lib64/ld-linux-x86-64.so.2\"},\"interp\":{\"base\":\"0x10888c000\",\"entry\":\"0x1088a92c0\",\"range\":\"0x10888c000-0x1088c4000\"},\"stack\":\"0x11a7dc000-0x11afdc000\",\"brk\":\"0x11d400000-0x121400000\",\"auxv\":\"0x11afdbde8\",\"auxv_e",
+    "kernel: pid 4 tid 4 start rip=0x1088a92c0 rsp=0x11afdbd80",
+    "host: guest exec /bin/ls -la /opt/rl/bin \u2192 {\"ok\":true,\"pid\":4,\"dry_run\":false,\"layout\":{\"entry\":\"0x1088a92c0\",\"rsp\":\"0x11afdbd80\",\"main\":{\"path\":\"/usr/bin/ls\",\"dyn\":true,\"base\":\"0x1088c4000\",\"entry\":\"0x1088ca760\",\"range\":\"0x1088c4000-0x1088ed000\",\"phdr\":\"0x1088c4040\",\"phnum\":14,\"interp\":\"/lib64/ld-linux-x86-64.so.2\"},\"interp\":{\"base\":\"0x1088",
+    "kernel: pid 4 tid 4 FAULT signal=11 code=2 pc=0x103011dec addr=0x0 (last block-exit guest rip=0x1088a92c0, unaligned fixups so far=37)",
+    "run: ps cwd=/",
+    "run: guest-out 4 cwd=/"
+  ]
+}

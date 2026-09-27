@@ -1,0 +1,49 @@
+{
+  "exited": true,
+  "http": 200,
+  "ok": false,
+  "output": "/usr/bin/sh: 0: Pipe call failed\n",
+  "process": {
+    "dry_run": false,
+    "exe": "/usr/bin/sh",
+    "exit_code": 2,
+    "fds": 0,
+    "mapped_bytes": 0,
+    "ms": 76.5,
+    "pid": 3,
+    "ppid": 1,
+    "state": "exited",
+    "syscalls": 52,
+    "threads": 1,
+    "vmas": 0
+  },
+  "reply": {
+    "dry_run": false,
+    "layout": {
+      "auxv": "0x11b3c7de8",
+      "auxv_entries": 20,
+      "brk": "0x11d800000-0x121800000",
+      "entry": "0x1067252c0",
+      "interp": {
+        "base": "0x106708000",
+        "entry": "0x1067252c0",
+        "range": "0x106708000-0x106740000"
+      },
+      "main": {
+        "base": "0x1067a0000",
+        "dyn": true,
+        "entry": "0x1067a4760",
+        "interp": "/lib64/ld-linux-x86-64.so.2",
+        "path": "/usr/bin/dash",
+        "phdr": "0x1067a0040",
+        "phnum": 14,
+        "range": "0x1067a0000-0x1067c3000"
+      },
+      "rsp": "0x11b3c7d80",
+      "stack": "0x11abc8000-0x11b3c8000"
+    },
+    "ok": true,
+    "pid": 3,
+    "rc": 3
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "exited": true,
+  "http": 200,
+  "ok": true,
+  "output": "busybox ok\n",
+  "process": {
+    "dry_run": false,
+    "exe": "/bin/busybox",
+    "exit_code": 0,
+    "fds": 0,
+    "mapped_bytes": 0,
+    "ms": 239.4,
+    "pid": 3,
+    "ppid": 1,
+    "state": "exited",
+    "syscalls": 48,
+    "threads": 1,
+    "vmas": 0
+  },
+  "reply": {
+    "dry_run": false,
+    "layout": {
+      "auxv": "0x11afdbdf0",
+      "auxv_entries": 20,
+      "brk": "0x11d400000-0x121400000",
+      "entry": "0x1088d52c0",
+      "interp": {
+        "base": "0x1088b8000",
+        "entry": "0x1088d52c0",
+        "range": "0x1088b8000-0x1088f0000"
+      },
+      "main": {
+        "base": "0x1088f0000",
+        "dyn": true,
+        "entry": "0x1088fe670",
+        "interp": "/lib64/ld-linux-x86-64.so.2",
+        "path": "/usr/bin/busybox",
+        "phdr": "0x1088f0040",
+        "phnum": 14,
+        "range": "0x1088f0000-0x1089ba000"
+      },
+      "rsp": "0x11afdbd80",
+      "stack": "0x11a7dc000-0x11afdc000"
+    },
+    "ok": true,
+    "pid": 3,
+    "rc": 3
+  }
+}

@@ -31,22 +31,25 @@
 
 ## laptop
 
-- **Request 002 (build-18): PARTIAL** (2026-09-27 03:36–03:43 CEST).
-  - Passed: FEX self-test 7/7, vaprobe2 (~6.25–6.5 GB reservable), VFS mount, 3 dry runs,
-    **C1 PASS**.
-  - C2 fails: hello-dyn dies with SIGBUS in ld.so's `memcmp`. FEX's TSO `ldapur` hits an
-    unaligned 8-byte load that crosses 16 bytes, and rlfex's guard longjmps instead of calling
-    FEX's `HandleUnalignedAccess`. Details and the decoded JIT code are in
-    results/002-kernel-c1-c2/verdict.md.
-- The TV runs build-18 (app pid 1104, JIT ready, VFS mounted). Before launching, run
-  `atvremote turn_on`: launch is a no-op in standby.
+- **Request 003 (build-20): PARTIAL** (2026-09-27 03:58–04:40 CEST).
+  - Passed: C2 glibc hello (exit 0, 43 syscalls), dash -c, busybox echo, env; `ls` works as a
+    first guest. The pipeline fails at `pipe2 = ENOSYS`, as expected (C3 start).
+  - Blocker: **the 4th guest process of any app instance** dies at a NULL write in FEX
+    `ClaimBufferImpl`. Each finished guest leaves a 2 GB rpmalloc heap (4 × 512 MB spans, never
+    finalized); 3 guests use up the ~7.25 GB address-space budget.
+  - Also: the debug server dies after the app is backgrounded (accept EBADF).
+  - Details: results/003-c2-dynamic/verdict.md.
+- Request 002 (build-18): PARTIAL, C1 PASS; C2's SIGBUS was fixed in build-20.
+- The TV is in standby. `tv.py launch` wakes it itself since build-20. If a debugger session
+  dies mid-attach: `rltvos-jit signal --pid P` (SIGKILL via CoreDevice), then
+  `tv.py launch --fresh`.
 - Rootfs: busybox (dynamic PIE) replaced busybox-static; hello-static is `-static-pie`; manifest
   rebuilt. elf-audit: only compilers + python3.13 are non-PIE.
 - Done earlier: request 001 PASS (JIT on tvOS 27 via the xcode-27 Cryptex DDI), setup S0–S8
   PASS (results/000-setup/verdict.md). Refs c1–d2 are in refs/; e1/e2 are in pre-release
   refs-laptop-1.
 - S4 JIT: laptop/jit.sh --pid {pid}. DDI copy in ~/rltvos/ddi/tvos27, reinstalled automatically
-  after a TV reboot. `rltvos-jit peek` reads app memory for fault diagnosis.
+  after a TV reboot. `rltvos-jit peek|gdb|regions|signal` = debugger diagnostics (read memory, packets, memory map, kill).
 - atvloadly installs: 12 s for build-18 but 11 min for build-15, both with the DDI mounted
   (intermittent). INSTALL_TIMEOUT=1500.
 - Issue 002-laptop-script-fixes.md: bugs in REPO's laptop scripts + the validated menu path.

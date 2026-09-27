@@ -1,0 +1,49 @@
+{
+  "exited": true,
+  "http": 200,
+  "ok": false,
+  "output": "",
+  "process": {
+    "dry_run": false,
+    "exe": "/bin/ls",
+    "exit_code": 139,
+    "fds": 0,
+    "mapped_bytes": 0,
+    "ms": 43,
+    "pid": 4,
+    "ppid": 1,
+    "state": "exited",
+    "syscalls": 0,
+    "threads": 1,
+    "vmas": 0
+  },
+  "reply": {
+    "dry_run": false,
+    "layout": {
+      "auxv": "0x11afdbde8",
+      "auxv_entries": 20,
+      "brk": "0x11d400000-0x121400000",
+      "entry": "0x1088a92c0",
+      "interp": {
+        "base": "0x10888c000",
+        "entry": "0x1088a92c0",
+        "range": "0x10888c000-0x1088c4000"
+      },
+      "main": {
+        "base": "0x1088c4000",
+        "dyn": true,
+        "entry": "0x1088ca760",
+        "interp": "/lib64/ld-linux-x86-64.so.2",
+        "path": "/usr/bin/ls",
+        "phdr": "0x1088c4040",
+        "phnum": 14,
+        "range": "0x1088c4000-0x1088ed000"
+      },
+      "rsp": "0x11afdbd80",
+      "stack": "0x11a7dc000-0x11afdc000"
+    },
+    "ok": true,
+    "pid": 4,
+    "rc": 4
+  }
+}

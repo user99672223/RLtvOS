@@ -1,0 +1,49 @@
+{
+  "exited": true,
+  "http": 200,
+  "ok": true,
+  "output": "total 522\ndrwxrwxr-x 6 root root      0 Sep 27 01:34 .\ndrwxrwxr-x 5 root root      0 Sep 27 01:34 ..\n-rwxrwxr-x 1 root root 486115 Sep 27 01:34 d3d11tri.exe\n-rwxrwxr-x 1 root root  16680 Sep 27 01:34 hello-dyn\n-rwxrwxr-x 1 root root  13632 Sep 27 01:34 hello-static\n-rwxrwxr-x 1 root root  16840 Sep 27 01:34 threads-test\n",
+  "process": {
+    "dry_run": false,
+    "exe": "/bin/ls",
+    "exit_code": 0,
+    "fds": 0,
+    "mapped_bytes": 0,
+    "ms": 672.6,
+    "pid": 1,
+    "ppid": 0,
+    "state": "exited",
+    "syscalls": 204,
+    "threads": 1,
+    "vmas": 0
+  },
+  "reply": {
+    "dry_run": false,
+    "layout": {
+      "auxv": "0x11b3c7de8",
+      "auxv_entries": 20,
+      "brk": "0x11d800000-0x121800000",
+      "entry": "0x1067252c0",
+      "interp": {
+        "base": "0x106708000",
+        "entry": "0x1067252c0",
+        "range": "0x106708000-0x106740000"
+      },
+      "main": {
+        "base": "0x1066a0000",
+        "dyn": true,
+        "entry": "0x1066a6760",
+        "interp": "/lib64/ld-linux-x86-64.so.2",
+        "path": "/usr/bin/ls",
+        "phdr": "0x1066a0040",
+        "phnum": 14,
+        "range": "0x1066a0000-0x1066c9000"
+      },
+      "rsp": "0x11b3c7d80",
+      "stack": "0x11abc8000-0x11b3c8000"
+    },
+    "ok": true,
+    "pid": 1,
+    "rc": 1
+  }
+}

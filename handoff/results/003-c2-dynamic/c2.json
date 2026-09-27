@@ -1,0 +1,49 @@
+{
+  "exited": true,
+  "http": 200,
+  "ok": true,
+  "output": "hello from x86-64 glibc (argc=1)\nuname: Linux 6.1.0-rltvos #1 SMP PREEMPT_DYNAMIC RLtvOS x86_64\nmonotonic: 95159.003176000\npid=1 ppid=0 uid=1000 cwd=/\nexe=/opt/rl/bin/hello-dyn\nHOME=/home/user\nmalloc 64MB ok 63\n",
+  "process": {
+    "dry_run": false,
+    "exe": "/opt/rl/bin/hello-dyn",
+    "exit_code": 0,
+    "fds": 0,
+    "mapped_bytes": 0,
+    "ms": 452.4,
+    "pid": 1,
+    "ppid": 0,
+    "state": "exited",
+    "syscalls": 43,
+    "threads": 1,
+    "vmas": 0
+  },
+  "reply": {
+    "dry_run": false,
+    "layout": {
+      "auxv": "0x11afdbde8",
+      "auxv_entries": 20,
+      "brk": "0x11d400000-0x121400000",
+      "entry": "0x1043992c0",
+      "interp": {
+        "base": "0x10437c000",
+        "entry": "0x1043992c0",
+        "range": "0x10437c000-0x1043b4000"
+      },
+      "main": {
+        "base": "0x10432c000",
+        "dyn": true,
+        "entry": "0x10432d380",
+        "interp": "/lib64/ld-linux-x86-64.so.2",
+        "path": "/opt/rl/bin/hello-dyn",
+        "phdr": "0x10432c040",
+        "phnum": 14,
+        "range": "0x10432c000-0x104331000"
+      },
+      "rsp": "0x11afdbd90",
+      "stack": "0x11a7dc000-0x11afdc000"
+    },
+    "ok": true,
+    "pid": 1,
+    "rc": 1
+  }
+}

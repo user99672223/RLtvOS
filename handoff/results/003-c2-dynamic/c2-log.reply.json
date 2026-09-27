@@ -1,0 +1,25 @@
+{
+  "count": 95,
+  "dropped": 0,
+  "next": 96,
+  "ok": true,
+  "path": "handoff/results/003-c2-dynamic/c2-log.txt",
+  "since": 1,
+  "tail": [
+    "[1] readlink(\"/proc/self/exe\", 0x11afdba70, 511) = 21",
+    "[1] mmap(0x0, 67112960, 0x3, 0x22, -1, 0x0) = 0x162400000",
+    "[1] munmap(0x162400000, 67112960) = 0",
+    "guest[1] stdout: hello from x86-64 glibc (argc=1)",
+    "guest[1] stdout: uname: Linux 6.1.0-rltvos #1 SMP PREEMPT_DYNAMIC RLtvOS x86_64",
+    "guest[1] stdout: monotonic: 95159.003176000",
+    "guest[1] stdout: pid=1 ppid=0 uid=1000 cwd=/",
+    "guest[1] stdout: exe=/opt/rl/bin/hello-dyn",
+    "guest[1] stdout: HOME=/home/user",
+    "guest[1] stdout: malloc 64MB ok 63",
+    "[1] write(1, \"hello from x86-64 glibc (argc=1)\\nuname: Linux 6.1.0-rltvos #1 SM\"...\", 211) = 211",
+    "[1] exit_group(0) = 0",
+    "kernel: pid 1 tid 1 exited code=0 after 43 syscalls, 452.4 ms",
+    "run: ps cwd=/",
+    "run: guest-out 1 cwd=/"
+  ]
+}

@@ -1,0 +1,7 @@
+hello from x86-64 glibc (argc=1)
+uname: Linux 6.1.0-rltvos #1 SMP PREEMPT_DYNAMIC RLtvOS x86_64
+monotonic: 95159.003176000
+pid=1 ppid=0 uid=1000 cwd=/
+exe=/opt/rl/bin/hello-dyn
+HOME=/home/user
+malloc 64MB ok 63

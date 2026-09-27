@@ -1,0 +1,54 @@
+{
+  "build": "build-20",
+  "fex": {
+    "init": {
+      "ok": false,
+      "stage": "not-initialised"
+    },
+    "linked": true,
+    "status": {
+      "initialised": false,
+      "last_error": "",
+      "poisoned": false,
+      "runs": 0,
+      "syscalls": 0,
+      "unaligned_fixups": 15
+    }
+  },
+  "jit": {
+    "allocator": {
+      "free": 117424128,
+      "largest_free": 117424128,
+      "segments": 3,
+      "size": 134217728,
+      "used": 16793600
+    },
+    "attached_test": true,
+    "cs_debugged": 1,
+    "detach_serviced": true,
+    "detached": true,
+    "detached_test": true,
+    "error": "",
+    "in_place": {
+      "errno": 0,
+      "prepared": false,
+      "tried": false
+    },
+    "ok": true,
+    "pool": "0x10a7d8000",
+    "prepare_s": 4.39,
+    "prepared_by": "debugger",
+    "protect_kr": 0,
+    "ptraced": 0,
+    "ptraced_at_prepare": 1,
+    "remap_kr": 0,
+    "remap_s": 0.007,
+    "rw_alias": "0x1127d8000",
+    "size": 134217728,
+    "size_mb": 128,
+    "stage": "ready",
+    "unserviced_traps": 0,
+    "wait_s": 60,
+    "waited_s": 7.6
+  }
+}

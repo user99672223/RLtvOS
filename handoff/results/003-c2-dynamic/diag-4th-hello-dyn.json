@@ -1,0 +1,49 @@
+{
+  "exited": true,
+  "http": 200,
+  "ok": false,
+  "output": "",
+  "process": {
+    "dry_run": false,
+    "exe": "/opt/rl/bin/hello-dyn",
+    "exit_code": 139,
+    "fds": 0,
+    "mapped_bytes": 0,
+    "ms": 2.7,
+    "pid": 4,
+    "ppid": 1,
+    "state": "exited",
+    "syscalls": 0,
+    "threads": 1,
+    "vmas": 0
+  },
+  "reply": {
+    "dry_run": false,
+    "layout": {
+      "auxv": "0x11b3c7de8",
+      "auxv_entries": 20,
+      "brk": "0x11d800000-0x121800000",
+      "entry": "0x1067252c0",
+      "interp": {
+        "base": "0x106708000",
+        "entry": "0x1067252c0",
+        "range": "0x106708000-0x106740000"
+      },
+      "main": {
+        "base": "0x1066b8000",
+        "dyn": true,
+        "entry": "0x1066b9380",
+        "interp": "/lib64/ld-linux-x86-64.so.2",
+        "path": "/opt/rl/bin/hello-dyn",
+        "phdr": "0x1066b8040",
+        "phnum": 14,
+        "range": "0x1066b8000-0x1066bd000"
+      },
+      "rsp": "0x11b3c7d90",
+      "stack": "0x11abc8000-0x11b3c8000"
+    },
+    "ok": true,
+    "pid": 4,
+    "rc": 4
+  }
+}
