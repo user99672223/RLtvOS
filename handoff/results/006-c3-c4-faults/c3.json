@@ -1,0 +1,52 @@
+{
+  "exited": true,
+  "http": 200,
+  "ok": true,
+  "output": "C3 start pid=8\nbackground job done\n3\nc\nb\ngot-TERM\nafter self-kill\nfalse exit status: 1\nName:\tcat\nUmask:\t0022\nState:\tR (running)\nthreads: counter=400000 (expect 400000) joined=60 (expect 60) usr1=1 tid=20\nthreads-test exit=0\nC3 done\n",
+  "process": {
+    "dry_run": false,
+    "exe": "/bin/busybox",
+    "exit_code": 0,
+    "fds": 0,
+    "live_threads": 0,
+    "mapped_bytes": 0,
+    "ms": 1501.4,
+    "pid": 8,
+    "ppid": 0,
+    "reaped": true,
+    "state": "exited",
+    "syscalls": 221,
+    "term_signal": 0,
+    "threads": 1,
+    "vmas": 0
+  },
+  "reply": {
+    "dry_run": false,
+    "layout": {
+      "auxv": "0x11cbefdf0",
+      "auxv_entries": 20,
+      "brk": "0x11f000000-0x123000000",
+      "entry": "0x1087492c0",
+      "interp": {
+        "base": "0x10872c000",
+        "entry": "0x1087492c0",
+        "range": "0x10872c000-0x108764000"
+      },
+      "main": {
+        "base": "0x1087b8000",
+        "dyn": true,
+        "entry": "0x1087bc760",
+        "interp": "/lib64/ld-linux-x86-64.so.2",
+        "path": "/usr/bin/dash",
+        "phdr": "0x1087b8040",
+        "phnum": 14,
+        "range": "0x1087b8000-0x1087db000"
+      },
+      "rsp": "0x11cbefd90",
+      "stack": "0x11c3f0000-0x11cbf0000"
+    },
+    "ok": true,
+    "pid": 8,
+    "rc": 8
+  }
+}

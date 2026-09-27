@@ -1,0 +1,52 @@
+{
+  "exited": false,
+  "http": 200,
+  "ok": false,
+  "output": "[04:35:33] Xvfb up on :0 (pid 38)\nname of display:    :0\nversion number:    11.0\nvendor string:    The X.Org Foundation\nvendor release number:    12101016\nX.Org version: 21.1.16\nmaximum request size:  16777212 bytes\nmotion buffer size:  256\nbitmap unit, bit order, padding:    32, LSBFirst, 32\nimage byte order:    LSBFirst\nnumber of supported pixmap formats:    6\nsupported pixmap formats:\n    depth 1, bits_per_pixel 1, scanline_pad 32\n    depth 4, bits_per_pixel 8, scanline_pad 32\n    depth 8, bits_per_pixel 8, scanline_pad 32\n    depth 16, bits_per_pixel 16, scanline_pad 32\n    depth 24, bits_per_pixel 32, scanline_pad 32\n    depth 32, bits_per_pixel 32, scanline_pad 32\nkeycode range:    minimum 8, maximum 255\nfocus:  PointerRoot\nnumber of extensions:    22\n    BIG-REQUESTS\n    Composite\n    DAMAGE\n    DOUBLE-BUFFER\n    GLX\n    Generic Event Extension\n    MIT-SCREEN-SAVER\n    Present\n    RANDR\n    RECORD\n\nxwininfo: Window id: 0x21f (the root window) (has no name)\n\n  Root window id: 0x21f (the root window) (has no name)\n  Parent window id: 0x0 (none)\n     0 children.\n\n",
+  "process": {
+    "dry_run": false,
+    "exe": "/bin/sh",
+    "exit_code": 0,
+    "fds": 4,
+    "live_threads": 1,
+    "mapped_bytes": 77955072,
+    "ms": 179818.4,
+    "pid": 35,
+    "ppid": 0,
+    "reaped": false,
+    "state": "running",
+    "syscalls": 173,
+    "term_signal": 0,
+    "threads": 1,
+    "vmas": 17
+  },
+  "reply": {
+    "dry_run": false,
+    "layout": {
+      "auxv": "0x11d393df0",
+      "auxv_entries": 20,
+      "brk": "0x122400000-0x126400000",
+      "entry": "0x10a4a92c0",
+      "interp": {
+        "base": "0x10a48c000",
+        "entry": "0x10a4a92c0",
+        "range": "0x10a48c000-0x10a4c4000"
+      },
+      "main": {
+        "base": "0x1087b8000",
+        "dyn": true,
+        "entry": "0x1087bc760",
+        "interp": "/lib64/ld-linux-x86-64.so.2",
+        "path": "/usr/bin/dash",
+        "phdr": "0x1087b8040",
+        "phnum": 14,
+        "range": "0x1087b8000-0x1087db000"
+      },
+      "rsp": "0x11d393d90",
+      "stack": "0x11cb94000-0x11d394000"
+    },
+    "ok": true,
+    "pid": 35,
+    "rc": 35
+  }
+}

@@ -76,6 +76,13 @@
 
 ## laptop
 
+- **Request 006 (build-27)**: D cpubench PASS, A (C3) PASS; B (C4) PARTIAL and C (faults) PARTIAL.
+  - cpubench: FEX on the A15 ≈ native laptop, total 0.85×; fp_scalar 1.28×, branchy 1.45×.
+  - C4: Xvfb and xdpyinfo work in the guest; xeyes and xdotool hang because `epoll_wait` loses
+    level-triggered readiness.
+  - Faults: C2 logs `kind=3` (translation) and `df` shows `/` and `/proc` swapped.
+  - Details: results/006-c3-c4-faults/verdict.md.
+- Next: **issue 005** (memory-cap experiment, laptop only; REPO's go/no-go for E1/E2).
 - **Request 005 (build-25): Part A PARTIAL, Part B PARTIAL** (2026-09-27 05:57–06:05 CEST).
   - Every *fork* child dies on its first stack write: the CoW write-protect fault arrives as
     SIGBUS si_code 1 and is misrouted to FEX's unaligned fix-up. vfork children are fine.

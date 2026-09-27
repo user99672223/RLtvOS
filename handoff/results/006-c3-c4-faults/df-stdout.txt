@@ -1,0 +1,5 @@
+Filesystem     1K-blocks  Used Available Use% Mounted on
+tmpfs            1048576 65536    983040   7% /tmp
+rootfs           1048576 65536    983040   7% /
+Filesystem     1K-blocks     Used Available Use% Mounted on
+-               50331648 50331648         0 100% /proc

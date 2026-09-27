@@ -1,0 +1,2 @@
+cpubench: int_alu 2.00 ns/op | fp_scalar 59.6 ns/step | simd 0.130 ns/elem | memcpy 30.60 GB/s (0.5 ms/16MB) | mem_random 71.0 ns/read | branchy 0.39 ns/step | calls 0.45 ns/call | total 2.1 s
+{"int_alu_ns":1.998,"fp_scalar_ns":59.58,"simd_ns":0.1298,"memcpy_gbs":30.595,"mem_random_ns":71.00,"branchy_ns":0.388,"calls_ns":0.453,"total_s":2.08,"scale":1.000}

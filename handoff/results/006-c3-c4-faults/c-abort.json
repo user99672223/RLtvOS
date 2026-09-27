@@ -1,0 +1,52 @@
+{
+  "exited": true,
+  "http": 200,
+  "ok": false,
+  "output": "abort()\n",
+  "process": {
+    "dry_run": false,
+    "exe": "/opt/rl/bin/crashtest",
+    "exit_code": 134,
+    "fds": 0,
+    "live_threads": 0,
+    "mapped_bytes": 0,
+    "ms": 62.2,
+    "pid": 54,
+    "ppid": 0,
+    "reaped": true,
+    "state": "exited",
+    "syscalls": 33,
+    "term_signal": 6,
+    "threads": 1,
+    "vmas": 0
+  },
+  "reply": {
+    "dry_run": false,
+    "layout": {
+      "auxv": "0x11d393de0",
+      "auxv_entries": 20,
+      "brk": "0x122400000-0x126400000",
+      "entry": "0x10a4352c0",
+      "interp": {
+        "base": "0x10a418000",
+        "entry": "0x10a4352c0",
+        "range": "0x10a418000-0x10a450000"
+      },
+      "main": {
+        "base": "0x105fd8000",
+        "dyn": true,
+        "entry": "0x105fd9340",
+        "interp": "/lib64/ld-linux-x86-64.so.2",
+        "path": "/opt/rl/bin/crashtest",
+        "phdr": "0x105fd8040",
+        "phnum": 14,
+        "range": "0x105fd8000-0x105fdd000"
+      },
+      "rsp": "0x11d393d80",
+      "stack": "0x11cb94000-0x11d394000"
+    },
+    "ok": true,
+    "pid": 54,
+    "rc": 54
+  }
+}
