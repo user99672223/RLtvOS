@@ -555,7 +555,7 @@ int64_t sys_clock_gettime(Sc& c) {
     auto* ts = reinterpret_cast<lx::timespec*>(c.a[1]);
     if (!ts) return -lx::efault;
     struct timespec h;
-    if (clock_gettime(host_clock((int)c.a[0]), &h) != 0) return -lx::einval;
+    if (clock_gettime((clockid_t)host_clock((int)c.a[0]), &h) != 0) return -lx::einval;
     ts->tv_sec = h.tv_sec;
     ts->tv_nsec = h.tv_nsec;
     return 0;
@@ -600,7 +600,7 @@ int64_t sys_clock_nanosleep(Sc& c) {
     struct timespec h {(time_t)req->tv_sec, (long)req->tv_nsec};
     if (c.a[1] & 1) {  // TIMER_ABSTIME
         struct timespec now;
-        clock_gettime(host_clock((int)c.a[0]), &now);
+        clock_gettime((clockid_t)host_clock((int)c.a[0]), &now);
         int64_t ns = (req->tv_sec - now.tv_sec) * 1000000000LL + (req->tv_nsec - now.tv_nsec);
         if (ns <= 0) return 0;
         h = {(time_t)(ns / 1000000000LL), (long)(ns % 1000000000LL)};
@@ -629,7 +629,7 @@ int64_t sys_sysinfo(Sc& c) {
     if (!si) return -lx::efault;
     memset(si, 0, sizeof *si);
     struct timespec up;
-    clock_gettime(host::kClockMonotonic, &up);
+    clock_gettime((clockid_t)host::kClockMonotonic, &up);
     si->uptime = up.tv_sec;
     si->totalram = 4096ull << 20;
     si->freeram = 2048ull << 20;
