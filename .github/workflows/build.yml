@@ -128,38 +128,57 @@ jobs:
           xcodebuild -list -project RLtvOS.xcodeproj
 
       - name: Build
+        id: xcode
         working-directory: app
         env:
           FEX_OK: ${{ steps.fex.outputs.ok }}
         run: |
           set -uxo pipefail
+          build_app() { # $1 = with_fex (true|false)
+            local extra_ld="" swift_conds='$(inherited)'
+            if [ "$1" = "true" ]; then
+              extra_ld="$GITHUB_WORKSPACE/build/fex/librlfex_all.a"
+              swift_conds='$(inherited) RL_HAVE_FEX'
+            fi
+            rm -rf build
+            xcodebuild \
+              -project RLtvOS.xcodeproj \
+              -scheme RLtvOS \
+              -configuration Release \
+              -sdk appletvos \
+              -destination 'generic/platform=tvOS' \
+              -derivedDataPath build \
+              CODE_SIGNING_ALLOWED=NO \
+              CODE_SIGNING_REQUIRED=NO \
+              CODE_SIGN_IDENTITY="" \
+              RL_BUILD_TAG="$BUILD_TAG" \
+              CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
+              ONLY_ACTIVE_ARCH=NO \
+              OTHER_LDFLAGS="\$(inherited) $extra_ld" \
+              SWIFT_ACTIVE_COMPILATION_CONDITIONS="$swift_conds" \
+              build > ../build.log 2>&1
+          }
+          linked=false
           status=0
-          extra_ld=""
-          swift_conds='$(inherited)'
           if [ "${FEX_OK:-false}" = "true" ]; then
-            extra_ld="$GITHUB_WORKSPACE/build/fex/librlfex_all.a"
-            swift_conds='$(inherited) RL_HAVE_FEX'
-            echo "linking FEX: $extra_ld"
+            echo "building with FEX linked"
+            if build_app true; then
+              linked=true
+            else
+              status=$?
+              echo "xcodebuild with FEX FAILED (status $status); errors:"
+              grep -E 'error:|Undefined symbol|duplicate symbol|referenced from' ../build.log | head -80 || true
+              cp ../build.log ../build-with-fex.log
+              echo "retrying without FEX"
+              status=0
+              build_app false || status=$?
+            fi
           else
             echo "FEX not linked (see fex-build.log)"
+            build_app false || status=$?
           fi
-          xcodebuild \
-            -project RLtvOS.xcodeproj \
-            -scheme RLtvOS \
-            -configuration Release \
-            -sdk appletvos \
-            -destination 'generic/platform=tvOS' \
-            -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGN_IDENTITY="" \
-            RL_BUILD_TAG="$BUILD_TAG" \
-            CURRENT_PROJECT_VERSION="${{ github.run_number }}" \
-            ONLY_ACTIVE_ARCH=NO \
-            OTHER_LDFLAGS="\$(inherited) $extra_ld" \
-            SWIFT_ACTIVE_COMPILATION_CONDITIONS="$swift_conds" \
-            build > ../build.log 2>&1 || status=$?
-          echo "xcodebuild exit status: $status"
+          echo "xcodebuild exit status: $status (fex linked: $linked)"
+          echo "linked=$linked" >> "$GITHUB_OUTPUT"
           grep -E 'error:|warning:|BUILD (SUCCEEDED|FAILED)' ../build.log | grep -v 'note:' | head -200 || true
           if [ "$status" -ne 0 ]; then echo '--- last 150 lines ---'; tail -150 ../build.log; fi
           exit "$status"
@@ -186,7 +205,7 @@ jobs:
           nm -m "$BIN" | grep -i 'jit26' || echo "WARNING: no JIT26 symbols in the symbol table"
           otool -tv "$BIN" | grep -A3 -i 'JIT26PrepareRegion\|JIT26Detach' | head -12 || true
           echo "rlfex symbols: $(nm "$BIN" | grep -c ' T _rlfex_' || true)"
-          echo "fex_linked=${{ steps.fex.outputs.ok }}"
+          echo "fex_built=${{ steps.fex.outputs.ok }} fex_linked=${{ steps.xcode.outputs.linked }}"
           echo "sha256: $(shasum -a 256 app.ipa)"
 
       - name: Upload build logs
@@ -197,6 +216,7 @@ jobs:
           path: |
             build.log
             fex-build.log
+            build-with-fex.log
           if-no-files-found: ignore
 
       - name: Release
@@ -207,7 +227,7 @@ jobs:
           target_commitish: ${{ github.sha }}
           body: |
             Unsigned tvOS build of `${{ github.sha }}` (${{ github.ref_name }}).
-            FEX linked: `${{ steps.fex.outputs.ok }}` (false = see fex-build.log in the build-logs artifact).
+            FEX built: `${{ steps.fex.outputs.ok }}`, FEX linked: `${{ steps.xcode.outputs.linked }}` (false = see fex-build.log / build-with-fex.log in the build-logs artifact).
 
             ${{ github.event.head_commit.message }}
 

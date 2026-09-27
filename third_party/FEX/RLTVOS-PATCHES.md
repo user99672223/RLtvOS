@@ -125,3 +125,6 @@ Found by the first tvOS compile (build-11):
 - `FEXCore/Source/Utils/FileUtils.cpp` — Apple `getdents64` shim over
   `fdopendir`/`readdir` (packed Darwin `struct dirent` records; EINVAL +
   rewind when the buffer is too small, which the walkers already handle).
+- `FEXCore/include/FEXCore/Utils/SpinWaitLock.h` — `unsigned long` overloads
+  of `LoadExclusive`/`WFELoadAtomic` on Apple (Darwin `size_t` is not
+  `uint64_t`; `CodeCache.cpp` waits on a `size_t`).

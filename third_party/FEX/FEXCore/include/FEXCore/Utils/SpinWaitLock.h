@@ -129,6 +129,18 @@ static inline uint64_t WFELoadAtomic(uint64_t* Futex) {
   return Result;
 }
 
+#ifdef __APPLE__
+// RLtvOS: on Darwin uint64_t is `unsigned long long` while size_t is
+// `unsigned long`; callers wait on size_t futexes (CodeCache.cpp).
+static inline unsigned long LoadExclusive(unsigned long* Futex) {
+  return LoadExclusive(reinterpret_cast<uint64_t*>(Futex));
+}
+
+static inline unsigned long WFELoadAtomic(unsigned long* Futex) {
+  return WFELoadAtomic(reinterpret_cast<uint64_t*>(Futex));
+}
+#endif
+
 template<typename Pred, typename T>
 static inline void WaitPred(T* Futex, T ComparisonValue) {
   auto AtomicFutex = std::atomic_ref<T>(*Futex);
