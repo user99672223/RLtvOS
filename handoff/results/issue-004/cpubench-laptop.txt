@@ -1,0 +1,8 @@
+# laptop: 11th Gen Intel(R) Core(TM) i5-1135G7 @ 2.40GHz, 8 threads, governor powersave
+# kernel 6.12.107+deb13-amd64; native in the rootfs via laptop/rootfs_exec.sh; Sun Sep 27 06:13:01 AM CEST 2026
+## run 1
+cpubench: int_alu 2.57 ns/op | fp_scalar 46.1 ns/step | simd 0.127 ns/elem | memcpy 16.33 GB/s (1.0 ms/16MB) | mem_random 87.5 ns/read | branchy 0.27 ns/step | calls 0.37 ns/call | total 2.4 s
+{"int_alu_ns":2.573,"fp_scalar_ns":46.11,"simd_ns":0.1268,"memcpy_gbs":16.326,"mem_random_ns":87.49,"branchy_ns":0.266,"calls_ns":0.371,"total_s":2.44,"scale":1.000}
+## run 2
+cpubench: int_alu 2.55 ns/op | fp_scalar 46.6 ns/step | simd 0.127 ns/elem | memcpy 16.87 GB/s (1.0 ms/16MB) | mem_random 87.1 ns/read | branchy 0.27 ns/step | calls 0.38 ns/call | total 2.4 s
+{"int_alu_ns":2.550,"fp_scalar_ns":46.62,"simd_ns":0.1266,"memcpy_gbs":16.867,"mem_random_ns":87.13,"branchy_ns":0.270,"calls_ns":0.380,"total_s":2.43,"scale":1.000}

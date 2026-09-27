@@ -64,7 +64,7 @@
 
 ## laptop
 
-- **Request 005 (build-25): Part A PARTIAL, Part B PARTIAL** (2026-09-27 05:57–06:20 CEST).
+- **Request 005 (build-25): Part A PARTIAL, Part B PARTIAL** (2026-09-27 05:57–06:05 CEST).
   - Every *fork* child dies on its first stack write: the CoW write-protect fault arrives as
     SIGBUS si_code 1 and is misrouted to FEX's unaligned fix-up. vfork children are fine.
   - Passed: threads-test, signal exits, kick, B1 (writable layer + guest-file routes).
@@ -73,6 +73,10 @@
   - Each thread that ends by FAULT or kick leaks a 272 MB FEX lookup cache (address space
     7.5 → 0.75 GB).
   - Details: results/005-c3-c4/verdict.md.
+- **Issue 004 (laptop part) done**: native Rocket League footprint at the main menu is 4.2 GB Pss
+  (97 % private anonymous in the game) + ~1.1 GB GPU buffers, ~4.4 GB in a bot match, 30 fps.
+  cpubench native baseline done; the TV run comes with request 006. See
+  results/issue-004/notes.md.
 - Request 004 (build-23): PARTIAL (VA budget and 1b PASS; the fork hang, fixed in build-25);
   addendum with the 1c evidence.
 - Request 003 (build-20): PARTIAL (C2 PASS; 4th-guest death, fixed in build-23).

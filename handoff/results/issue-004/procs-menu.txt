@@ -1,0 +1,12 @@
+80628 Xvfb [Xvfb :99 -screen 0 1280x720x24 -nolisten] Rss: 67572 kB Pss: 37604 kB Swap: 0 kB 
+80637 start.exe [start.exe /exec explorer /desktop=RL,-- ] Rss: 13244 kB Pss: 3538 kB Swap: 0 kB 
+80639 wineserver [/opt/wine-stable/lib/wine/../../bin/wine] Rss: 10308 kB Pss: 8966 kB Swap: 0 kB 
+80649 services.exe [C:\windows\system32\services.exe        ] Rss: 10428 kB Pss: 3167 kB Swap: 0 kB 
+80652 winedevice.exe [C:\windows\system32\winedevice.exe      ] Rss: 11996 kB Pss: 3954 kB Swap: 0 kB 
+80661 plugplay.exe [C:\windows\system32\plugplay.exe        ] Rss: 17380 kB Pss: 6518 kB Swap: 0 kB 
+80667 svchost.exe [C:\windows\system32\svchost.exe -k Local] Rss: 8540 kB Pss: 1995 kB Swap: 0 kB 
+80673 winedevice.exe [C:\windows\system32\winedevice.exe      ] Rss: 22484 kB Pss: 9712 kB Swap: 0 kB 
+80690 explorer.exe [C:\windows\system32\explorer.exe /deskto] Rss: 77020 kB Pss: 34348 kB Swap: 0 kB 
+80696 RocketLeague.ex [/game/Binaries/Win64/RocketLeague.exe -n] Rss: 4253284 kB Pss: 4207342 kB Swap: 0 kB 
+80700 rpcss.exe [C:\windows\system32\rpcss.exe           ] Rss: 9312 kB Pss: 2430 kB Swap: 0 kB 
+SUM_Pss_kB 4319574  (4218 MB)

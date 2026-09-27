@@ -22,7 +22,9 @@ while [ $# -gt 0 ]; do
     --gpu) extra="$extra --dev-bind /dev/dri /dev/dri --ro-bind /sys /sys"; shift ;;
     --bind) extra="$extra --bind $2 $3"; shift 3 ;;
     --ro-bind) extra="$extra --ro-bind $2 $3"; shift 3 ;;
-    --env) extra="$extra --setenv ${2%%=*} ${2#*=}"; shift 2 ;;
+    # Empty values are skipped: $extra is word-split, so "--setenv K " would make bwrap take the
+    # next word (e.g. "--") as K's value. Values must not contain spaces.
+    --env) [ -z "${2#*=}" ] || extra="$extra --setenv ${2%%=*} ${2#*=}"; shift 2 ;;
     --nonet) extra="$extra --unshare-net"; shift ;;
     --) shift; break ;;
     *) break ;;

@@ -1,0 +1,21 @@
+# RocketLeague.exe Rss by mapping kind (kB), top 20
+   4063380 Rss     4063380 Pss  [anon]
+     62292 Rss       62292 Pss  [heap]
+     57448 Rss       32799 Pss  DLL/so:libLLVM.so.19.1
+     13124 Rss       13124 Pss  DLL/so:libgallium-25.0.7-2+deb13u1.so
+      4380 Rss        2944 Pss  DLL/so:libvulkan_intel.so
+      2708 Rss        2708 Pss  DLL/so:d3d11.dll
+      2588 Rss        1596 Pss  DLL/so:libvulkan_lvp.so
+      1948 Rss         299 Pss  DLL/so:libc.so.6
+      1848 Rss        1848 Pss  DLL/so:wined3d.dll
+      1696 Rss         544 Pss  DLL/so:win32u.so
+      1348 Rss        1348 Pss  DLL/so:libgnutls.so.30.40.3
+      1336 Rss         481 Pss  DLL/so:libstdc++.so.6.0.33
+      1152 Rss         578 Pss  memfd/shm:memfd:state table (deleted)
+      1100 Rss         472 Pss  DLL/so:user32.dll
+      1080 Rss         354 Pss  /tmp/.wine-1000/server-10302-5e2db5/tmpmap-d143a026 (deleted)
+      1024 Rss         478 Pss  DLL/so:libz3.so.4
+      1004 Rss        1004 Pss  DLL/so:opengl32.so
+       936 Rss         455 Pss  DLL/so:libX11.so.6.4.0
+       884 Rss         884 Pss  DLL/so:opengl32.dll
+       876 Rss         150 Pss  DLL/so:kernelbase.dll

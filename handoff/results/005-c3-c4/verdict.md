@@ -18,7 +18,7 @@ at keyboard init because its `xkbcomp` fork dies.
 space** (FEX's per-thread lookup cache). This instance ended at 0.75 GB; a fresh instance has
 ~7.5 GB (build-23's fresh probe in 004).
 
-Build **build-25** (be86387, IPA sha256 de33ee32…), app pid 1225, TV 05:57–06:20 CEST.
+Build **build-25** (be86387, IPA sha256 de33ee32…), app pid 1225, TV 05:57–06:05 CEST.
 
 ## Prep
 - `refs/guest/*.sh` copied to `/opt/rl/refs` and the manifest rebuilt (70,388 entries).

@@ -31,7 +31,7 @@ start)
   shift
   NET=""; [ "${NONET:-0}" = 1 ] && NET=--nonet
   exec "$RUN" $X $NET --gpu --env MESA_VK_WSI_DEBUG=sw --env DXVK_LOG_LEVEL=info \
-    --env "WINEDEBUG=${WINEDEBUG:-fixme-all}" --env DXVK_HUD=fps --env "VDESK=${VDESK:-}" -- sh -c '
+    --env "WINEDEBUG=${WINEDEBUG:-fixme-all}" --env "DXVK_HUD=${DXVK_HUD:-fps}" --env "VDESK=${VDESK:-}" -- sh -c '
 Xvfb :99 -screen 0 1280x720x24 -nolisten tcp -extension MIT-SHM >/tmp/xvfb.log 2>&1 &
 export DISPLAY=:99
 i=0; until xdpyinfo >/dev/null 2>&1; do i=$((i+1)); [ $i -lt 100 ] || exit 1; sleep 0.1; done
