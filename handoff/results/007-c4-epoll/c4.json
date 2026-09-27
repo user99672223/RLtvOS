@@ -1,0 +1,52 @@
+{
+  "exited": true,
+  "http": 200,
+  "ok": true,
+  "output": "[05:08:41] Xvfb up on :0 (pid 12)\nname of display:    :0\nversion number:    11.0\nvendor string:    The X.Org Foundation\nvendor release number:    12101016\nX.Org version: 21.1.16\nmaximum request size:  16777212 bytes\nmotion buffer size:  256\nbitmap unit, bit order, padding:    32, LSBFirst, 32\nimage byte order:    LSBFirst\nnumber of supported pixmap formats:    6\nsupported pixmap formats:\n    depth 1, bits_per_pixel 1, scanline_pad 32\n    depth 4, bits_per_pixel 8, scanline_pad 32\n    depth 8, bits_per_pixel 8, scanline_pad 32\n    depth 16, bits_per_pixel 16, scanline_pad 32\n    depth 24, bits_per_pixel 32, scanline_pad 32\n    depth 32, bits_per_pixel 32, scanline_pad 32\nkeycode range:    minimum 8, maximum 255\nfocus:  PointerRoot\nnumber of extensions:    22\n    BIG-REQUESTS\n    Composite\n    DAMAGE\n    DOUBLE-BUFFER\n    GLX\n    Generic Event Extension\n    MIT-SCREEN-SAVER\n    Present\n    RANDR\n    RECORD\n\nxwininfo: Window id: 0x21f (the root window) (has no name)\n\n  Root window id: 0x21f (the root window) (has no name)\n  Parent window id: 0x0 (none)\n     1 child:\n     0x20000a \"xeyes\": (\"xeyes\" \"XEyes\")  400x300+100+100  +100+100\n        1 child:\n        0x20000b (has no name): ()  400x300+0+0  +101+101\n\n[05:08:45] snapshot /refs/out/c4.xwd\nC4 done\n",
+  "process": {
+    "dry_run": false,
+    "exe": "/bin/sh",
+    "exit_code": 0,
+    "fds": 0,
+    "live_threads": 0,
+    "mapped_bytes": 0,
+    "ms": 4434.1,
+    "pid": 9,
+    "ppid": 0,
+    "reaped": true,
+    "state": "exited",
+    "syscalls": 258,
+    "term_signal": 0,
+    "threads": 1,
+    "vmas": 0
+  },
+  "reply": {
+    "dry_run": false,
+    "layout": {
+      "auxv": "0x11b3dbdf0",
+      "auxv_entries": 20,
+      "brk": "0x11d800000-0x121800000",
+      "entry": "0x1042e12c0",
+      "interp": {
+        "base": "0x1042c4000",
+        "entry": "0x1042e12c0",
+        "range": "0x1042c4000-0x1042fc000"
+      },
+      "main": {
+        "base": "0x1042fc000",
+        "dyn": true,
+        "entry": "0x104300760",
+        "interp": "/lib64/ld-linux-x86-64.so.2",
+        "path": "/usr/bin/dash",
+        "phdr": "0x1042fc040",
+        "phnum": 14,
+        "range": "0x1042fc000-0x10431f000"
+      },
+      "rsp": "0x11b3dbd90",
+      "stack": "0x11abdc000-0x11b3dc000"
+    },
+    "ok": true,
+    "pid": 9,
+    "rc": 9
+  }
+}

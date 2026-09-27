@@ -1,0 +1,17 @@
+total 8
+drwxrwxrwt 2 user user 4096 Sep 27 05:08 .
+drwxrwxrwt 3 root root 4096 Sep 27 05:08 ..
+srwxrwxrwx 1 user user    0 Sep 27 05:08 X1
+name of display:    :1
+version number:    11.0
+vendor string:    The X.Org Foundation
+vendor release number:    12101016
+X.Org version: 21.1.16
+maximum request size:  16777212 bytes
+motion buffer size:  256
+bitmap unit, bit order, padding:    32, LSBFirst, 32
+image byte order:    LSBFirst
+number of supported pixmap formats:    6
+supported pixmap formats:
+    depth 1, bits_per_pixel 1, scanline_pad 32
+rc=0

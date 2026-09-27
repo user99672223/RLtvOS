@@ -1,0 +1,52 @@
+{
+  "exited": true,
+  "http": 200,
+  "ok": true,
+  "output": "total 8\ndrwxrwxrwt 2 user user 4096 Sep 27 05:08 .\ndrwxrwxrwt 3 root root 4096 Sep 27 05:08 ..\nsrwxrwxrwx 1 user user    0 Sep 27 05:08 X1\nname of display:    :1\nversion number:    11.0\nvendor string:    The X.Org Foundation\nvendor release number:    12101016\nX.Org version: 21.1.16\nmaximum request size:  16777212 bytes\nmotion buffer size:  256\nbitmap unit, bit order, padding:    32, LSBFirst, 32\nimage byte order:    LSBFirst\nnumber of supported pixmap formats:    6\nsupported pixmap formats:\n    depth 1, bits_per_pixel 1, scanline_pad 32\nrc=0\n",
+  "process": {
+    "dry_run": false,
+    "exe": "/usr/bin/sh",
+    "exit_code": 0,
+    "fds": 0,
+    "live_threads": 0,
+    "mapped_bytes": 0,
+    "ms": 1405.6,
+    "pid": 1,
+    "ppid": 0,
+    "reaped": true,
+    "state": "exited",
+    "syscalls": 104,
+    "term_signal": 0,
+    "threads": 1,
+    "vmas": 0
+  },
+  "reply": {
+    "dry_run": false,
+    "layout": {
+      "auxv": "0x11b3dbcd8",
+      "auxv_entries": 20,
+      "brk": "0x11d800000-0x121800000",
+      "entry": "0x1042e12c0",
+      "interp": {
+        "base": "0x1042c4000",
+        "entry": "0x1042e12c0",
+        "range": "0x1042c4000-0x1042fc000"
+      },
+      "main": {
+        "base": "0x1042fc000",
+        "dyn": true,
+        "entry": "0x104300760",
+        "interp": "/lib64/ld-linux-x86-64.so.2",
+        "path": "/usr/bin/dash",
+        "phdr": "0x1042fc040",
+        "phnum": 14,
+        "range": "0x1042fc000-0x10431f000"
+      },
+      "rsp": "0x11b3dbc70",
+      "stack": "0x11abdc000-0x11b3dc000"
+    },
+    "ok": true,
+    "pid": 1,
+    "rc": 1
+  }
+}

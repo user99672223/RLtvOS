@@ -1,0 +1,2 @@
+fork with 4096 KB untouched
+child: exit 0; parent sees m[0]=0 m[last]=0 (expect 0 0)

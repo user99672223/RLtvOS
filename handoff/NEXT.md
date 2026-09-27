@@ -93,7 +93,11 @@
   ~1.1 MB/s and no OOM. 2048M and 3072M are equally smooth; 1024M is OOM-killed at start-up
   (GPU shmem floor). The CPU working set is ≤190 MB/min of a 4.4 GB heap. See
   results/issue-005/notes.md.
-- Next: request 007 (build-28, C4 with the epoll fix).
+- **Request 007 (build-28): A (C4) PASS, B PASS.**
+  - c4.sh is complete on the TV: Xvfb :0, xdpyinfo, the xeyes window, xwd snapshot (c4.png shows
+    the eyes).
+  - fork of untouched pages works; `df` is right.
+  - Details: results/007-c4-epoll/verdict.md.
 - **Request 005 (build-25): Part A PARTIAL, Part B PARTIAL** (2026-09-27 05:57–06:05 CEST).
   - Every *fork* child dies on its first stack write: the CoW write-protect fault arrives as
     SIGBUS si_code 1 and is misrouted to FEX's unaligned fix-up. vfork children are fine.
