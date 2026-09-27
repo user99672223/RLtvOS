@@ -120,12 +120,11 @@ final class DebugServer {
             guard let gpath = params["path"], gpath.hasPrefix("/") else {
                 return json(["ok": false, "error": "path=/guest/path required"], status: 400)
             }
-            switch host.guestReadFile(gpath) {
-            case .success(let d):
+            let (data, rc) = host.guestReadFile(gpath)
+            if let d = data {
                 return Reply(status: 200, type: "application/octet-stream", data: d)
-            case .failure(let rc):
-                return json(["ok": false, "path": gpath, "errno": Int(-rc)], status: rc == -2 ? 404 : 500)
             }
+            return json(["ok": false, "path": gpath, "errno": Int(-rc)], status: rc == -2 ? 404 : 500)
 
         case ("POST", "/guest-file"):
             guard let gpath = params["path"], gpath.hasPrefix("/") else {

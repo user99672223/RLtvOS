@@ -57,11 +57,37 @@ thread_local FaultInfo t_Fault;
 thread_local Core::InternalThreadState* t_GuardThread = nullptr; // the FEX thread running under the guard
 std::atomic<uint64_t> g_UnalignedFixups {0};
 rlfex_fault_hook_fn g_FaultHook = nullptr;
-constexpr int GuardSignals[] = {SIGSEGV, SIGBUS, SIGILL, SIGTRAP, SIGFPE};
+constexpr int GuardSignals[] = {SIGSEGV, SIGBUS, SIGILL, SIGTRAP, SIGFPE, RLFEX_KICK_SIGNAL};
 struct sigaction g_Prev[NSIG] {};
 bool g_GuardInstalled = false;
 
 void GuardHandler(int Sig, siginfo_t* SI, void* UC) {
+  if (Sig == RLFEX_KICK_SIGNAL) {
+    // The kernel wants this guest thread out of JIT code (exit_group,
+    // SIGKILL, killall). Only when it is in JIT code: inside the kernel or
+    // FEX's runtime it holds locks and will notice at its syscall boundary.
+    if (!t_GuardActive) {
+      return;
+    }
+    auto* U = static_cast<ucontext_t*>(UC);
+    uint64_t PC = 0;
+#if defined(__aarch64__) || defined(__arm64__)
+    if (U && U->uc_mcontext) {
+      PC = static_cast<uint64_t>(__darwin_arm_thread_state64_get_pc(U->uc_mcontext->__ss));
+    }
+#endif
+    Core::InternalThreadState* Thread = t_GuardThread;
+    if (!(Thread && PC && Thread->CTX->IsAddressInCodeBuffer(Thread, PC))) {
+      return;
+    }
+    t_Fault.Signal = Sig;
+    t_Fault.Code = 0;
+    t_Fault.Addr = 0;
+    t_Fault.PC = PC;
+    t_Fault.InJIT = true;
+    t_GuardActive = false;
+    siglongjmp(t_Jmp, 1);
+  }
   if (t_GuardActive) {
     auto* U = static_cast<ucontext_t*>(UC);
     uint64_t PC = 0;
@@ -456,6 +482,10 @@ bool PlatformInitLocked(const char*& Stage) {
 
 void rlfex_set_fault_hook(rlfex_fault_hook_fn Fn) {
   g_FaultHook = Fn;
+}
+
+int rlfex_kick(pthread_t HostThread) {
+  return pthread_kill(HostThread, RLFEX_KICK_SIGNAL);
 }
 
 bool rlfex_platform_init(char* Err, size_t Cap) {

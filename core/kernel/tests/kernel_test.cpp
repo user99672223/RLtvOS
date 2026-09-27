@@ -813,6 +813,59 @@ static void test_overlay() {
     CHECK(ov.create("/usr/bin", 0644, false, l) == 0 && l.upper && l.upper->kind == TmpNode::Dir);
 }
 
+// ---- shared file mappings (MAP_SHARED aliases of an upper file) ---------------------
+
+static void test_shared_store() {
+    FakeLower lower;
+    Overlay ov(&lower);
+    ov.mkdir_boot("/tmp", 01777, true);
+    Lookup l;
+    CHECK(ov.create("/tmp/shm", 0600, true, l) == 0 && l.upper);
+    TmpFile f(l.upper, "/tmp/shm", lx::o_rdwr);
+    CHECK(f.write("hello world", 11) == 11);
+    const uint64_t hp = AddressSpace::host_page();
+    AddressSpace mm;
+    const int rw = lx::prot_read | lx::prot_write;
+    int64_t a = mm.map(0, hp, rw, false, false, "/tmp/shm");
+    CHECK(a > 0);
+    {
+        std::lock_guard<std::mutex> lk(l.upper->data->mu);
+        CHECK(l.upper->data->ensure_store((size_t)hp));
+        CHECK(l.upper->data->size() == 11);  // moving into the store keeps the contents
+    }
+    CHECK(mm.alias_shared((uint64_t)a, hp, l.upper->data->store.get(), 0, rw));
+    CHECK(memcmp(reinterpret_cast<void*>(a), "hello world", 11) == 0);
+    memcpy(reinterpret_cast<void*>(a), "HELLO", 5);  // a guest store through the mapping
+    char buf[32] = {};
+    CHECK(f.pread(buf, 11, 0) == 11 && memcmp(buf, "HELLO world", 11) == 0);  // read() sees it
+    CHECK(f.pwrite("!", 1, 10) == 1 && reinterpret_cast<char*>(a)[10] == '!');  // and the reverse
+    // a second mapping (another process's view) shares the bytes
+    int64_t b = mm.map(0, hp, rw, false, false, "/tmp/shm");
+    CHECK(b > 0 && mm.alias_shared((uint64_t)b, hp, l.upper->data->store.get(), 0, rw));
+    reinterpret_cast<char*>(b)[0] = 'J';
+    CHECK(reinterpret_cast<char*>(a)[0] == 'J');
+    // a fork snapshot leaves shared pages alone: the child's writes stay
+    mm.push_snapshot();
+    reinterpret_cast<char*>(b)[1] = 'Z';
+    mm.pop_snapshot();
+    CHECK(reinterpret_cast<char*>(a)[1] == 'Z' && f.pread(buf, 2, 0) == 2 && memcmp(buf, "JZ", 2) == 0);
+    // MAP_FIXED anonymous memory over the alias must not zero the file
+    CHECK(mm.map((uint64_t)a, 4096, rw, true, false, "anon") == a);
+    CHECK(reinterpret_cast<char*>(a)[0] == 0);
+    CHECK(f.pread(buf, 2, 0) == 2 && memcmp(buf, "JZ", 2) == 0);
+    CHECK(mm.unmap((uint64_t)b, hp) == 0);
+    CHECK(f.pread(buf, 2, 0) == 2 && memcmp(buf, "JZ", 2) == 0);  // the store outlives its aliases
+    // growth: within the store's capacity, then ENOSPC
+    CHECK(f.ftruncate(hp * 2) == 0);
+    CHECK(f.ftruncate(64u << 20) == -lx::enospc);
+    // misaligned addresses/offsets are refused (the caller falls back to a private copy)
+    int64_t c2 = mm.map(0, hp, rw, false, false, "/tmp/shm");
+    CHECK(c2 > 0);
+    CHECK(!mm.alias_shared((uint64_t)c2, hp, l.upper->data->store.get(), hp + 1, rw));
+    CHECK(!mm.alias_shared((uint64_t)c2 + 8, hp, l.upper->data->store.get(), 0, rw));
+    CHECK(!mm.alias_shared((uint64_t)c2, hp, l.upper->data->store.get(), l.upper->data->store->capacity(), rw));
+}
+
 // ---- poll / eventfd / epoll ---------------------------------------------------------
 
 static void test_poll() {
@@ -1104,6 +1157,7 @@ int main() {
     RUN(test_pipe);
     RUN(test_futex);
     RUN(test_overlay);
+    RUN(test_shared_store);
     RUN(test_poll);
     RUN(test_socket);
     RUN(test_locks);

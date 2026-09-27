@@ -270,18 +270,18 @@ final class HostState {
         #endif
     }
 
-    /// A file of the guest filesystem (any layer); failure = -errno (Linux numbering).
-    func guestReadFile(_ path: String) -> Result<Data, Int32> {
+    /// A file of the guest filesystem (any layer): (data, 0) or (nil, -errno in Linux numbering).
+    func guestReadFile(_ path: String) -> (Data?, Int32) {
         #if RL_HAVE_FEX
         var buf: UnsafeMutablePointer<UInt8>? = nil
         var len: Int = 0
         let rc = rlk_read_file(path, &buf, &len)
-        if rc != 0 { return .failure(rc) }
+        if rc != 0 { return (nil, rc) }
         defer { free(buf) }
-        guard let b = buf else { return .success(Data()) }
-        return .success(Data(bytes: b, count: len))
+        guard let b = buf else { return (Data(), 0) }
+        return (Data(bytes: b, count: len), 0)
         #else
-        return .failure(-38)
+        return (nil, -38)
         #endif
     }
 

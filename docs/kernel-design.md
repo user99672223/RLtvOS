@@ -139,10 +139,15 @@ redirects). `/tmp`, `/var/tmp`, `/run` (+`lock`, `user/1000`), `/dev/shm`,
 `/dev/pts` are opaque upper directories created at boot. Nothing persists:
 the upper layer lives as long as the app (Caches are purgeable anyway;
 persistence is a later decision, DECISIONS 2026-09-27). `memfd_create` is
-an upper file without a name. `MAP_SHARED|PROT_WRITE` of an upper file is a
-private copy written back on `munmap`/`msync`/exit/execve (`SharedMap`);
-true sharing (Wine's server↔client shared memory) will use host shared
-memory + `vm_remap` when C5's trace needs it.
+an upper file without a name. `MAP_SHARED` of an upper file: the file's
+storage moves into a `SharedStore` (Linux: a memfd; Darwin: an anonymous
+mapping aliased with `vm_remap`) and the guest range becomes a host alias of
+the store when the mapping is host-page aligned and exclusively the
+process's own (Wine's 64 KB views are) — server and clients then see one
+another's writes, `read`/`write` on the file included. A misaligned mapping
+falls back to a private copy written back on `munmap`/`msync`/exit/execve
+(`SharedMap`). Fork snapshots skip aliased pages; `MAP_FIXED` over an alias
+replaces the page with private memory instead of zeroing the file.
 
 Inodes: rlvfs = hash of the canonical path (`st_dev` 0x801); upper nodes =
 a counter from 0x200000 on `st_dev` 0x14 (so a copied-up file changes

@@ -118,7 +118,7 @@ int64_t do_openat(Sc& c, int dirfd, const char* path, int flags, int mode) {
         }
         if (flags & lx::o_trunc) {
             std::lock_guard<std::mutex> lk(node->data->mu);
-            node->data->bytes.clear();
+            node->data->resize(0);
             node->mtime = node->ctime = Overlay::now_sec();
         }
         return c.p.fds.alloc(std::make_shared<TmpFile>(node, l.canon, flags & ~(lx::o_creat | lx::o_excl | lx::o_trunc)), cloexec);

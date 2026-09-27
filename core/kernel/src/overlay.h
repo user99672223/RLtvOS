@@ -31,10 +31,47 @@ namespace rlk {
 class UnixSocket;
 class Pipe;
 
-// Contents of an upper regular file (shared by hard links and open files).
+// Page-granular file storage that can be aliased into guest address space:
+// MAP_SHARED mappings of an upper file are host mappings of the same pages
+// (Linux: a memfd mapped twice; Darwin: vm_remap of the base mapping), so a
+// wineserver and its clients see one another's writes. The capacity is
+// fixed for the store's lifetime (aliases must stay valid).
+class SharedStore {
+public:
+    static std::unique_ptr<SharedStore> Create(size_t capacity);  // nullptr on failure
+    ~SharedStore();
+    SharedStore(const SharedStore&) = delete;
+    SharedStore& operator=(const SharedStore&) = delete;
+    uint8_t* base() const { return base_; }
+    size_t capacity() const { return cap_; }
+    // Maps [off, off+len) of the store at host address addr with protection
+    // hprot (host::kProt*); addr, len and off must be host-page aligned.
+    bool alias(uint64_t addr, size_t len, size_t off, int hprot);
+
+private:
+    SharedStore() = default;
+    uint8_t* base_ = nullptr;
+    size_t cap_ = 0;
+    int fd_ = -1;  // Linux: the memfd
+};
+
+// Contents of an upper regular file (shared by hard links and open files):
+// a vector until the file is mapped MAP_SHARED, a SharedStore afterwards.
+// All access under mu.
 struct TmpData {
     mutable std::mutex mu;
+    size_t size() const { return store ? store_size : bytes.size(); }
+    uint8_t* data() { return store ? store->base() : bytes.data(); }
+    const uint8_t* data() const { return store ? store->base() : bytes.data(); }
+    // Grows (zero-filled) or shrinks; false when a store cannot hold it.
+    bool resize(size_t n);
+    // Moves the contents into a store of at least min_capacity bytes (once);
+    // false when the existing store is too small or memory ran out.
+    bool ensure_store(size_t min_capacity);
+
     std::vector<uint8_t> bytes;
+    std::unique_ptr<SharedStore> store;
+    size_t store_size = 0;
 };
 
 struct TmpNode {

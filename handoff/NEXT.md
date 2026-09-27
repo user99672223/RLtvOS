@@ -17,10 +17,16 @@
   procmask/sigaltstack/kill/tgkill/tkill/rt_sigsuspend/pause, x86-64
   rt_sigframe + rt_sigreturn, SA_RESTART/EINTR, default actions), interruptible
   sleeps, process reaping. Host-tested: waiter/queue, pipes, futex, loader.
-- Open request: 004 = C3 on build-23 (allocator fix + C3 kernel): pipes/fork
-  steps, `/opt/rl/refs/c3.sh`, `threads-test`, signal exits, plus the VA
-  regression check (≥ 6 guests, `va --probe2` must not shrink).
-- Landed for C4 (build-24+; host-tested, not yet on the TV): the writable
+- Result 004 (build-23): **VA budget holds** across 6 guests (allocator fix
+  works), `x=$(…); (…; exit 3); echo rc=$?` passes (fork/exec/wait4/SIGCHLD
+  and the snapshot restore work), but `echo one | tr o 0` and `sleep 1 &` hang:
+  the CoW fault hook claimed FEX's alignment faults (`stlurh` into a
+  snapshotted page) → fixed (hook ignores BUS_ADRALN, cow_fault claims only
+  writable pages); `killall` could not stop a JIT-spinning thread → threads
+  are now kicked with SIGUSR2 out of JIT code on exit_group/SIGKILL/killall.
+  Both in build-25 together with the C4 layer. Request 005 = C3 remainder
+  (steps 1a, 1c, 2–5 of 004, plus a kick check) + C4.
+- Landed for C4 (build-25; host-tested, not yet on the TV): the writable
   overlay (`overlay.h`: tmpfs upper layer, whiteouts, copy-up, opaque
   /tmp /var/tmp /run /dev/shm; O_CREAT/O_TRUNC/O_APPEND, mkdir/unlink/rename/
   link/symlink/mknod/chmod/chown/utimens/truncate, memfd_create, sendfile),
@@ -31,17 +37,20 @@
   `/guest-ls` debug routes (`tv.py guest-file|guest-put|guest-ls`) to pull
   files the guest wrote (Xvfb log, xwd dumps). Guest scripts source `_lib.sh`
   relative to `$0`.
-- Next: result 004 → fix what C3 shows, then request 005 = C4
-  (`/opt/rl/refs/c4.sh`: Xvfb :0 + xdpyinfo + xeyes + xdotool; the xwd dump
-  comes back through `tv.py guest-file /tmp/c4.xwd`). Draft in the repo
-  session's scratchpad.
+- Next: post request 005 once build-25's release exists, wait for the result,
+  fix what it shows. Then C5 prep from LAPTOP's `c5.summary.txt` (asked for in
+  005): wineserver/wine chain needs, /proc/<pid>/mem, KUSER_SHARED_DATA plan,
+  guest SIGSEGV delivery.
+- MAP_SHARED of upper files is now a real shared mapping (SharedStore +
+  alias; DECISIONS 2026-09-27) for Wine's shared sections in C5.
 - Known gaps: signals reach a thread running JIT code only at its next
   syscall (async delivery = FEX SRA spill, later); a guest fault kills the
   process instead of raising SIGSEGV to a guest handler; exit_group does not
   stop sibling threads that never syscall; no SMC tracking; one lock around
-  every rlvfs call; MAP_SHARED files are write-back copies (no cross-process
-  sharing yet); FIFO opens do not block for the other end; EPOLLET reports
-  rising edges only; no AF_INET; itimer VIRTUAL/PROF never fire.
+  every rlvfs call; MAP_SHARED at a misaligned offset falls back to a
+  write-back copy; FIFO opens do not block for the other end; EPOLLET reports
+  rising edges only; no AF_INET; itimer VIRTUAL/PROF never fire; a kicked or
+  faulted FEX thread object is leaked (its call-ret stack is freed).
 - Facts: guest executables must be PIE (4 GB hard page zero); VA budget
   6.25–6.5 GB; `/status.guest`, `/run exec|ps|guest-out|killall`; `tv.py exec|ps`.
 - CI: `macos-15`, Xcode 16.4, tvOS 18.5 SDK, deployment target 18.0; jobs

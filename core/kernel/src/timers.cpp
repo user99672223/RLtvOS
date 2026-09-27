@@ -105,15 +105,15 @@ void Kernel::writeback_shared(GuestProcess& p, uint64_t addr, uint64_t len, bool
         const uint64_t s = std::max(ms, addr), e = std::min(me, end);
         {
             std::lock_guard<std::mutex> dl(m.node->data->mu);
-            auto& bytes = m.node->data->bytes;
+            TmpData& fdata = *m.node->data;
             const uint64_t foff = m.off + (s - ms);
-            if (foff < bytes.size()) {
-                const uint64_t n = std::min<uint64_t>(e - s, bytes.size() - foff);
+            if (foff < fdata.size()) {
+                const uint64_t n = std::min<uint64_t>(e - s, fdata.size() - foff);
                 for (uint64_t pg = s; pg < s + n; pg += lx::page) {  // only pages the guest can read
                     const Vma v = p.mm->find(pg);
                     if (v.end == 0 || !(v.prot_at(pg) & lx::prot_read)) continue;
                     const uint64_t chunk = std::min<uint64_t>(lx::page - (pg & (lx::page - 1)), s + n - pg);
-                    memcpy(bytes.data() + foff + (pg - s), reinterpret_cast<const void*>(pg), (size_t)chunk);
+                    memcpy(fdata.data() + foff + (pg - s), reinterpret_cast<const void*>(pg), (size_t)chunk);
                 }
                 m.node->mtime = m.node->ctime = Overlay::now_sec();
             }

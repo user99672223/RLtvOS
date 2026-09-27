@@ -271,6 +271,14 @@ int64_t sys_mmap(Sc& c) {
     const bool fixed = flags & lx::map_fixed;
     const bool noreplace = flags & lx::map_fixed_noreplace;
     if ((fixed || noreplace) && (addr & (lx::page - 1))) return -lx::einval;
+    const char* strace_note = "";
+    struct NoteAppender {
+        Sc& c;
+        const char*& note;
+        ~NoteAppender() {
+            if (*note) strncat(c.args, note, sizeof c.args - strlen(c.args) - 1);
+        }
+    } note_appender {c, strace_note};
     std::shared_ptr<FileSource> src;
     std::string name;
     uint64_t ino = 0;
@@ -285,10 +293,26 @@ int64_t sys_mmap(Sc& c) {
     int64_t r = c.p.mm->map(addr, len, prot, fixed || noreplace, noreplace, name, off, ino);
     if (r < 0) return r;
     if (src && (flags & lx::map_shared)) {
-        // MAP_SHARED of a writable upper file: a private copy now, written
-        // back on munmap/msync/exit (DECISIONS 2026-09-27).
         if (auto tmp = std::dynamic_pointer_cast<TmpFileSource>(src)) {
-            if (prot & lx::prot_write) K().add_shared_map(c.p, (uint64_t)r, lx::PageUp(len), tmp->node(), off);
+            // MAP_SHARED of an upper file: alias the file's pages when the
+            // mapping is host-page aligned and exclusively ours (Wine's 64 KB
+            // views are), else a private copy written back on munmap/msync/
+            // exit (DECISIONS 2026-09-27).
+            auto node = tmp->node();
+            const uint64_t hp = AddressSpace::host_page();
+            const uint64_t hlen = AddressSpace::host_up(lx::PageUp(len));
+            bool aliased = false;
+            if (((uint64_t)r % hp) == 0 && (off % hp) == 0) {
+                std::lock_guard<std::mutex> lk(node->data->mu);
+                if (node->data->ensure_store((size_t)(off + hlen))) {
+                    aliased = c.p.mm->alias_shared((uint64_t)r, hlen, node->data->store.get(), off, prot);
+                }
+            }
+            if (aliased) {
+                strace_note = " (shared alias)";
+                return r;
+            }
+            if (prot & lx::prot_write) K().add_shared_map(c.p, (uint64_t)r, lx::PageUp(len), node, off);
         }
     }
     if (src) {
@@ -644,10 +668,15 @@ int64_t send_to_pid(Sc& c, int pid, int sig, const lx::siginfo* info) {
     if (targets.empty()) return -lx::esrch;
     for (auto* p : targets) {
         if (sig == lx::sigkill && p != &c.p) {
-            // Uncatchable: the target's threads exit at their next syscall / wakeup.
+            // Uncatchable: the target's threads exit at their next syscall /
+            // wakeup; ones spinning in JIT code are kicked out of it.
             p->term_signal = lx::sigkill;
             p->state = (int)ProcState::Dead;
-            for (auto& th : p->threads) th->waiter.notify();
+            std::lock_guard<std::mutex> lk(k.mu);
+            for (auto& th : p->threads) {
+                th->waiter.notify();
+                k.kick_thread_locked(*th);
+            }
             continue;
         }
         k.send_signal(*p, sig, info);

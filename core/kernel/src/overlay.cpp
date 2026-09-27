@@ -1,16 +1,112 @@
 // overlay.cpp — see overlay.h.
 #include "overlay.h"
 
+#include <sys/mman.h>
+#include <unistd.h>
+#ifdef __APPLE__
+#include <mach/mach.h>
+#include <mach/vm_map.h>
+#endif
+
 #include <algorithm>
 #include <atomic>
+#include <cerrno>
 #include <cstring>
 #include <ctime>
 
 #include "locks.h"
 #include "log.h"
+#include "mm.h"
 #include "pipe.h"
 
 namespace rlk {
+
+// ---- SharedStore / TmpData ---------------------------------------------------------
+
+std::unique_ptr<SharedStore> SharedStore::Create(size_t capacity) {
+    const size_t hp = (size_t)AddressSpace::host_page();
+    capacity = (capacity + hp - 1) / hp * hp;
+    if (capacity == 0) capacity = hp;
+    std::unique_ptr<SharedStore> s(new SharedStore());
+    s->cap_ = capacity;
+#ifdef __APPLE__
+    void* p = ::mmap(nullptr, capacity, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (p == MAP_FAILED) return nullptr;
+    s->base_ = static_cast<uint8_t*>(p);
+#else
+    int fd = (int)::memfd_create("rltvos-shared-file", MFD_CLOEXEC);
+    if (fd < 0) return nullptr;
+    if (::ftruncate(fd, (off_t)capacity) != 0) {
+        ::close(fd);
+        return nullptr;
+    }
+    void* p = ::mmap(nullptr, capacity, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
+    if (p == MAP_FAILED) {
+        ::close(fd);
+        return nullptr;
+    }
+    s->fd_ = fd;
+    s->base_ = static_cast<uint8_t*>(p);
+#endif
+    return s;
+}
+
+SharedStore::~SharedStore() {
+    if (base_) ::munmap(base_, cap_);
+    if (fd_ >= 0) ::close(fd_);
+}
+
+bool SharedStore::alias(uint64_t addr, size_t len, size_t off, int hprot) {
+    const size_t hp = (size_t)AddressSpace::host_page();
+    if ((addr | len | off) & (hp - 1)) return false;
+    if (off + len > cap_) return false;
+#ifdef __APPLE__
+    vm_address_t target = (vm_address_t)addr;
+    vm_prot_t cur = 0, max = 0;
+    kern_return_t kr = vm_remap(mach_task_self(), &target, (vm_size_t)len, 0, VM_FLAGS_FIXED | VM_FLAGS_OVERWRITE,
+                                mach_task_self(), (vm_address_t)(base_ + off), FALSE, &cur, &max, VM_INHERIT_SHARE);
+    if (kr != KERN_SUCCESS || target != (vm_address_t)addr) {
+        Log("overlay: vm_remap(0x%llx+%zu ← store+%zu) failed kr=%d", (unsigned long long)addr, len, off, (int)kr);
+        return false;
+    }
+    if (::mprotect(reinterpret_cast<void*>(addr), len, hprot) != 0) return false;
+    return true;
+#else
+    void* p = ::mmap(reinterpret_cast<void*>(addr), len, hprot, MAP_SHARED | MAP_FIXED, fd_, (off_t)off);
+    if (p == MAP_FAILED) {
+        Log("overlay: shared alias mmap(0x%llx+%zu) failed errno=%d", (unsigned long long)addr, len, errno);
+        return false;
+    }
+    return true;
+#endif
+}
+
+bool TmpData::resize(size_t n) {
+    if (!store) {
+        bytes.resize(n);
+        return true;
+    }
+    if (n > store->capacity()) return false;
+    if (n > store_size) memset(store->base() + store_size, 0, n - store_size);
+    if (n < store_size) memset(store->base() + n, 0, store_size - n);  // a later regrow reads zeros
+    store_size = n;
+    return true;
+}
+
+bool TmpData::ensure_store(size_t min_capacity) {
+    if (store) return store->capacity() >= min_capacity;
+    // Room to grow: files are mapped at their final size mostly, but leave
+    // slack (the store cannot move once aliased).
+    size_t cap = std::max<size_t>({min_capacity, bytes.size() * 2, (size_t)1 << 20});
+    auto st = SharedStore::Create(cap);
+    if (!st) return false;
+    memcpy(st->base(), bytes.data(), bytes.size());
+    store_size = bytes.size();
+    store = std::move(st);
+    bytes.clear();
+    bytes.shrink_to_fit();
+    return true;
+}
 
 namespace {
 
@@ -78,7 +174,7 @@ uint64_t TmpNode::size() const {
     switch (kind) {
         case Reg: {
             std::lock_guard<std::mutex> lk(data->mu);
-            return data->bytes.size();
+            return data->size();
         }
         case Lnk: return target.size();
         case Dir: return 4096;
@@ -324,10 +420,10 @@ int Overlay::copy_up_locked(const std::string& canon, const lx::stat& st, std::s
     n->gid = st.st_gid;
     n->mtime = st.st_mtim.tv_sec;
     const uint64_t size = src->size();
-    n->data->bytes.resize(size);
+    n->data->resize(size);
     uint64_t done = 0;
     while (done < size) {
-        int64_t got = src->pread(n->data->bytes.data() + done, (size_t)std::min<uint64_t>(size - done, 1u << 20), done);
+        int64_t got = src->pread(n->data->data() + done, (size_t)std::min<uint64_t>(size - done, 1u << 20), done);
         if (got <= 0) return got < 0 ? (int)-got : lx::eio;
         done += (uint64_t)got;
     }
@@ -800,7 +896,7 @@ int Overlay::truncate(const std::string& path, uint64_t len) {
     int e = for_write(path, true, n);
     if (e) return e;
     std::lock_guard<std::mutex> lk(n->data->mu);
-    n->data->bytes.resize(len);
+    if (!n->data->resize(len)) return lx::enospc;
     n->mtime = n->ctime = now_sec();
     return 0;
 }
@@ -827,10 +923,10 @@ int64_t TmpFile::read(void* buf, size_t len) {
 int64_t TmpFile::pread(void* buf, size_t len, uint64_t off) {
     if ((oflags & lx::o_accmode) == lx::o_wronly) return -lx::ebadf;
     std::lock_guard<std::mutex> lk(node_->data->mu);
-    const auto& b = node_->data->bytes;
-    if (off >= b.size()) return 0;
-    size_t n = std::min<size_t>(len, b.size() - off);
-    memcpy(buf, b.data() + off, n);
+    const TmpData& d = *node_->data;
+    if (off >= d.size()) return 0;
+    size_t n = std::min<size_t>(len, d.size() - off);
+    memcpy(buf, d.data() + off, n);
     return (int64_t)n;
 }
 
@@ -839,7 +935,7 @@ int64_t TmpFile::write(const void* buf, size_t len) {
     std::lock_guard<std::mutex> lk(mu);
     if (oflags & lx::o_append) {
         std::lock_guard<std::mutex> dl(node_->data->mu);
-        pos_ = node_->data->bytes.size();
+        pos_ = node_->data->size();
     }
     int64_t n = pwrite(buf, len, pos_);
     if (n > 0) pos_ += (uint64_t)n;
@@ -851,9 +947,9 @@ int64_t TmpFile::pwrite(const void* buf, size_t len, uint64_t off) {
     if (len == 0) return 0;
     if (off + len > (1ull << 40)) return -lx::efbig;
     std::lock_guard<std::mutex> lk(node_->data->mu);
-    auto& b = node_->data->bytes;
-    if (off + len > b.size()) b.resize(off + len);
-    memcpy(b.data() + off, buf, len);
+    TmpData& d = *node_->data;
+    if (off + len > d.size() && !d.resize(off + len)) return -lx::enospc;
+    memcpy(d.data() + off, buf, len);
     node_->mtime = node_->ctime = Overlay::now_sec();
     return (int64_t)len;
 }
@@ -880,7 +976,7 @@ int TmpFile::fstat(lx::stat& st) {
 int TmpFile::ftruncate(uint64_t len) {
     if ((oflags & lx::o_accmode) == lx::o_rdonly) return -lx::einval;
     std::lock_guard<std::mutex> lk(node_->data->mu);
-    node_->data->bytes.resize(len);
+    if (!node_->data->resize(len)) return -lx::enospc;
     node_->mtime = node_->ctime = Overlay::now_sec();
     return 0;
 }
@@ -895,10 +991,10 @@ uint64_t TmpFileSource::size() const {
 
 int64_t TmpFileSource::pread(void* buf, size_t len, uint64_t off) {
     std::lock_guard<std::mutex> lk(node_->data->mu);
-    const auto& b = node_->data->bytes;
-    if (off >= b.size()) return 0;
-    size_t n = std::min<size_t>(len, b.size() - off);
-    memcpy(buf, b.data() + off, n);
+    const TmpData& d = *node_->data;
+    if (off >= d.size()) return 0;
+    size_t n = std::min<size_t>(len, d.size() - off);
+    memcpy(buf, d.data() + off, n);
     return (int64_t)n;
 }
 

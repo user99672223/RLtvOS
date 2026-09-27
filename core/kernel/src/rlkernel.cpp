@@ -854,7 +854,8 @@ extern "C" int rlk_write_file(const char* path, const unsigned char* data, size_
         if (e) return -e;
     }
     std::lock_guard<std::mutex> lk(node->data->mu);
-    node->data->bytes.assign(data, data + len);
+    if (!node->data->resize(len)) return -lx::enospc;
+    if (len) memcpy(node->data->data(), data, len);
     node->mtime = node->ctime = Overlay::now_sec();
     return 0;
 }

@@ -14,6 +14,7 @@
 
 #include "rlfex_internal.h"
 
+#include <signal.h>
 #include <sys/mman.h>
 #include <sys/time.h>
 #include <unistd.h>
@@ -170,9 +171,11 @@ FEXCore::Context::Context* Kernel::fex_context() {
 }
 
 bool Kernel::host_fault_hook(int sig, int code, uint64_t addr, uint64_t pc) {
-    (void)sig;
-    (void)code;
     (void)pc;
+    // An alignment fault (FEX's TSO ldapur/stlur crossing 16 bytes) is the
+    // JIT's to back-patch, never a copy-on-write page: result 004's forked
+    // child looped forever between this hook and an unaligned stlurh.
+    if (sig == SIGBUS && code == BUS_ADRALN) return false;
     GuestProcess* p = t_current_proc;
     if (!p || !p->mm) return false;
     return p->mm->cow_fault(addr);
@@ -262,6 +265,22 @@ bool Kernel::create_fex_thread(GuestThread& t, std::string& err, const void* ini
     return true;
 }
 
+// Forgets a FEX thread whose host thread left it by longjmp: it drops out of
+// the invalidation registry and its call-ret stack is freed, but the object
+// itself is not destroyed (FEX's teardown expects a thread that returned).
+void Kernel::detach_fex_thread(GuestThread& t) {
+    if (t.fex_thread) {
+        auto* thread = static_cast<FEXCore::Core::InternalThreadState*>(t.fex_thread);
+        std::lock_guard<std::mutex> tl(g_fex_threads_mu);
+        g_fex_threads.erase(std::remove(g_fex_threads.begin(), g_fex_threads.end(), thread), g_fex_threads.end());
+        t.fex_thread = nullptr;
+    }
+    if (t.callret_alloc) {
+        ::munmap(t.callret_alloc, t.callret_alloc_size);
+        t.callret_alloc = nullptr;
+    }
+}
+
 void Kernel::destroy_fex_thread(GuestThread& t) {
     if (t.fex_thread) {
         auto* thread = static_cast<FEXCore::Core::InternalThreadState*>(t.fex_thread);
@@ -318,9 +337,12 @@ void Kernel::process_exited(GuestProcess& p, GuestThread& t, int code, int term_
     GuestProcess* parent = nullptr;
     {
         std::lock_guard<std::mutex> lk(mu);
-        // Other threads of the group blocked in syscalls wake up and exit.
+        // Other threads of the group: blocked ones wake up and exit at their
+        // syscall boundary; ones spinning in JIT code are kicked out of it.
         for (auto& th : p.threads) {
-            if (th.get() != &t && !th->exited) th->waiter.notify();
+            if (th.get() == &t || th->exited) continue;
+            th->waiter.notify();
+            kick_thread_locked(*th);
         }
         parent = p.ppid ? find(p.ppid) : nullptr;
         if (!parent || parent->state.load() != (int)ProcState::Running) p.reaped = true;  // nobody will wait
@@ -353,10 +375,27 @@ void Kernel::exit_thread(GuestThread& t, void* frame_, int code, bool whole_grou
     frame->State.rip = hlt_page;
 }
 
+void Kernel::kick_thread_locked(GuestThread& t) {
+    if (!t.host_alive || t.exited || &t == t_current_thread) return;
+    rlfex_kick(t.host);
+}
+
 void Kernel::thread_main(GuestThread* t) {
     FEXCore::Allocator::InitializeThread();
     t_current_proc = t->proc;
     t_current_thread = t;
+    {
+        std::lock_guard<std::mutex> lk(mu);
+        t->host_alive = true;
+    }
+    struct AliveGuard {  // the last thing this thread does: nobody may signal it afterwards
+        Kernel& k;
+        GuestThread* t;
+        ~AliveGuard() {
+            std::lock_guard<std::mutex> lk(k.mu);
+            t->host_alive = false;
+        }
+    } alive_guard {*this, t};
     t->waiter.interrupted = &waiter_interrupted;
     t->waiter.interrupted_arg = t;
     SetCurrentWaiter(&t->waiter);
@@ -376,6 +415,20 @@ void Kernel::thread_main(GuestThread* t) {
         FEXCore::Core::InternalThreadState* th;
     } ctx {thread};
     const int rc = rlfex_run_guarded([](void* p) { g_ctx->ExecuteThread(static_cast<Ctx*>(p)->th); }, &ctx, thread, &fault);
+    if (rc != 0 && fault.signal == RLFEX_KICK_SIGNAL) {
+        // Kicked out of JIT code because the process is exiting (exit_group
+        // elsewhere, SIGKILL, killall): finish like a thread that noticed at
+        // a syscall boundary would.
+        const int code = t->proc->term_signal ? 128 + t->proc->term_signal : t->proc->exit_code;
+        Log("kernel: pid %d tid %d kicked out of JIT code (guest rip=0x%llx) -> exit code=%d", t->proc->pid, t->tid,
+            (unsigned long long)thread->CurrentFrame->State.rip, code);
+        t->exit_code = code;
+        t->exited = true;
+        if (t->proc->state.load() == (int)ProcState::Running) process_exited(*t->proc, *t, code, t->proc->term_signal);
+        detach_fex_thread(*t);  // interrupted mid-block: the FEX thread object is leaked, like after a fault
+        if (t->proc->live_threads() == 0) reap(*t->proc);
+        return;
+    }
     if (rc != 0) {
         const int lsig = linux_signal_of_host(fault.signal);
         Log("kernel: pid %d tid %d FAULT signal=%d code=%d pc=0x%llx%s addr=0x%llx (last block-exit guest rip=0x%llx, "
@@ -386,7 +439,7 @@ void Kernel::thread_main(GuestThread* t) {
         t->exit_code = 128 + lsig;
         t->exited = true;
         process_exited(*t->proc, *t, 128 + lsig, lsig);
-        // The FEX thread object is left alone: its state is unknown after a longjmp.
+        detach_fex_thread(*t);  // the FEX thread object is left alone: its state is unknown after a longjmp
         if (t->proc->live_threads() == 0) reap(*t->proc);
         return;
     }
@@ -831,7 +884,10 @@ int Kernel::kill_all() {
             // No async stop yet: flag it and wake blocked threads; each
             // thread exits at its next syscall.
             p->state = (int)ProcState::Dead;
-            for (auto& th : p->threads) th->waiter.notify();
+            for (auto& th : p->threads) {
+                th->waiter.notify();
+                kick_thread_locked(*th);
+            }
             n++;
         }
     }

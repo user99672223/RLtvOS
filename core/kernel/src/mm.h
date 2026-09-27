@@ -17,6 +17,7 @@ namespace rlk {
 struct Vma {
     uint64_t start = 0, end = 0;   // 4 KB aligned, [start, end)
     int flags = 0;                 // lx::map_* as requested (bookkeeping)
+    bool alias = false;            // host pages are a shared alias of a file store (not private memory)
     std::string name;              // "[stack]", "[heap]", a guest path, or ""
     uint64_t file_off = 0;
     uint64_t ino = 0;
@@ -50,6 +51,12 @@ public:
     // file-backed mmap population). Returns false if the range is not mapped.
     bool copy_in(uint64_t addr, const void* src, size_t len);
     bool zero(uint64_t addr, size_t len);
+
+    // MAP_SHARED of a writable file: replaces the host pages of the own VMA at
+    // [addr, addr+hlen) (host-page aligned, exclusively ours) with an alias of
+    // `store` at `off`, so writes are the file's writes. False = not possible
+    // here (the caller falls back to a private copy with write-back).
+    bool alias_shared(uint64_t addr, uint64_t hlen, class SharedStore* store, uint64_t off, int prot);
 
     bool is_mapped(uint64_t addr, uint64_t len) const;  // fully covered by own VMAs
     // Copy of the VMA containing addr (empty optional-like: end == 0 when none).
@@ -100,6 +107,7 @@ private:
 
     // --- helpers, mu_ held ---
     bool covered_by_own(uint64_t hp) const;  // any own VMA overlaps host page hp
+    bool alias_in_page_locked(uint64_t hp) const;  // an alias VMA overlaps host page hp
     int union_prot(uint64_t hp) const;       // guest prot union over host page hp
     void apply_host_prot(uint64_t start, uint64_t end);
     void erase_range_locked(uint64_t start, uint64_t end);

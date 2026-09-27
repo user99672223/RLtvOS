@@ -779,6 +779,12 @@ def cmd_fex(a):
     out(j, 0 if isinstance(j, dict) and j.get("ok") else 1)
 
 
+# What the kernel gives a guest when no environment is passed (rlk_exec, envc == 0);
+# `exec --env K=V` adds to this set instead of replacing it.
+DEFAULT_GUEST_ENV = ["PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin", "HOME=/home/user", "USER=user",
+                     "LOGNAME=user", "LANG=C.UTF-8", "TERM=dumb", "TMPDIR=/tmp"]
+
+
 def cmd_exec(a):
     """Run a guest program through the fake kernel on the TV.
     exec [--dry-run] [--env K=V]... [--cwd DIR] [--wait S] -- /guest/path [args...]
@@ -793,7 +799,8 @@ def cmd_exec(a):
     if not argv:
         fail("usage: tv.py exec [--dry-run] [--env K=V] [--cwd DIR] [--wait S] -- /guest/path [args...]")
     builtin = ["exec"] + (["--dry-run"] if a.dry_run else []) + argv
-    st, j = app_json("POST", "/run", {"argv": builtin, "env": a.env or [], "cwd": a.cwd}, timeout=a.timeout)
+    env = [e for e in DEFAULT_GUEST_ENV if e.split("=", 1)[0] not in {x.split("=", 1)[0] for x in a.env}] + a.env if a.env else []
+    st, j = app_json("POST", "/run", {"argv": builtin, "env": env, "cwd": a.cwd}, timeout=a.timeout)
     if st == 0:
         fail("app died during exec; relaunch and read /crash (tv.py crash)", argv=argv)
     res = {"ok": bool(isinstance(j, dict) and j.get("ok")), "http": st, "reply": j}

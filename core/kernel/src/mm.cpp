@@ -12,6 +12,7 @@
 
 #include "linux_abi.h"
 #include "log.h"
+#include "overlay.h"
 
 namespace rlk {
 
@@ -92,6 +93,16 @@ bool AddressSpace::covered_by_own(uint64_t hp) const {
         if (prev->second.end > hp) return true;
     }
     return it != vmas_.end() && it->second.start < hpe;
+}
+
+bool AddressSpace::alias_in_page_locked(uint64_t hp) const {
+    uint64_t hpe = hp + host_page();
+    auto it = vmas_.upper_bound(hp);
+    if (it != vmas_.begin()) --it;
+    for (; it != vmas_.end() && it->second.start < hpe; ++it) {
+        if (it->second.end > hp && it->second.alias) return true;
+    }
+    return false;
 }
 
 int AddressSpace::union_prot(uint64_t hp) const {
@@ -243,6 +254,7 @@ void AddressSpace::erase_range_locked(uint64_t start, uint64_t end) {
             tail.start = end;
             tail.end = v.end;
             tail.flags = v.flags;
+            tail.alias = v.alias;
             tail.name = v.name;
             tail.ino = v.ino;
             tail.file_off = v.file_off + (end - v.start);
@@ -292,6 +304,15 @@ int64_t AddressSpace::map_fixed_locked(uint64_t start, uint64_t len, int prot, b
         if (own) {
             const uint64_t hpe = hp + host_page();
             uint64_t zs = std::max(hp, start), ze = std::min(hpe, end);
+            if (alias_in_page_locked(hp)) {
+                // The page is a file's shared pages: replace it with fresh
+                // private memory (zeroing it would write into the file). A
+                // neighbouring private VMA in the same host page loses its
+                // bytes — Wine's 64 KB granularity never mixes the two.
+                ::mmap(reinterpret_cast<void*>(hp), host_page(), host::kProtRead | host::kProtWrite,
+                       host::kMapPrivate | host::kMapAnon | host::kMapFixed, -1, 0);
+                continue;
+            }
             cow_touch_locked(hp, hpe);
             ::mprotect(reinterpret_cast<void*>(hp), host_page(), host::kProtRead | host::kProtWrite);
             memset(reinterpret_cast<void*>(zs), 0, ze - zs);
@@ -349,6 +370,30 @@ int64_t AddressSpace::map(uint64_t hint, uint64_t len, int prot, bool fixed, boo
     vmas_.emplace(addr, std::move(v));
     // the slack after `len` up to hlen stays ours (unused) until the last VMA in the host page goes
     return (int64_t)addr;
+}
+
+bool AddressSpace::alias_shared(uint64_t addr, uint64_t hlen, SharedStore* store, uint64_t off, int prot) {
+    if (!store || (addr & (host_page() - 1)) || (hlen & (host_page() - 1)) || (off & (host_page() - 1))) return false;
+    std::lock_guard<std::mutex> lk(mu_);
+    // Every host page must belong to VMAs inside [addr, addr+hlen) only.
+    for (uint64_t hp = addr; hp < addr + hlen; hp += host_page()) {
+        auto it = vmas_.upper_bound(hp);
+        if (it != vmas_.begin()) --it;
+        bool covered = false;
+        for (; it != vmas_.end() && it->second.start < hp + host_page(); ++it) {
+            const Vma& v = it->second;
+            if (v.end <= hp) continue;
+            if (v.start < addr || v.end > addr + hlen) return false;  // shared with a neighbour
+            covered = true;
+        }
+        if (!covered) return false;
+    }
+    if (!store->alias(addr, hlen, off, to_host_prot(prot))) return false;
+    auto it = vmas_.lower_bound(addr);
+    for (; it != vmas_.end() && it->second.start < addr + hlen; ++it) it->second.alias = true;
+    apply_host_prot(addr, addr + hlen);
+    invalidate(addr, addr + hlen);
+    return true;
 }
 
 int64_t AddressSpace::unmap(uint64_t addr, uint64_t len) {
@@ -445,8 +490,11 @@ bool AddressSpace::cow_fault(uint64_t addr) {
     const uint64_t hp = host_down(addr);
     Snapshot& s = snaps_.back();
     if (!s.is_tracked(hp)) return false;
+    // Only a store the guest is allowed to make can be a copy-on-write fault;
+    // a store to a page the guest itself made read-only is its own fault.
+    if (!(union_prot(hp) & lx::prot_write)) return false;
     if (!s.pages.count(hp)) cow_touch_locked(hp, hp + host_page());
-    else apply_host_prot(hp, hp + host_page());  // already saved: a stale protection, refresh it
+    else apply_host_prot(hp, hp + host_page());  // already saved (another thread): a stale protection, refresh it
     return true;
 }
 
@@ -473,7 +521,7 @@ void AddressSpace::push_snapshot() {
     s.brk_cur = brk_cur;
     s.brk_end = brk_end;
     for (uint64_t hp : covered_host_pages_locked(vmas_)) {
-        if (union_prot(hp) & lx::prot_write) s.tracked.push_back(hp);
+        if ((union_prot(hp) & lx::prot_write) && !alias_in_page_locked(hp)) s.tracked.push_back(hp);
     }
     snaps_.push_back(std::move(s));
     // write-protect the tracked pages (apply_host_prot consults the top snapshot)

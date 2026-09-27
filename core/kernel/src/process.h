@@ -49,6 +49,7 @@ struct GuestThread {
     void* fex_thread = nullptr;     // FEXCore::Core::InternalThreadState*
     pthread_t host {};
     bool host_started = false;
+    bool host_alive = false;        // thread_main is running (Kernel::mu): safe to pthread_kill
     uint64_t clear_child_tid = 0;   // set_tid_address / CLONE_CHILD_CLEARTID
     uint64_t robust_list = 0;
     uint64_t robust_list_len = 0;
@@ -185,6 +186,9 @@ public:
     // `code`; term_signal != 0 records death by that signal for wait4.
     void exit_thread(GuestThread& t, void* frame, int code, bool whole_group, int term_signal = 0);
     static bool host_fault_hook(int sig, int code, uint64_t addr, uint64_t pc);
+    // Interrupts a thread of an exiting process that is spinning in JIT code
+    // (it never reaches a syscall boundary otherwise). Caller holds mu.
+    void kick_thread_locked(GuestThread& t);
 
     // ---- signals (signals.cpp) ----
     // Queue a signal for a process / a thread (nullptr info = SI_USER from
@@ -223,6 +227,7 @@ private:
     void timer_thread_main();
     bool create_fex_thread(GuestThread& t, std::string& err, const void* initial_state);
     void destroy_fex_thread(GuestThread& t);
+    void detach_fex_thread(GuestThread& t);
     bool start_host_thread(GuestThread& t, std::string& err);
     int load_image(const std::string& exe, const std::vector<std::string>& argv, const std::vector<std::string>& envp,
                    AddressSpace& mm, ExecLayout& layout, std::string& err, std::string* resolved_exe);

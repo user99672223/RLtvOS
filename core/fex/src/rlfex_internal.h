@@ -6,6 +6,9 @@
 
 #include <FEXCore/Core/HostFeatures.h>
 
+#include <pthread.h>
+#include <signal.h>
+
 #include <cstdarg>
 #include <cstddef>
 
@@ -69,6 +72,14 @@ const FEXCore::HostFeatures& rlfex_host_features();
 // faulting access may be retried.
 using rlfex_fault_hook_fn = bool (*)(int sig, int code, uint64_t addr, uint64_t pc);
 void rlfex_set_fault_hook(rlfex_fault_hook_fn fn);
+
+// Interrupts a guest host thread that is executing JIT code: rlfex_run_guarded
+// on that thread returns 1 with fault.signal == RLFEX_KICK_SIGNAL (the FEX
+// thread object is then in an unknown state and is leaked, like after a
+// fault). A thread inside the kernel or FEX's runtime ignores the kick (it
+// exits at its next syscall boundary). The caller must know the thread is alive.
+#define RLFEX_KICK_SIGNAL SIGUSR2
+int rlfex_kick(pthread_t host_thread);
 
 // Runs fn(arg) on this thread with the fault guard armed for FEX thread
 // `thread` (may be null). A SIGBUS inside that thread's JIT code is first
