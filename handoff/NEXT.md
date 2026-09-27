@@ -37,6 +37,8 @@
   `/guest-ls` debug routes (`tv.py guest-file|guest-put|guest-ls`) to pull
   files the guest wrote (Xvfb log, xwd dumps). Guest scripts source `_lib.sh`
   relative to `$0`.
+- Issue 004 (laptop-only): native game footprint proxy + cpubench baseline —
+  the early go/no-go numbers for E1/E2; request 006 runs cpubench on the TV.
 - Open request: 005 (C3 remainder + C4) on build-25. Next: wait for the result,
   fix what it shows. Then C5 prep from LAPTOP's `c5.summary.txt` (asked for in
   005): wineserver/wine chain needs, /proc/<pid>/mem, KUSER_SHARED_DATA plan,
