@@ -1,0 +1,36 @@
+{
+  "exited": false,
+  "http": 200,
+  "ok": false,
+  "output": "",
+  "process": null,
+  "reply": {
+    "dry_run": false,
+    "layout": {
+      "auxv": "0x11a3dbde8",
+      "auxv_entries": 20,
+      "brk": "0x11c800000-0x120800000",
+      "entry": "0x102f352c0",
+      "interp": {
+        "base": "0x102f18000",
+        "entry": "0x102f352c0",
+        "range": "0x102f18000-0x102f50000"
+      },
+      "main": {
+        "base": "0x1037dc000",
+        "dyn": true,
+        "entry": "0x1037e0760",
+        "interp": "/lib64/ld-linux-x86-64.so.2",
+        "path": "/usr/bin/dash",
+        "phdr": "0x1037dc040",
+        "phnum": 14,
+        "range": "0x1037dc000-0x1037ff000"
+      },
+      "rsp": "0x11a3dbd80",
+      "stack": "0x119bdc000-0x11a3dc000"
+    },
+    "ok": true,
+    "pid": 7,
+    "rc": 7
+  }
+}

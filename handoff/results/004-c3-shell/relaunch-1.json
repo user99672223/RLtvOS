@@ -1,0 +1,62 @@
+{
+  "app_id": "dev.rltvos.app.GBCWA7VWJ3",
+  "build": "build-23",
+  "jit": {
+    "allocator": {
+      "free": 117407744,
+      "largest_free": 117407744,
+      "segments": 4,
+      "size": 134217728,
+      "used": 16809984
+    },
+    "attached_test": true,
+    "cs_debugged": 1,
+    "detach_serviced": true,
+    "detached": true,
+    "detached_test": true,
+    "error": "",
+    "in_place": {
+      "errno": 0,
+      "prepared": false,
+      "tried": false
+    },
+    "ok": true,
+    "pool": "0x109bd8000",
+    "prepare_s": 4.38,
+    "prepared_by": "debugger",
+    "protect_kr": 0,
+    "ptraced": 0,
+    "ptraced_at_prepare": 1,
+    "remap_kr": 0,
+    "remap_s": 0.008,
+    "rw_alias": "0x111bd8000",
+    "size": 134217728,
+    "size_mb": 128,
+    "stage": "ready",
+    "unserviced_traps": 0,
+    "wait_s": 60,
+    "waited_s": 2.7
+  },
+  "launch_err": "",
+  "launch_out": "",
+  "launch_rc": 0,
+  "mem": {
+    "available": 1980659968,
+    "available_mb": 1888.9,
+    "compressed": 0,
+    "external": 27049984,
+    "internal": 193200128,
+    "kr": 0,
+    "limit_estimate": 2199912448,
+    "peak_phys_footprint": 219252480,
+    "phys_footprint": 219252480,
+    "phys_footprint_mb": 209.1,
+    "resident_size": 225476608,
+    "virtual_size": 475746795520
+  },
+  "ok": true,
+  "pid": 1164,
+  "power_state": "PowerState.Off",
+  "turned_on": true,
+  "up": true
+}

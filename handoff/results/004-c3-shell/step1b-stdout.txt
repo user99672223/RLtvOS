@@ -1,0 +1,3 @@
+got:hi
+sub
+rc=3

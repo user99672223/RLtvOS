@@ -1,0 +1,36 @@
+{
+  "allocator": "system",
+  "host_features": {
+    "aes": 1,
+    "afp": 0,
+    "avx": 1,
+    "clzero": 1,
+    "cpus": 5,
+    "crc": 1,
+    "cssc": 0,
+    "dcache_line": 128,
+    "dotprod": 1,
+    "ecv": 1,
+    "fcma": 1,
+    "flagm": 1,
+    "flagm2": 1,
+    "float_exceptions": 1,
+    "frintts": 1,
+    "i8mm": 1,
+    "lse": 1,
+    "pmull128": 1,
+    "rcpc": 1,
+    "rpres": 0,
+    "sha": 1,
+    "tso_imm9": 1,
+    "wfxt": 0
+  },
+  "init_ms": 4,
+  "ok": true,
+  "page_size": 16384,
+  "probe": {
+    "rw": "0x111bd8000",
+    "rx": "0x109bd8000"
+  },
+  "version": "FEX-59f85d6-rltvos"
+}

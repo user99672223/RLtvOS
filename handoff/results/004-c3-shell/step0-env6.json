@@ -1,0 +1,52 @@
+{
+  "exited": true,
+  "http": 200,
+  "ok": true,
+  "output": "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\nHOME=/home/user\nUSER=user\nLOGNAME=user\nLANG=C.UTF-8\nTERM=dumb\nTMPDIR=/tmp\n",
+  "process": {
+    "dry_run": false,
+    "exe": "/usr/bin/env",
+    "exit_code": 0,
+    "fds": 0,
+    "live_threads": 0,
+    "mapped_bytes": 0,
+    "ms": 80.6,
+    "pid": 6,
+    "ppid": 0,
+    "reaped": true,
+    "state": "exited",
+    "syscalls": 106,
+    "term_signal": 0,
+    "threads": 1,
+    "vmas": 0
+  },
+  "reply": {
+    "dry_run": false,
+    "layout": {
+      "auxv": "0x11a3dbdf8",
+      "auxv_entries": 20,
+      "brk": "0x11c800000-0x120800000",
+      "entry": "0x102f352c0",
+      "interp": {
+        "base": "0x102f18000",
+        "entry": "0x102f352c0",
+        "range": "0x102f18000-0x102f50000"
+      },
+      "main": {
+        "base": "0x1036c4000",
+        "dyn": true,
+        "entry": "0x1036c7c10",
+        "interp": "/lib64/ld-linux-x86-64.so.2",
+        "path": "/usr/bin/env",
+        "phdr": "0x1036c4040",
+        "phnum": 14,
+        "range": "0x1036c4000-0x1036d2000"
+      },
+      "rsp": "0x11a3dbda0",
+      "stack": "0x119bdc000-0x11a3dc000"
+    },
+    "ok": true,
+    "pid": 6,
+    "rc": 6
+  }
+}

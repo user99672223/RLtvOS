@@ -1,0 +1,25 @@
+{
+  "count": 1008,
+  "dropped": 0,
+  "next": 1009,
+  "ok": true,
+  "path": "handoff/results/004-c3-shell/hang-log.txt",
+  "since": 1,
+  "tail": [
+    "run: ps cwd=/",
+    "run: ps cwd=/",
+    "run: ps cwd=/",
+    "run: ps cwd=/",
+    "run: ps cwd=/",
+    "run: ps cwd=/",
+    "run: ps cwd=/",
+    "run: ps cwd=/",
+    "run: ps cwd=/",
+    "run: ps cwd=/",
+    "run: ps cwd=/",
+    "run: ps cwd=/",
+    "host: did enter background",
+    "run: ps cwd=/",
+    "httpd: listener lost (errno=9); re-created on port 7777"
+  ]
+}
