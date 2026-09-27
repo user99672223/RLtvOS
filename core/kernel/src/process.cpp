@@ -313,14 +313,14 @@ void Kernel::process_exited(GuestProcess& p, GuestThread& t, int code, int term_
     p.term_signal = term_signal;
     p.end_ms = NowMs();
     p.state = (int)ProcState::Zombie;
-    // Other threads of the group blocked in syscalls wake up and exit.
-    for (auto& th : p.threads) {
-        if (th.get() != &t && !th->exited) th->waiter.notify();
-    }
     release_vfork_parent(p);
     GuestProcess* parent = nullptr;
     {
         std::lock_guard<std::mutex> lk(mu);
+        // Other threads of the group blocked in syscalls wake up and exit.
+        for (auto& th : p.threads) {
+            if (th.get() != &t && !th->exited) th->waiter.notify();
+        }
         parent = p.ppid ? find(p.ppid) : nullptr;
         if (!parent || parent->state.load() != (int)ProcState::Running) p.reaped = true;  // nobody will wait
     }

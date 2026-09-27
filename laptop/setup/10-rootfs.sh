@@ -106,6 +106,8 @@ if [ "$mode" = rootless ]; then
     rootfs_fakeroot_run sh -c "dpkg -i /tmp/wine-dummy.deb; apt-get update -qq && apt-get install -y --no-install-recommends $PKGS $WINE_PKGS"
     rm -rf "$ROOTFS_DIR/opt/rl/src"; mkdir -p "$ROOTFS_DIR/opt/rl"
     cp -r "$REPO_ROOT/laptop/refs/guest/src" "$ROOTFS_DIR/opt/rl/src"
+    # the checkpoint scripts themselves, so the TV can run them: /opt/rl/refs/c3.sh
+    mkdir -p "$ROOTFS_DIR/opt/rl/refs" && cp "$REPO_ROOT"/laptop/refs/guest/*.sh "$ROOTFS_DIR/opt/rl/refs/" && chmod +x "$ROOTFS_DIR"/opt/rl/refs/*.sh
     cp "$REPO_ROOT/laptop/setup/rootfs-customize.sh" "$ROOTFS_DIR/opt/rl/customize.sh"
     rootfs_fakeroot_run sh /opt/rl/customize.sh
   fi
@@ -129,6 +131,7 @@ if [ "$mode" = sudo ]; then
   rootfs_root_run sh -c "dpkg -i /tmp/wine-dummy.deb; apt-get update -qq && apt-get install -y --no-install-recommends $PKGS $WINE_PKGS"
   sudo rm -rf "$ROOTFS_DIR/opt/rl/src"; sudo mkdir -p "$ROOTFS_DIR/opt/rl"
   sudo cp -r "$REPO_ROOT/laptop/refs/guest/src" "$ROOTFS_DIR/opt/rl/src"
+  sudo mkdir -p "$ROOTFS_DIR/opt/rl/refs" && sudo cp "$REPO_ROOT"/laptop/refs/guest/*.sh "$ROOTFS_DIR/opt/rl/refs/" && sudo chmod +x "$ROOTFS_DIR"/opt/rl/refs/*.sh
   sudo cp "$REPO_ROOT/laptop/setup/rootfs-customize.sh" "$ROOTFS_DIR/opt/rl/customize.sh"
   rootfs_root_run sh /opt/rl/customize.sh
   log "chown → $(id -un) so bwrap/assets server run unprivileged"

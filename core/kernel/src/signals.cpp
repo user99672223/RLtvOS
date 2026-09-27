@@ -93,6 +93,7 @@ int Kernel::send_signal(GuestProcess& p, int sig, const lx::siginfo* info) {
             fill_default_info(p.siginfo_by_sig[sig], sig);
         }
     }
+    std::lock_guard<std::mutex> lk(mu);  // the thread list may grow (clone) meanwhile
     for (auto& th : p.threads) {
         if (!th->exited && !(th->sigmask & lx::sigbit(sig))) th->waiter.notify();
     }
@@ -212,10 +213,14 @@ void Kernel::deliver_signals(GuestThread& t, void* frame_, int64_t ret) {
         sc.eflags = eflags;
         sc.cs = 0x33;
         sc.ss = 0x2b;
-        sc.oldmask = t.sigmask;
+        // rt_sigsuspend: the frame carries the mask from before the call, so
+        // sigreturn puts it back once the handler returns.
+        const uint64_t saved_mask = t.saved_mask_valid ? t.saved_mask : t.sigmask;
+        t.saved_mask_valid = false;
+        sc.oldmask = saved_mask;
         sc.cr2 = (sig == lx::sigsegv || sig == lx::sigbus) ? info.u.fault.addr : 0;
         sc.fpstate = fp;
-        fr.uc.uc_sigmask = t.sigmask;
+        fr.uc.uc_sigmask = saved_mask;
         fr.info = info;
         fr.info.si_signo = sig;
         uint8_t fx[lx::fxsave_size];
