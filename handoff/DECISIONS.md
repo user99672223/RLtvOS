@@ -25,3 +25,4 @@
 - 2026-09-27 [repo] FEXCore RW/RX handling follows AetherPS4's `fexcore-darwin` port: the emitter works on the writable alias, `GetExecutableAddress`/`GetWritableAddress` translate at the ~20 sites where addresses escape or are patched; `MAX_CODE_SIZE` capped at 64 MB on Apple (one 128 MB pool, all pages resident once prepared).
 - 2026-09-27 [repo] Deployment target raised 16.0 → 18.0 (`os_sync_wait_on_address`, `std::pmr`); the target box runs tvOS 27, nothing older is supported.
 - 2026-09-27 [repo] The tvOS FEX build is non-fatal in CI: on failure the app ships without FEX (`FEX linked: false` in the release body, `fex-build.log` in the artifact) so the harness/JIT work on the TV is never blocked by a FEX compile error.
+- 2026-09-27 [laptop] Result files replace the laptop home path with `~` (public repo).

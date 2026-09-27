@@ -1,0 +1,12 @@
+{
+  "ok": true,
+  "va": {
+    "contig_errno": 12,
+    "highest": "0x7180000000",
+    "lowest": "0x10c800000",
+    "max_contiguous_gb": 6,
+    "step_limit_gb": 1024,
+    "stop_errno": 12,
+    "total_1gb_steps": 7
+  }
+}

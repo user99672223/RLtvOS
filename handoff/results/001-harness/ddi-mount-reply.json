@@ -1,0 +1,8 @@
+{
+  "ok": false,
+  "reply": {
+    "code": -1,
+    "data": null,
+    "msg": "mount developer disk image failed: error: failed to mount personalized image: unknownerrortype(\"imagemountfailed\")"
+  }
+}

@@ -102,3 +102,31 @@ debugserver address it can reach without root (`DEBUGSERVER_ADDR` / `DEBUGSERVER
   launch → app waits for a debugger (P_TRACED poll) → `tv.py jit` → `jit.sh --pid {pid}`).
   The app must therefore not call the brk stubs before `P_TRACED`, or the SIGTRAP guard fails
   them. `jit.sh --launch BUNDLE` also exists if you'd rather have JIT_CMD launch the app.
+
+## 2026-09-27 first TV run (request 001, build-11): blocked on the tvOS 27 developer disk image
+- **Tunnel works rootless:** `laptop/jit.sh --probe` does pair-verify with atvloadly's
+  RemotePairing record, TLS-PSK tunnel, jktcp and RSD, and lists 60 services in 0.2 s. No PIN,
+  nothing on screen (results/001-harness/jit-probe.json).
+- **No debug services:** `com.apple.internal.dt.remote.debugproxy` and
+  `com.apple.coredevice.appservice` are absent until a developer disk image (DDI) is mounted.
+  Present: `com.apple.security.cryptexd.remote`, `com.apple.mobile.mobile_image_mounter.shim.remote`,
+  `com.apple.instruments.dtservicehub`.
+- **Classic personalized DDI fails on tvOS 27:** atvloadly/plumesign with bitxeno's tvOS_DDI
+  (Xcode 26 era) gives `failed to mount personalized image: ImageMountFailed`.
+- **tvOS 27 needs the Cryptex1 DDI** (pymobiledevice3: "Only install the cryptex DDI from
+  iOS 27", CRYPTEX_IMAGE_MIN_VERSION 27.0; idevice has `cryptexd::install_ddi`). The only public
+  Cryptex DDI (doronz88/DeveloperDiskImage, iOS, build 27A5228h) is `Cryptex1,ProductClass
+  0xF2` "iOS Customer Developer Disk Image Cryptex". Its 141 identities cover every other
+  A15 board but not J255AP, and doronz88's `update_ddi.py --platform tvOS` notes "only iOS is
+  published today". The tvOS Cryptex DDI is only in **Xcode 27**
+  (`/Library/Developer/CoreDevice/CandidateDDIs/tvOS_DDI.dmg`, or its source in the Xcode bundle).
+- **App side:** without a debugger the app did exactly what it should: `stage: failed`,
+  `PrepareRegion returned 0 (ptraced=0, unserviced traps=1, waited 60.1 s)`, still running.
+- **Unblocking, asked of the user:**
+  (a) a Mac with Xcode 27 → copy `tvOS_DDI.dmg`, or run doronz88's
+      `update_ddi.py --platform tvOS --variant cryptex`, and send the files; or
+  (b) the user downloads Xcode 27 (.xip, ~10 GB, their Apple ID) to the laptop → LAPTOP
+      extracts only the tvOS DDI on Linux (xar + pbzx + cpio, then 7-Zip for the DMG).
+  Then LAPTOP adds `cryptexd` install (idevice `install_ddi`, TSS personalization) to
+  laptop/jit and re-runs request 001. No app changes are needed for this.
+- Skeleton impact: none yet. The debugger route exists; it only needs Apple's tvOS 27 DDI.

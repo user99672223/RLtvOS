@@ -1,0 +1,19 @@
+crash: SIGSEGV (11) code=2 addr=0x10
+pc=0x10245fed0 lr=0x10245feb0 sp=0x16dd76d30 fp=0x16dd76d50 far=0x10 esr=0x92000046
+slide=0x2458000 unslid_pc=0x100007ed0 unslid_lr=0x100007eb0 image=/private/var/containers/Bundle/Application/D22385AD-5C14-4C34-8967-92CB2A482118/RLtvOS.app/RLtvOS
+uptime_ms=33107
+backtrace:
+0   RLtvOS                              0x000000010245fd1c crash_handler + 456
+1   libsystem_platform.dylib            0x000000018e2030ec 9F675344-619D-357A-8FA8-7F7ECD73C695 + 33004
+2   RLtvOS                              0x000000010245feb0 rl_crash_now + 36
+3   RLtvOS                              0x00000001024770d4 block_copy_helper + 0
+4   RLtvOS                              0x0000000102463480 $sIegh_IeyBh_TR + 28
+5   libdispatch.dylib                   0x0000000244f94348 3AC61160-1F71-345B-B39D-BACC5EC9C20B + 111432
+6   libdispatch.dylib                   0x0000000244f7f148 3AC61160-1F71-345B-B39D-BACC5EC9C20B + 24904
+7   libdispatch.dylib                   0x0000000244f92030 3AC61160-1F71-345B-B39D-BACC5EC9C20B + 102448
+8   libdispatch.dylib                   0x0000000244f90d04 3AC61160-1F71-345B-B39D-BACC5EC9C20B + 97540
+9   libdispatch.dylib                   0x0000000244f8ca64 3AC61160-1F71-345B-B39D-BACC5EC9C20B + 80484
+10  libdispatch.dylib                   0x0000000244f8d1f8 3AC61160-1F71-345B-B39D-BACC5EC9C20B + 82424
+11  libsystem_pthread.dylib             0x00000001b1832a74 _pthread_wqthread + 232
+12  libsystem_pthread.dylib             0x00000001b1832910 start_wqthread + 8
+frames_unslid: 0x100007d1c 0x18bdab0ec 0x100007eb0 0x10001f0d4 0x10000b480 0x242b3c348 0x242b27148 0x242b3a030 0x242b38d04 0x242b34a64 0x242b351f8 0x1af3daa74 0x1af3da910

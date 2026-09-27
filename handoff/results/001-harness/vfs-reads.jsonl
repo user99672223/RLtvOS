@@ -1,0 +1,226 @@
+{
+  "argv": [
+    "vfs-ls",
+    "/"
+  ],
+  "ok": true,
+  "reply": {
+    "count": 22,
+    "entries": [
+      {
+        "dtype": 10,
+        "name": "bin"
+      },
+      {
+        "dtype": 4,
+        "name": "boot"
+      },
+      {
+        "dtype": 4,
+        "name": "dev"
+      },
+      {
+        "dtype": 4,
+        "name": "etc"
+      },
+      {
+        "dtype": 4,
+        "name": "game"
+      },
+      {
+        "dtype": 4,
+        "name": "home"
+      },
+      {
+        "dtype": 10,
+        "name": "lib"
+      },
+      {
+        "dtype": 10,
+        "name": "lib64"
+      },
+      {
+        "dtype": 4,
+        "name": "media"
+      },
+      {
+        "dtype": 4,
+        "name": "mnt"
+      },
+      {
+        "dtype": 4,
+        "name": "opt"
+      },
+      {
+        "dtype": 4,
+        "name": "prefix"
+      },
+      {
+        "dtype": 4,
+        "name": "proc"
+      },
+      {
+        "dtype": 4,
+        "name": "refs"
+      },
+      {
+        "dtype": 4,
+        "name": "root"
+      },
+      {
+        "dtype": 4,
+        "name": "run"
+      },
+      {
+        "dtype": 10,
+        "name": "sbin"
+      },
+      {
+        "dtype": 4,
+        "name": "srv"
+      },
+      {
+        "dtype": 4,
+        "name": "sys"
+      },
+      {
+        "dtype": 4,
+        "name": "tmp"
+      },
+      {
+        "dtype": 4,
+        "name": "usr"
+      },
+      {
+        "dtype": 4,
+        "name": "var"
+      }
+    ],
+    "ok": true
+  }
+}
+{
+  "argv": [
+    "vfs-cat",
+    "/etc/hostname",
+    "0",
+    "4096"
+  ],
+  "ok": true,
+  "reply": {
+    "hex32": "726c74766f730a",
+    "ms": 13.9,
+    "n": 7,
+    "off": 0,
+    "ok": true,
+    "stats": {
+      "bytes": 48189827568,
+      "cache": {
+        "block_size": 1048576,
+        "dir": "/var/mobile/Containers/Data/Application/9A8C3D97-A3C0-4ACF-861C-122318969441/Library/Caches/vfs-blocks",
+        "fetch_errors": 0,
+        "fetch_requests": 1,
+        "fetched_bytes": 7,
+        "files_open": 1,
+        "hit_blocks": 0,
+        "miss_blocks": 1,
+        "reads": 1
+      },
+      "entries": 70386,
+      "files": 55641,
+      "http": {
+        "bytes": 2991955,
+        "requests": 3
+      },
+      "mount_ms": 528.6,
+      "mounted": true,
+      "url": "http://192.168.1.133:8090"
+    },
+    "text": "rltvos\n"
+  }
+}
+{
+  "argv": [
+    "vfs-cat",
+    "/etc/os-release",
+    "0",
+    "4096"
+  ],
+  "ok": true,
+  "reply": {
+    "hex32": "5052455454595f4e414d453d2244656269616e20474e552f4c696e7578203133",
+    "ms": 15.1,
+    "n": 286,
+    "off": 0,
+    "ok": true,
+    "stats": {
+      "bytes": 48189827568,
+      "cache": {
+        "block_size": 1048576,
+        "dir": "/var/mobile/Containers/Data/Application/9A8C3D97-A3C0-4ACF-861C-122318969441/Library/Caches/vfs-blocks",
+        "fetch_errors": 0,
+        "fetch_requests": 2,
+        "fetched_bytes": 293,
+        "files_open": 2,
+        "hit_blocks": 0,
+        "miss_blocks": 2,
+        "reads": 2
+      },
+      "entries": 70386,
+      "files": 55641,
+      "http": {
+        "bytes": 2992565,
+        "requests": 4
+      },
+      "mount_ms": 528.6,
+      "mounted": true,
+      "url": "http://192.168.1.133:8090"
+    },
+    "text": "PRETTY_NAME=\"Debian GNU/Linux 13 (trixie)\"\nNAME=\"Debian GNU/Linux\"\nVERSION_ID=\"13\"\nVERSION=\"13 (trixie)\"\nVERSION_CODENAME=trixie\nDEBIAN_VERSION_FULL=13.7\nID=debian\nHOME_URL=\"https://www.debian.org/\"\nSUPPORT_URL=\"https://www.debian.org/support\"\nBUG_REPORT_URL=\"https://bugs.debian.org/\"\n"
+  }
+}
+{
+  "argv": [
+    "vfs-stat",
+    "/opt/wine-stable/bin/wine"
+  ],
+  "ok": true,
+  "reply": {
+    "children": 0,
+    "ino": 5722648585538252240,
+    "link": "",
+    "manifest_path": "rootfs/opt/wine-stable/bin/wine",
+    "mode": "100755",
+    "mtime": 1768340355,
+    "ok": true,
+    "path": "/opt/wine-stable/bin/wine",
+    "size": 14632,
+    "type": "file"
+  }
+}
+{
+  "ok": true,
+  "vfs": {
+    "bytes": 48189827568,
+    "cache": {
+      "block_size": 1048576,
+      "dir": "/var/mobile/Containers/Data/Application/9A8C3D97-A3C0-4ACF-861C-122318969441/Library/Caches/vfs-blocks",
+      "fetch_errors": 0,
+      "fetch_requests": 2,
+      "fetched_bytes": 293,
+      "files_open": 2,
+      "hit_blocks": 0,
+      "miss_blocks": 2,
+      "reads": 2
+    },
+    "entries": 70386,
+    "files": 55641,
+    "http": {
+      "bytes": 2992565,
+      "requests": 4
+    },
+    "mount_ms": 528.6,
+    "mounted": true,
+    "url": "http://192.168.1.133:8090"
+  }
+}

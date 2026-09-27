@@ -1,0 +1,22 @@
+{
+  "arena": {
+    "base": "0x1082ac000",
+    "page": 16384,
+    "pages": 1024,
+    "prot": "rwx",
+    "rwx_errno": 0,
+    "size": 16777216,
+    "size_mb": 16
+  },
+  "authorize_seconds": 4.5,
+  "authorized": false,
+  "backend": "cmd",
+  "build": "build-11",
+  "cmd": "~/local_RLtvOS/laptop/jit.sh --pid 1026",
+  "err": "",
+  "launches_app": false,
+  "ok": false,
+  "out": "{\"ok\":false,\"error\":\"debug services unavailable after mount\",\"probe\":{\"event\":\"probe\",\"t\":0.202,\"services\":60,\"developer_services\":{\"com.apple.internal.dt.remote.debugproxy\":false,\"com.apple.coredevice.appservice\":false},\"names\":[\"com.apple.GPUTools.MobileService.shim.remote\",\"com.apple.PurpleReverseProxy.Conn.shim.remote\",\"com.apple.PurpleReverseProxy.Ctrl.shim.remote\",\"com.apple.RestoreRemoteServices.restoreserviced\",\"com.apple.accessibility.axAuditDaemon.remoteAXService\",\"com.apple.accessibility.axAuditDaemon.remoteserver.shim.remote\",\"com.apple.afc.shim.remote\",\"com.apple.amfi.lockdown.shim.remote\",\"com.apple.atc.shim.remote\",\"com.apple.atc2.shim.remote\",\"com.apple.backgroundassets.lockdownservice.shim.remote\",\"com.apple.bluetooth.BTPacketLogger.shim.remote\",\"com.apple.carkit.service.shim.remote\",\"com.apple.commcenter.mobile-helper-cbupdateservice.shim.remote\",\"com.apple.companion_proxy.shim.remote\",\"com.apple.corecaptured.remoteservice\",\"com.apple.crashreportcopymobile.shim.remote\",\"com.apple.crashreportmover.shim.remote\",\"com.apple.dt.remoteFetchSymbols\",\"com.apple.dt.remotepairingdeviced.lockdown.shim.remote\",\"com.apple.idamd.shim.remote\",\"com.apple.instruments.dtservicehub\",\"com.apple.internal.devicecompute.CoreDeviceProxy\",\"com.apple.internal.devicecompute.CoreDeviceProxy.shim.remote\",\"com.apple.internal.dt.coredevice.untrusted.tunnelservice\",\"com.apple.iosdiagnostics.relay.shim.remote\",\"com.apple.misagent.shim.remote\",\"com.apple.mobile.MCInstall.shim.remote\",\"com.apple.mobile.assertion_agent.shim.remote\",\"com.apple.mobile.diagnostics_relay.shim.remote\",\"com.apple.mobile.file_relay.shim.remote\",\"com.apple.mobile.heartbeat.shim.remote\",\"com.apple.mobile.house_arrest.shim.remote\",\"com.apple.mobile.insecure_notification_proxy.remote\",\"com.apple.mobile.insecure_notification_proxy.shim.remote\",\"com.apple.mobile.installation_proxy.shim.remote\",\"com.apple.mobile.lockdown.remote.trusted\",\"com.apple.mobile.lockdown.remote.untrusted\",\"com.apple.mobile.mobile_image_mounter.shim.remote\",\"com.apple.mobile.notification_proxy.remote\",\"com.}\n",
+  "pid": 1026,
+  "rc": 1
+}

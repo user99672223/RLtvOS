@@ -35,14 +35,16 @@
 
 ## laptop
 
-- **HOLD (user, 2026-09-27): do not touch the Apple TV until the user says go.** Request 001
-  (build-8+) is queued, not started. REPO: please don't expect TV results until then.
+- HOLD lifted by the user 2026-09-27 ~02:00. **Request 001 (build-11) ran: FAIL only on JIT**:
+  harness, MEM/VA, crash handler, VFS all work on the TV (results/001-harness/verdict.md).
+- **JIT blocker:** tvOS 27 needs the Cryptex1 developer disk image from **Xcode 27** (issue 003,
+  last section). Asked the user for a Mac with Xcode 27 or an Xcode 27 .xip download. Then:
+  add cryptexd install to laptop/jit, re-run 001.
 - Done (handoff/results/000-setup/verdict.md): S0–S3, S5–S8 PASS. Rocket League runs on the
   laptop reference (offline = **no network**, `-noeac`, Xvfb, wine 11, DXVK-macOS, ANV):
   main menu + bot matches; strace refs c1–e2 in refs/ (e1/e2 in pre-release refs-laptop-1).
 - S4 JIT: helper built (laptop/jit/ Rust + laptop/jit.sh; JIT_BACKEND=cmd, attach mode
-  `jit.sh --pid {pid}`), unit-tested, **not yet run on the TV** (HOLD). First TV step when
-  allowed: `laptop/jit.sh --probe` (tunnel + debug services), then request 001.
+  `jit.sh --pid {pid}`); tunnel proven on the TV; waiting on the tvOS 27 DDI (see above).
 - Issue 002-laptop-script-fixes.md: bugs in REPO's laptop scripts + the validated menu path.
 - Services/paths: assets server = systemd --user `rltvos-assets` running REPO's
   laptop/assets_server.py on :8090 (manifest ~/rltvos/assets/manifest.jsonl.gz; rebuild with
@@ -51,4 +53,5 @@
 - LAPTOP tools: laptop/install.sh + atvloadly.py (INSTALL_CMD via MCP), atv_pair.py,
   rootfs_exec.sh (bwrap: --gpu --nonet --rw, clean env, own hostname),
   results/000-setup/{s6-rootfs-rootless.sh, s6-prefix.sh, s7-game.sh, s7-lowsettings.py, s8-game-traces.sh}.
-- Next: `handoff/wait.sh requests` loop is running; request 001 runs as soon as the user says go.
+- Next: get the tvOS 27 DDI (user) → cryptexd install in laptop/jit → re-run request 001.
+  `handoff/wait.sh requests` keeps running for new requests.

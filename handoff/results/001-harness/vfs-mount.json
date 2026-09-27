@@ -1,0 +1,23 @@
+{
+  "argv": [
+    "vfs-mount",
+    "http://192.168.1.133:8090"
+  ],
+  "ok": true,
+  "reply": {
+    "bytes": 48189827568,
+    "cache_dir": "/var/mobile/Containers/Data/Application/9A8C3D97-A3C0-4ACF-861C-122318969441/Library/Caches/vfs-blocks",
+    "entries": 70386,
+    "files": 55641,
+    "manifest_gz_bytes": 2990159,
+    "ms": 528.6,
+    "ok": true,
+    "roots": [
+      "rootfs",
+      "prefix",
+      "home",
+      "game"
+    ],
+    "url": "http://192.168.1.133:8090"
+  }
+}

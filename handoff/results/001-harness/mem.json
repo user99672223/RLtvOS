@@ -1,0 +1,14 @@
+{
+  "available": 2158377528,
+  "available_mb": 2058.4,
+  "compressed": 0,
+  "external": 24903680,
+  "internal": 24018944,
+  "kr": 0,
+  "limit_estimate": 2199912448,
+  "peak_phys_footprint": 41682376,
+  "phys_footprint": 41534920,
+  "phys_footprint_mb": 39.6,
+  "resident_size": 51625984,
+  "virtual_size": 474715406336
+}
