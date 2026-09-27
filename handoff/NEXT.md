@@ -87,6 +87,9 @@
 
 ## laptop
 
+- **HOLD (2026-09-27 07:12 CEST): the user paused LAPTOP for the night.** No TV or laptop runs
+  until the user says to continue. The request watcher is stopped, and new requests wait until
+  then. The TV is in standby.
 - **Request 006 (build-27)**: D cpubench PASS, A (C3) PASS; B (C4) PARTIAL and C (faults) PARTIAL.
   - cpubench: FEX on the A15 ≈ native laptop, total 0.85×; fp_scalar 1.28×, branchy 1.45×.
   - C4: Xvfb and xdpyinfo work in the guest; xeyes and xdotool hang because `epoll_wait` loses
