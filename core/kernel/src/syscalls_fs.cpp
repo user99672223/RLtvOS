@@ -6,6 +6,7 @@
 #include "syscalls.h"
 
 #include <algorithm>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -36,6 +37,90 @@ private:
 
 bool is_type(const lx::stat& st, uint32_t type) {
     return (st.st_mode & lx::s_ifmt) == type;
+}
+
+// /proc/<pid>/mem: the target's memory (same host task: memcpy through its
+// address-space bookkeeping, regardless of guest protection — FOLL_FORCE).
+// Wine's Read/WriteProcessMemory between guest processes come here.
+class ProcMemFile final : public OpenFile {
+public:
+    ProcMemFile(GuestProcess* p, std::string guest_path, int oflags) : p_(p) {
+        path = std::move(guest_path);
+        this->oflags = oflags;
+    }
+    int64_t read(void* buf, size_t len) override {
+        std::lock_guard<std::mutex> lk(mu);
+        int64_t r = pread(buf, len, pos_);
+        if (r > 0) pos_ += (uint64_t)r;
+        return r;
+    }
+    int64_t write(const void* buf, size_t len) override {
+        std::lock_guard<std::mutex> lk(mu);
+        int64_t r = pwrite(buf, len, pos_);
+        if (r > 0) pos_ += (uint64_t)r;
+        return r;
+    }
+    int64_t pread(void* buf, size_t len, uint64_t off) override { return access(buf, len, off, false); }
+    int64_t pwrite(const void* buf, size_t len, uint64_t off) override { return access(const_cast<void*>(buf), len, off, true); }
+    int64_t lseek(int64_t off, int whence) override {
+        std::lock_guard<std::mutex> lk(mu);
+        if (whence == lx::seek_set) pos_ = (uint64_t)off;
+        else if (whence == lx::seek_cur) pos_ += (uint64_t)off;
+        else return -lx::einval;
+        return (int64_t)pos_;
+    }
+    int fstat(lx::stat& st) override {
+        FillStat(st, lx::s_ifreg | 0600, 0, 0, 0x90000 + (uint64_t)p_->pid, 0, 1000, 1000);
+        return 0;
+    }
+
+private:
+    int64_t access(void* buf, size_t len, uint64_t off, bool write) {
+        if ((write && (oflags & lx::o_accmode) == lx::o_rdonly) || (!write && (oflags & lx::o_accmode) == lx::o_wronly)) {
+            return -lx::ebadf;
+        }
+        std::shared_ptr<AddressSpace> mm;
+        {
+            std::lock_guard<std::mutex> lk(K().mu);
+            mm = p_->mm;
+        }
+        if (!mm) return -lx::eio;  // exited and reaped
+        size_t done = 0;
+        while (done < len) {
+            const uint64_t a = off + done;
+            const Vma v = mm->find(a);
+            if (v.end == 0) break;
+            const size_t chunk = (size_t)std::min<uint64_t>(len - done, v.end - a);
+            const bool ok = write ? mm->copy_in(a, static_cast<const uint8_t*>(buf) + done, chunk)
+                                  : mm->copy_out(a, static_cast<uint8_t*>(buf) + done, chunk);
+            if (!ok) break;
+            done += chunk;
+        }
+        if (done == 0 && len) return -lx::eio;
+        return (int64_t)done;
+    }
+
+    GuestProcess* p_;
+    uint64_t pos_ = 0;
+};
+
+// /proc/self/mem, /proc/<pid>/mem (true when the path was one of them).
+int64_t open_proc_mem(Sc& c, const std::string& full, int flags, bool& handled) {
+    handled = false;
+    if (full.rfind("/proc/", 0) != 0 || full.size() < 10 || full.compare(full.size() - 4, 4, "/mem") != 0) return 0;
+    const std::string comp = full.substr(6, full.size() - 10);
+    GuestProcess* target = nullptr;
+    if (comp == "self" || comp == "thread-self") {
+        target = &c.p;
+    } else if (!comp.empty() && comp.size() <= 7 && comp.find_first_not_of("0123456789") == std::string::npos) {
+        std::lock_guard<std::mutex> lk(K().mu);
+        target = K().find(atoi(comp.c_str()));
+    } else {
+        return 0;
+    }
+    handled = true;
+    if (!target) return -lx::enoent;
+    return c.p.fds.alloc(std::make_shared<ProcMemFile>(target, full, flags & lx::o_accmode), flags & lx::o_cloexec);
 }
 
 // Character devices the kernel provides itself (the rootfs image may lack
@@ -75,6 +160,11 @@ int64_t do_openat(Sc& c, int dirfd, const char* path, int flags, int mode) {
     if (full.rfind("/dev/", 0) == 0) {
         bool handled;
         int64_t r = open_device(c, full, flags, handled);
+        if (handled) return r;
+    }
+    if (full.rfind("/proc/", 0) == 0) {
+        bool handled;
+        int64_t r = open_proc_mem(c, full, flags, handled);
         if (handled) return r;
     }
 

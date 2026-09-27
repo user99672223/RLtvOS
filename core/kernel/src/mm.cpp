@@ -449,6 +449,24 @@ bool AddressSpace::copy_in(uint64_t addr, const void* src, size_t len) {
     return true;
 }
 
+bool AddressSpace::copy_out(uint64_t addr, void* dst, size_t len) {
+    if (len == 0) return true;
+    std::lock_guard<std::mutex> lk(mu_);
+    uint64_t a = lx::PageDown(addr), end = lx::PageUp(addr + len);
+    for (uint64_t p = a; p < end;) {
+        auto it = vmas_.upper_bound(p);
+        if (it == vmas_.begin() || std::prev(it)->second.end <= p) return false;
+        p = std::prev(it)->second.end;
+    }
+    // PROT_NONE guest pages are unreadable on the host too: open them briefly.
+    if (::mprotect(reinterpret_cast<void*>(host_down(addr)), host_up(addr + len) - host_down(addr), host::kProtRead) != 0) {
+        return false;
+    }
+    memcpy(dst, reinterpret_cast<const void*>(addr), len);
+    apply_host_prot(addr, addr + len);
+    return true;
+}
+
 bool AddressSpace::zero(uint64_t addr, size_t len) {
     if (len == 0) return true;
     std::lock_guard<std::mutex> lk(mu_);

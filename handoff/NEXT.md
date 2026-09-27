@@ -37,7 +37,7 @@
   `/guest-ls` debug routes (`tv.py guest-file|guest-put|guest-ls`) to pull
   files the guest wrote (Xvfb log, xwd dumps). Guest scripts source `_lib.sh`
   relative to `$0`.
-- Next: post request 005 once build-25's release exists, wait for the result,
+- Open request: 005 (C3 remainder + C4) on build-25. Next: wait for the result,
   fix what it shows. Then C5 prep from LAPTOP's `c5.summary.txt` (asked for in
   005): wineserver/wine chain needs, /proc/<pid>/mem, KUSER_SHARED_DATA plan,
   guest SIGSEGV delivery.

@@ -50,6 +50,9 @@ public:
     // Write into the mapping regardless of its guest protection (loader,
     // file-backed mmap population). Returns false if the range is not mapped.
     bool copy_in(uint64_t addr, const void* src, size_t len);
+    // Read out of the mapping regardless of its guest protection
+    // (/proc/<pid>/mem). Returns false if the range is not mapped.
+    bool copy_out(uint64_t addr, void* dst, size_t len);
     bool zero(uint64_t addr, size_t len);
 
     // MAP_SHARED of a writable file: replaces the host pages of the own VMA at

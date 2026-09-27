@@ -87,7 +87,7 @@ struct ProcNode {
 };
 
 constexpr const char* kPidFiles[] = {"maps", "status", "stat", "statm", "cmdline", "environ", "auxv",
-                                     "comm", "mountinfo", "mounts", "limits", "cgroup", "oom_score_adj"};
+                                     "comm", "mountinfo", "mounts", "limits", "cgroup", "oom_score_adj", "mem"};
 constexpr const char* kGlobalFiles[] = {"cpuinfo", "meminfo", "version", "uptime", "loadavg", "filesystems",
                                         "mounts", "stat", "cmdline"};
 constexpr const char* kSysDirs[] = {"sys", "sys/kernel", "sys/kernel/random", "sys/vm", "sys/fs"};
