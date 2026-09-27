@@ -1,0 +1,17 @@
+# ws-menu: RocketLeague.exe pid 86432, main menu, uncapped scope, THP off; 06:45:30
+## window 2s
+Rss:             4245080 kB
+Referenced:        34308 kB
+Anonymous:       4130224 kB
+## window 10s
+Rss:             4245100 kB
+Referenced:        43424 kB
+Anonymous:       4130228 kB
+## window 60s
+Rss:             4249248 kB
+Referenced:        53300 kB
+Anonymous:       4134376 kB
+## cross-check: sum of Referenced over smaps (after the 60 s window)
+53300 kB
+## cgroup
+mem.current=5657 MB swap.current=0 MB pgmajfault=4 oom_kill=0

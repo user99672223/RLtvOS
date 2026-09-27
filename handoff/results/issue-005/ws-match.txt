@@ -1,0 +1,17 @@
+# ws-match: RocketLeague.exe pid 86432, 1v1 vs Rookie bot from kickoff 06:48:43, uncapped scope, THP off; 06:49:03
+## window 2s
+Rss:             4457940 kB
+Referenced:        53380 kB
+Anonymous:       4338608 kB
+## window 10s
+Rss:             4457984 kB
+Referenced:        73828 kB
+Anonymous:       4338652 kB
+## window 60s
+Rss:             4463740 kB
+Referenced:       188160 kB
+Anonymous:       4344408 kB
+## cross-check: sum of Referenced over smaps (after the 60 s window)
+188180 kB
+## cgroup
+mem.current=5922 MB swap.current=0 MB pgmajfault=4 oom_kill=0

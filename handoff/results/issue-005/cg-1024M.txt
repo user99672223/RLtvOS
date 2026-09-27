@@ -1,0 +1,8 @@
+07:04:39 129839104 0 anon 112812032 file 9068544 shmem 1097728 workingset_refault_anon 0 pgscan 0 pgsteal 0 pgmajfault 0 oom_kill 0 
+07:04:44 1073618944 2233696256 anon 1046773760 file 1056768 shmem 1052672 workingset_refault_anon 8657 pgscan 1503011 pgsteal 553515 pgmajfault 7284 oom_kill 0 
+07:04:49 1073704960 3503591424 anon 1005809664 file 4096 shmem 4096 workingset_refault_anon 110852 pgscan 2521526 pgsteal 883755 pgmajfault 37838 oom_kill 0 
+07:04:54 1073483776 4203470848 anon 1024090112 file 4096 shmem 4096 workingset_refault_anon 238821 pgscan 3112699 pgsteal 1146210 pgmajfault 70603 oom_kill 0 
+07:04:59 1073668096 4688498688 anon 1031528448 file 4096 shmem 4096 workingset_refault_anon 364949 pgscan 3599509 pgsteal 1398970 pgmajfault 108970 oom_kill 0 
+07:05:04 1073696768 5149368320 anon 1034207232 file 4096 shmem 4096 workingset_refault_anon 480515 pgscan 4041354 pgsteal 1614233 pgmajfault 154577 oom_kill 0 
+07:05:09 1073668096 5805801472 anon 1037201408 file 4096 shmem 4096 workingset_refault_anon 627008 pgscan 4667349 pgsteal 1935879 pgmajfault 180939 oom_kill 0 
+07:05:14 1072373760 3674034176 anon 425693184 file 609447936 shmem 609447936 workingset_refault_anon 686309 pgscan 5162548 pgsteal 2154444 pgmajfault 195997 oom_kill 0 

@@ -1,0 +1,15 @@
+## swapon --show
+/bin/bash: line 1: swapon: command not found
+## /proc/swaps
+Filename				Type		Size		Used		Priority
+/dev/nvme0n1p3                          partition	16536572	1489540		-2
+## zswap enabled
+N
+## lsblk
+NAME    MODEL                ROTA   SIZE
+nvme0n1 INTEL SSDPEKNW512G8H    0 476.9G
+## THP
+[always] madvise never
+always defer defer+madvise [madvise] never
+## swappiness
+60

@@ -1,0 +1,4 @@
+Sep 27 07:04:38 laptop systemd[2686]: Started rl-cap-1024M.scope - [systemd-run] ~/rltvos/build/issue005/../issue004/nothp_exec.py env NONET=1 DXVK_HUD=fps,memory OUT=~/rltvos/build/issue005/1024M ~/local_RLtvOS/handoff/results/000-setup/s7-game.sh start.
+Sep 27 07:05:18 laptop systemd[2686]: rl-cap-1024M.scope: A process of this unit has been killed by the OOM killer.
+Sep 27 07:05:18 laptop systemd[2686]: rl-cap-1024M.scope: Failed with result 'oom-kill'.
+Sep 27 07:05:18 laptop systemd[2686]: rl-cap-1024M.scope: Consumed 23.869s CPU time, 1G memory peak, 5.5G memory swap peak.

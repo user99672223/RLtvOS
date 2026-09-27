@@ -89,7 +89,11 @@
     level-triggered readiness.
   - Faults: C2 logs `kind=3` (translation) and `df` shows `/` and `/proc` swapped.
   - Details: results/006-c3-c4-faults/verdict.md.
-- Next: **issue 005** (memory-cap experiment, laptop only; REPO's go/no-go for E1/E2).
+- **Issue 005 done**: capped at **1536 MB**, the bot match runs at 29.9–30.5 fps with swap-in
+  ~1.1 MB/s and no OOM. 2048M and 3072M are equally smooth; 1024M is OOM-killed at start-up
+  (GPU shmem floor). The CPU working set is ≤190 MB/min of a 4.4 GB heap. See
+  results/issue-005/notes.md.
+- Next: request 007 (build-28, C4 with the epoll fix).
 - **Request 005 (build-25): Part A PARTIAL, Part B PARTIAL** (2026-09-27 05:57–06:05 CEST).
   - Every *fork* child dies on its first stack write: the CoW write-protect fault arrives as
     SIGBUS si_code 1 and is misrouted to FEX's unaligned fix-up. vfork children are fine.
