@@ -1,0 +1,2 @@
+hello from x86-64 static
+333833500

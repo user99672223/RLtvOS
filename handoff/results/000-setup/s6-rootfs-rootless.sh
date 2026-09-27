@@ -41,7 +41,7 @@ chmod 644 "$KEYDIR"/*.gpg "$KEYDIR"/*.deb
 MMHOOKS=${MMHOOKS:-/usr/share/mmdebstrap/hooks}
 
 PKGS="ca-certificates,gnupg,curl,wget,procps,locales-all"
-PKGS="$PKGS,busybox-static,xvfb,x11-utils,x11-apps,x11-xserver-utils,xdotool,evtest,strace,gdb-minimal"
+PKGS="$PKGS,busybox,xvfb,x11-utils,x11-apps,x11-xserver-utils,xdotool,evtest,strace,gdb-minimal"
 PKGS="$PKGS,gcc,libc6-dev,make,mingw-w64"
 PKGS="$PKGS,vulkan-tools,libvulkan1,mesa-vulkan-drivers,libgl1,libegl1"
 PKGS="$PKGS,libsdl2-2.0-0,libfreetype6,libgnutls30t64,libxcomposite1,libxcursor1,libxi6,libxrandr2,libxrender1"

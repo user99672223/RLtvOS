@@ -1,0 +1,10 @@
+{"cmd":"rltvos-jit peek --pid 1104 --addr 0x108c2b1c0 --len 64","note":"read with the debugger after the C2 fault (attach, m packet, detach); app kept running","event":"peek","pid":1104,"addr":"0x108c2b1c0","len":64,"hex":"2110148a0000018b010040a9000014cb600000b481bb45f9940f00f920005fd6470140d91f2003d5640140d91f2003d59f0007eb410700545401058b87825fd9","detach":"OK",
+ "decoded_from_fault_pc":[
+  ["0x108c2b1e0","d9400147","ldapur x7, [x10]","<- fault pc; guest mov (%rsi),%rcx"],
+  ["0x108c2b1e4","d503201f","nop","FEX back-patch slot (half-barrier)"],
+  ["0x108c2b1e8","d9400164","ldapur x4, [x11]","guest mov (%rdi),%rax"],
+  ["0x108c2b1ec","d503201f","nop",""],
+  ["0x108c2b1f0","eb07009f","cmp x4, x7","guest cmp %rcx,%rax"],
+  ["0x108c2b1f4","54000741","b.ne +0xe8","guest jne"],
+  ["0x108c2b1f8","8b050154","add x20, x10, x5","rsi+rdx"],
+  ["0x108c2b1fc","d95f8287","ldapur x7, [x20, #-8]","guest mov -0x8(%rsi,%rdx,1),%rcx"]]}

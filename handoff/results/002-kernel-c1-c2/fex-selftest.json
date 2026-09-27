@@ -1,0 +1,174 @@
+{
+  "init": {
+    "host_features": {
+      "aes": 1,
+      "afp": 0,
+      "avx": 1,
+      "clzero": 1,
+      "cpus": 5,
+      "crc": 1,
+      "cssc": 0,
+      "dcache_line": 128,
+      "dotprod": 1,
+      "ecv": 1,
+      "fcma": 1,
+      "flagm": 1,
+      "flagm2": 1,
+      "float_exceptions": 1,
+      "frintts": 1,
+      "i8mm": 1,
+      "lse": 1,
+      "pmull128": 1,
+      "rcpc": 1,
+      "rpres": 0,
+      "sha": 1,
+      "tso_imm9": 1,
+      "wfxt": 0
+    },
+    "init_ms": 4.6,
+    "ok": true,
+    "page_size": 16384,
+    "probe": {
+      "rw": "0x10fbec000",
+      "rx": "0x107bec000"
+    },
+    "version": "FEX-59f85d6-rltvos"
+  },
+  "initialised": true,
+  "ok": true,
+  "tests": [
+    {
+      "expected": 24,
+      "name": "add",
+      "ok": true,
+      "run": {
+        "exit": "hlt",
+        "fault": {
+          "addr": "0x0",
+          "pc": "0x0",
+          "signal": 0
+        },
+        "ms": 2.034,
+        "ok": true,
+        "rax": 24,
+        "rax_hex": "0x18",
+        "rip": "0x101654009",
+        "syscalls": 0
+      }
+    },
+    {
+      "expected": 5050,
+      "name": "loop",
+      "ok": true,
+      "run": {
+        "exit": "hlt",
+        "fault": {
+          "addr": "0x0",
+          "pc": "0x0",
+          "signal": 0
+        },
+        "ms": 0.986,
+        "ok": true,
+        "rax": 5050,
+        "rax_hex": "0x13ba",
+        "rip": "0x10165400f",
+        "syscalls": 0
+      }
+    },
+    {
+      "expected": 42,
+      "name": "sse",
+      "ok": true,
+      "run": {
+        "exit": "hlt",
+        "fault": {
+          "addr": "0x0",
+          "pc": "0x0",
+          "signal": 0
+        },
+        "ms": 0.7,
+        "ok": true,
+        "rax": 42,
+        "rax_hex": "0x2a",
+        "rip": "0x101654013",
+        "syscalls": 0
+      }
+    },
+    {
+      "expected": 42,
+      "name": "call",
+      "ok": true,
+      "run": {
+        "exit": "hlt",
+        "fault": {
+          "addr": "0x0",
+          "pc": "0x0",
+          "signal": 0
+        },
+        "ms": 0.084,
+        "ok": true,
+        "rax": 42,
+        "rax_hex": "0x2a",
+        "rip": "0x101654005",
+        "syscalls": 0
+      }
+    },
+    {
+      "expected": 42,
+      "name": "mem",
+      "ok": true,
+      "run": {
+        "exit": "hlt",
+        "fault": {
+          "addr": "0x0",
+          "pc": "0x0",
+          "signal": 0
+        },
+        "ms": 0.057,
+        "ok": true,
+        "rax": 42,
+        "rax_hex": "0x2a",
+        "rip": "0x101654014",
+        "syscalls": 0
+      }
+    },
+    {
+      "expected": 4242,
+      "name": "syscall",
+      "ok": true,
+      "run": {
+        "exit": "hlt",
+        "fault": {
+          "addr": "0x0",
+          "pc": "0x0",
+          "signal": 0
+        },
+        "ms": 0.067,
+        "ok": true,
+        "rax": 4242,
+        "rax_hex": "0x1092",
+        "rip": "0x101654007",
+        "syscalls": 1
+      }
+    },
+    {
+      "expected": 7,
+      "name": "exit",
+      "ok": true,
+      "run": {
+        "exit": "hlt",
+        "fault": {
+          "addr": "0x0",
+          "pc": "0x0",
+          "signal": 0
+        },
+        "ms": 0.053,
+        "ok": true,
+        "rax": 7,
+        "rax_hex": "0x7",
+        "rip": "0x101650000",
+        "syscalls": 2
+      }
+    }
+  ]
+}

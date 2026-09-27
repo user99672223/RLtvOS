@@ -1,0 +1,76 @@
+1 0.0 host: RLtvOS build-18 pid 1104 tvOS 27.0 crash-handler rc=0
+2 0.3 host: sysinfo {"cs_debugged":0,"hw_machine":"AppleTV14,1","hw_memsize":4167958528,"hw_model":"J255AP","hw_pagesize":16384,"kern_osversion":"24J361","ncpu":5,"pid":1104,"ptraced":0,"sigaltstack":"ok"}
+3 0.4 host: jit arena init rc=0 {"base":"0x104400000","size":16777216,"size_mb":16,"prot":"rwx","rwx_errno":0,"page":16384,"pages":1024}
+4 0.8 host: config {"jit_in_place":0}
+5 0.8 host: jit26 start rc=0 pool=128 MB wait=60 s flags=0
+6 0.8 jit26: stage waiting-for-debugger
+7 0.8 host: rlfex bound to the jit26 pool; kernel log bound
+8 0.9 host: jit map probe {"ok":false,"stage":"mapped-only","method":"rwx-mmap","rwx_errno":0,"ptraced":0,"cs_debugged":0,"reason":"not executed: on tvOS 26+ a page runs only after a debugger wrote to it; use tv.py jit (authorizes the arena, then runs jittest --trust)"}
+9 1.0 host: va {"max_contiguous_gb":6,"contig_errno":12,"total_1gb_steps":7,"step_limit_gb":1024,"stop_errno":12,"lowest":"0x105400000","highest":"0x7180000000"}
+10 1.3 host: rlcore 0.1 (clang 17.0, libc++ 190102, Sep 27 2026)
+11 3.1 rlcore: selftest ok
+12 3.1 host: rlcore selftest {"ok":true,"threads":4,"counter":400000,"tls_values":4,"exceptions":true,"alloc64mb":true,"ms":1.79,"version":"0.1 (clang 17.0, libc++ 190102, Sep 27 2026)","hardware_concurrency":5}
+13 3.2 host: mem {"available":2194537064,"available_mb":2092.9000000000001,"compressed":0,"external":18726912,"internal":5111808,"kr":0,"limit_estimate":2199912448,"peak_phys_footprint":5375384,"phys_footprint":5375384,"phys_footprint_mb":5.0999999999999996,"resident_size":24641536,"virtual_size":474680279040}
+14 13.5 host: metal device Apple A15 GPU screen 1920x1080@1.0
+15 27.1 host: debug server listening on 0.0.0.0:7777
+16 2796.3 jit26: ptraced=1 after 2.8 s (asked 60 s); pool 128 MB flags=0
+17 2796.3 jit26: stage preparing
+18 7104.9 jit26: prepared 128 MB at 0x107bec000 by debugger in 4.31 s
+19 7104.9 jit26: stage remapping
+20 7111.1 jit26: RW alias at 0x10fbec000 (cur=5 max=7) delta=134217728
+21 7111.2 jit26: stage testing
+22 7113.0 jit26: attached self-test ok: 42 43
+23 7113.0 jit26: stage detaching
+24 7271.4 jit26: detach serviced (ptraced now 0)
+25 7575.2 jit26: stage testing
+26 7576.3 jit26: detached self-test ok: 44 45 (ptraced=0)
+27 7576.3 jit26: stage ready
+28 8497.1 run: jittest cwd=/
+29 8498.2 jit26: self-test ok: 42 43 (ptraced=0)
+30 14495.0 run: fex-selftest all cwd=/
+31 14496.6 fex: exec alloc #1 16 KB rw=0x10fbec000 rx=0x107bec000
+32 14496.6 fex: exec free 16 KB rw=0x10fbec000
+33 14498.9 fex: exec alloc #2 16 KB rw=0x10fbec000 rx=0x107bec000
+34 14499.6 rlfex: initialised {"ok":true,"version":"FEX-59f85d6-rltvos","init_ms":4.6,"page_size":16384,"probe":{"rw":"0x10fbec000","rx":"0x107bec000"},"host_features":{"aes":1,"crc":1,"sha":1,"lse":1,"afp":0,"rcpc":1,"tso_imm9":1,"pmull128":1,"cssc":0,"fcma":1,"flagm":1,"flagm2":1,"frintts":1,"rpres":0,"ecv":1,"wfxt":0,"i8mm":1,"dotprod":1,"clzero":1,"float_exceptions":1,"avx":1,"dcache_line":128,"cpus":5}}
+35 14499.6 host: rlfex init {"ok":true,"version":"FEX-59f85d6-rltvos","init_ms":4.6,"page_size":16384,"probe":{"rw":"0x10fbec000","rx":"0x107bec000"},"host_features":{"aes":1,"crc":1,"sha":1,"lse":1,"afp":0,"rcpc":1,"tso_imm9":1,"pmull128":1,"cssc":0,"fcma":1,"flagm":1,"flagm2":1,"frintts":1,"rpres":0,"ecv":1,"wfxt":0,"i8mm":1,"dotprod":1,"clzero":1,"float_exceptions":1,"avx":1,"dcache_line":128,"cpus":5}}
+36 14500.4 fex: exec alloc #3 16384 KB rw=0x10fbf0000 rx=0x107bf0000
+37 14502.6 rlfex: selftest add ok rax=24 expected=24 2.03 ms
+38 14503.7 rlfex: selftest loop ok rax=5050 expected=5050 0.99 ms
+39 14504.5 rlfex: selftest sse ok rax=42 expected=42 0.70 ms
+40 14504.6 rlfex: selftest call ok rax=42 expected=42 0.08 ms
+41 14504.8 rlfex: selftest mem ok rax=42 expected=42 0.06 ms
+42 14504.9 rlfex: selftest syscall ok rax=4242 expected=4242 0.07 ms
+43 14505.0 guest: exit(7) -> parking on hlt
+44 14505.0 rlfex: selftest exit ok rax=7 expected=7 0.05 ms
+45 14505.2 host: fex selftest all: {"tests":[{"name":"add","ok":true,"expected":24,"run":{"ok":true,"rax":24,"rax_hex":"0x18","rip":"0x101654009","ms":2.034,"exit":"hlt","fault":{"signal":0,"pc":"0x0","addr":"0x0"},"syscalls":0}},{"name":"loop","ok":true,"expected":5050,"run":{"ok":true,"rax":5050,"rax_hex":"0x13ba","rip":"0x10165400f","ms":0.986,"exit":"hlt","fault":{"signal":0,"pc":"0x0","addr":"0x0"},"syscalls":0}},{"name":"sse","ok":true,"expected":4
+46 19143.0 run: vaprobe2 cwd=/
+47 19160.8 host: va probe 2 {"none_256mb":{"steps":25,"gb":6.25,"stop_errno":12,"ms":0},"rw_noreserve_256mb":{"steps":25,"gb":6.25,"stop_errno":12,"ms":0},"rw_256mb":{"steps":25,"gb":6.25,"stop_errno":12,"ms":0},"vm_allocate_256mb":{"steps":25,"gb":6.25,"stop_kr":3,"ms":0},"none_64mb":{"steps":104,"gb":6.50,"stop_errno":12,"ms":0},"rw_touched_256mb":{"steps":8,"gb":2.00,"stop_errno":0,"ms":17},"rlimit_as":{"cur":9223372036854775807,"max":9223372036854775
+48 23287.9 run: vfs-mount http://192.168.1.133:8090 cwd=/
+49 23904.3 vfs: mount http://192.168.1.133:8090 → {"ok":true,"url":"http://192.168.1.133:8090","entries":70376,"files":55634,"bytes":48188621469,"manifest_gz_bytes":2989882,"roots":["rootfs","prefix","home","game"],"cache_dir":"/var/mobile/Containers/Data/Application/AC93D672-06B7-4E18-9395-47974092D6C8/Library/Caches/vfs-blocks","ms":615.9}
+50 23904.3 kernel: guest filesystem attached
+51 27682.6 run: exec --dry-run /opt/rl/bin/hello-static cwd=/
+52 27695.7 kernel: pid 1 exec /opt/rl/bin/hello-static (dry-run) {"entry":"0x101659000","rsp":"0x1587f7d80","main":{"path":"/opt/rl/bin/hello-static","dyn":true,"base":"0x101658000","entry":"0x101659000","range":"0x101658000-0x10165c000","phdr":"0x101658040","phnum":9,"interp":""},"interp":{"base":"0x0","entry":"0x0","range":"0x0-0x0"},"stack":"0x157ff8000-0x1587f8000","brk":"0x15a800000-0x15e800000","auxv":"0x1587f7dd8","auxv_entries":20}
+53 27695.9 host: guest exec (dry-run) /opt/rl/bin/hello-static → {"ok":true,"pid":1,"dry_run":true,"vmas":6,"mapped_bytes":75530240,"layout":{"entry":"0x101659000","rsp":"0x1587f7d80","main":{"path":"/opt/rl/bin/hello-static","dyn":true,"base":"0x101658000","entry":"0x101659000","range":"0x101658000-0x10165c000","phdr":"0x101658040","phnum":9,"interp":""},"interp
+54 27806.9 run: exec --dry-run /opt/rl/bin/hello-dyn cwd=/
+55 27871.7 kernel: pid 2 exec /opt/rl/bin/hello-dyn (dry-run) {"entry":"0x1016dd2c0","rsp":"0x158ffbd90","main":{"path":"/opt/rl/bin/hello-dyn","dyn":true,"base":"0x101670000","entry":"0x101671380","range":"0x101670000-0x101675000","phdr":"0x101670040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x1016c0000","entry":"0x1016dd2c0","range":"0x1016c0000-0x1016f8000"},"stack":"0x1587fc000-0x158ffc000","brk":"0x15e800000-0x162800000",
+56 27871.8 host: guest exec (dry-run) /opt/rl/bin/hello-dyn → {"ok":true,"pid":2,"dry_run":true,"vmas":10,"mapped_bytes":75763712,"layout":{"entry":"0x1016dd2c0","rsp":"0x158ffbd90","main":{"path":"/opt/rl/bin/hello-dyn","dyn":true,"base":"0x101670000","entry":"0x101671380","range":"0x101670000-0x101675000","phdr":"0x101670040","phnum":14,"interp":"/lib64/ld-l
+57 28011.7 run: exec --dry-run /usr/bin/sh cwd=/
+58 28044.7 kernel: pid 3 exec /usr/bin/sh (dry-run) {"entry":"0x1017152c0","rsp":"0x167003da0","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x101730000","entry":"0x101734760","range":"0x101730000-0x101753000","phdr":"0x101730040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x1016f8000","entry":"0x1017152c0","range":"0x1016f8000-0x101730000"},"stack":"0x166804000-0x167004000","brk":"0x162800000-0x166800000","auxv":"0x167003df
+59 28044.9 host: guest exec (dry-run) /usr/bin/sh → {"ok":true,"pid":3,"dry_run":true,"vmas":10,"mapped_bytes":75886592,"layout":{"entry":"0x1017152c0","rsp":"0x167003da0","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x101730000","entry":"0x101734760","range":"0x101730000-0x101753000","phdr":"0x101730040","phnum":14,"interp":"/lib64/ld-linux-x86
+60 39575.1 run: exec /opt/rl/bin/hello-static cwd=/
+61 39575.4 kernel: pid 4 exec /opt/rl/bin/hello-static (run) {"entry":"0x101681000","rsp":"0x167807d80","main":{"path":"/opt/rl/bin/hello-static","dyn":true,"base":"0x101680000","entry":"0x101681000","range":"0x101680000-0x101684000","phdr":"0x101680040","phnum":9,"interp":""},"interp":{"base":"0x0","entry":"0x0","range":"0x0-0x0"},"stack":"0x167008000-0x167808000","brk":"0x16a7f4000-0x16e7f4000","auxv":"0x167807dd8","auxv_entries":20}
+62 39575.5 fex: exec alloc #4 16 KB rw=0x110bf0000 rx=0x108bf0000
+63 39575.6 kernel: FEX context ready (hwcap=0x278bfbff hwcap2=0x2)
+64 39575.7 fex: exec alloc #5 16384 KB rw=0x110bf4000 rx=0x108bf4000
+65 39575.9 kernel: pid 4 tid 4 start rip=0x101681000 rsp=0x167807d80
+66 39575.9 host: guest exec /opt/rl/bin/hello-static → {"ok":true,"pid":4,"dry_run":false,"layout":{"entry":"0x101681000","rsp":"0x167807d80","main":{"path":"/opt/rl/bin/hello-static","dyn":true,"base":"0x101680000","entry":"0x101681000","range":"0x101680000-0x101684000","phdr":"0x101680040","phnum":9,"interp":""},"interp":{"base":"0x0","entry":"0x0","r
+67 39576.2 guest[4] stdout: hello from x86-64 static
+68 39576.2 [4] write(1, "hello from x86-64 static
+", 25) = 25
+69 39577.7 guest[4] stdout: 333833500
+70 39577.7 [4] write(1, "333833500
+", 10) = 10
+71 39578.0 [4] exit_group(0) = 0
+72 39578.0 kernel: pid 4 tid 4 exited code=0 after 3 syscalls, 2.8 ms
+73 39585.9 run: ps cwd=/
+74 39601.3 run: guest-out 4 cwd=/

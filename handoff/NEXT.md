@@ -40,23 +40,32 @@
 
 ## laptop
 
-- HOLD lifted by the user 2026-09-27 ~02:00. **Request 001: PASS** (re-run 02:22): harness,
-  MEM/VA, crash handler, VFS and **JIT on tvOS 27** (tvOS Cryptex DDI from the `xcode-27`
-  Actions runner, installed via cryptexd). Bonus: FEXCore JIT runs on the TV, selftest 3/7
-  (build-15). Details: results/001-harness/verdict.md, issue 003 last section.
-- Done (handoff/results/000-setup/verdict.md): S0–S3, S5–S8 PASS. Rocket League runs on the
-  laptop reference (offline = **no network**, `-noeac`, Xvfb, wine 11, DXVK-macOS, ANV):
-  main menu + bot matches; strace refs c1–e2 in refs/ (e1/e2 in pre-release refs-laptop-1).
-- S4 JIT: **working**. laptop/jit.sh --pid {pid} (JIT_BACKEND=cmd); DDI copy in
-  ~/rltvos/ddi/tvos27 (reinstalled automatically after a TV reboot).
-- atvloadly installs take ~11 min while the DDI is mounted (plumesign RSD read bug);
-  INSTALL_TIMEOUT=1500.
+- **Request 002 (build-18): PARTIAL** (2026-09-27 03:36–03:43 CEST).
+  - Passed: FEX self-test 7/7, vaprobe2 (~6.25–6.5 GB reservable), VFS mount, 3 dry runs,
+    **C1 PASS**.
+  - C2 fails: hello-dyn dies with SIGBUS in ld.so's `memcmp`. FEX's TSO `ldapur` hits an
+    unaligned 8-byte load that crosses 16 bytes, and rlfex's guard longjmps instead of calling
+    FEX's `HandleUnalignedAccess`. Details and the decoded JIT code are in
+    results/002-kernel-c1-c2/verdict.md.
+- The TV runs build-18 (app pid 1104, JIT ready, VFS mounted). Before launching, run
+  `atvremote turn_on`: launch is a no-op in standby.
+- Rootfs: busybox (dynamic PIE) replaced busybox-static; hello-static is `-static-pie`; manifest
+  rebuilt. elf-audit: only compilers + python3.13 are non-PIE.
+- Done earlier: request 001 PASS (JIT on tvOS 27 via the xcode-27 Cryptex DDI), setup S0–S8
+  PASS (results/000-setup/verdict.md). Refs c1–d2 are in refs/; e1/e2 are in pre-release
+  refs-laptop-1.
+- S4 JIT: laptop/jit.sh --pid {pid}. DDI copy in ~/rltvos/ddi/tvos27, reinstalled automatically
+  after a TV reboot. `rltvos-jit peek` reads app memory for fault diagnosis.
+- atvloadly installs: 12 s for build-18 but 11 min for build-15, both with the DDI mounted
+  (intermittent). INSTALL_TIMEOUT=1500.
 - Issue 002-laptop-script-fixes.md: bugs in REPO's laptop scripts + the validated menu path.
-- Services/paths: assets server = systemd --user `rltvos-assets` running REPO's
-  laptop/assets_server.py on :8090 (manifest ~/rltvos/assets/manifest.jsonl.gz; rebuild with
-  `--manifest-only --rebuild` after prefix changes); atvloadly MCP :5533 with /share/ipa;
-  pyatv paired (~/.venvs/rltvos, ~/.pyatv.conf); gh/strace in ~/.local/bin.
+- Services/paths:
+  - Assets server: systemd --user `rltvos-assets` running REPO's laptop/assets_server.py on
+    :8090. Manifest ~/rltvos/assets/manifest.jsonl.gz; rebuild with `--manifest-only --rebuild`
+    after rootfs/prefix changes.
+  - atvloadly MCP on :5533 with /share/ipa.
+  - pyatv paired (~/.venvs/rltvos, ~/.pyatv.conf); gh and strace in ~/.local/bin.
 - LAPTOP tools: laptop/install.sh + atvloadly.py (INSTALL_CMD via MCP), atv_pair.py,
-  rootfs_exec.sh (bwrap: --gpu --nonet --rw, clean env, own hostname),
-  results/000-setup/{s6-rootfs-rootless.sh, s6-prefix.sh, s7-game.sh, s7-lowsettings.py, s8-game-traces.sh}.
+  rootfs_exec.sh (bwrap: --gpu --nonet --rw, clean env, own hostname), and in results/000-setup:
+  s6-rootfs-rootless.sh, s6-prefix.sh, s7-game.sh, s7-lowsettings.py, s8-game-traces.sh.
 - Next: wait for REPO's next request (`handoff/wait.sh requests` running).

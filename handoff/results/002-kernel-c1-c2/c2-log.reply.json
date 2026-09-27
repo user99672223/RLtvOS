@@ -1,0 +1,25 @@
+{
+  "count": 83,
+  "dropped": 0,
+  "next": 84,
+  "ok": true,
+  "path": "handoff/results/002-kernel-c1-c2/c2-log.txt",
+  "since": 1,
+  "tail": [
+    "guest[4] stdout: 333833500",
+    "[4] write(1, \"333833500\n\", 10) = 10",
+    "[4] exit_group(0) = 0",
+    "kernel: pid 4 tid 4 exited code=0 after 3 syscalls, 2.8 ms",
+    "run: ps cwd=/",
+    "run: guest-out 4 cwd=/",
+    "run: exec /opt/rl/bin/hello-dyn cwd=/",
+    "kernel: pid 5 exec /opt/rl/bin/hello-dyn (run) {\"entry\":\"0x10178d2c0\",\"rsp\":\"0x16880bd90\",\"main\":{\"path\":\"/opt/rl/bin/hello-dyn\",\"dyn\":true,\"base\":\"0x1017a8000\",\"entry\":\"0x1017a9380\",\"range\":\"0x1017a8000-0x1017ad000\",\"phdr\":\"0x1017a8040\",\"phnum\":14,\"interp\":\"/lib64/ld-linux-x86-64.so.2\"},\"interp\":{\"base\":\"0x101770000\",\"entry\":\"0x10178d2c0\",\"range\":\"0x101770000-0x1017a8000\"},\"stack\":\"0x16800c000-0x16880c000\",\"brk\":\"0x170334000-0x174334000\",\"aux",
+    "kernel: pid 5 tid 5 start rip=0x10178d2c0 rsp=0x16880bd90",
+    "host: guest exec /opt/rl/bin/hello-dyn \u2192 {\"ok\":true,\"pid\":5,\"dry_run\":false,\"layout\":{\"entry\":\"0x10178d2c0\",\"rsp\":\"0x16880bd90\",\"main\":{\"path\":\"/opt/rl/bin/hello-dyn\",\"dyn\":true,\"base\":\"0x1017a8000\",\"entry\":\"0x1017a9380\",\"range\":\"0x1017a8000-0x1017ad000\",\"phdr\":\"0x1017a8040\",\"phnum\":14,\"interp\":\"/lib64/ld-linux-x86-64.so.2\"},\"interp\":{\"bas",
+    "[5] brk(0x0) = 0x170334000",
+    "run: ps cwd=/",
+    "kernel: pid 5 tid 5 FAULT signal=10 pc=0x108c2b1e0 addr=0x10179c39a (guest rip=0x101795630)",
+    "run: ps cwd=/",
+    "run: guest-out 5 cwd=/"
+  ]
+}

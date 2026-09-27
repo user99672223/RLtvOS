@@ -1,0 +1,25 @@
+{
+  "count": 74,
+  "dropped": 0,
+  "next": 75,
+  "ok": true,
+  "path": "handoff/results/002-kernel-c1-c2/c1-log.txt",
+  "since": 1,
+  "tail": [
+    "run: exec /opt/rl/bin/hello-static cwd=/",
+    "kernel: pid 4 exec /opt/rl/bin/hello-static (run) {\"entry\":\"0x101681000\",\"rsp\":\"0x167807d80\",\"main\":{\"path\":\"/opt/rl/bin/hello-static\",\"dyn\":true,\"base\":\"0x101680000\",\"entry\":\"0x101681000\",\"range\":\"0x101680000-0x101684000\",\"phdr\":\"0x101680040\",\"phnum\":9,\"interp\":\"\"},\"interp\":{\"base\":\"0x0\",\"entry\":\"0x0\",\"range\":\"0x0-0x0\"},\"stack\":\"0x167008000-0x167808000\",\"brk\":\"0x16a7f4000-0x16e7f4000\",\"auxv\":\"0x167807dd8\",\"auxv_entries\":20}",
+    "fex: exec alloc #4 16 KB rw=0x110bf0000 rx=0x108bf0000",
+    "kernel: FEX context ready (hwcap=0x278bfbff hwcap2=0x2)",
+    "fex: exec alloc #5 16384 KB rw=0x110bf4000 rx=0x108bf4000",
+    "kernel: pid 4 tid 4 start rip=0x101681000 rsp=0x167807d80",
+    "host: guest exec /opt/rl/bin/hello-static \u2192 {\"ok\":true,\"pid\":4,\"dry_run\":false,\"layout\":{\"entry\":\"0x101681000\",\"rsp\":\"0x167807d80\",\"main\":{\"path\":\"/opt/rl/bin/hello-static\",\"dyn\":true,\"base\":\"0x101680000\",\"entry\":\"0x101681000\",\"range\":\"0x101680000-0x101684000\",\"phdr\":\"0x101680040\",\"phnum\":9,\"interp\":\"\"},\"interp\":{\"base\":\"0x0\",\"entry\":\"0x0\",\"r",
+    "guest[4] stdout: hello from x86-64 static",
+    "[4] write(1, \"hello from x86-64 static\n\", 25) = 25",
+    "guest[4] stdout: 333833500",
+    "[4] write(1, \"333833500\n\", 10) = 10",
+    "[4] exit_group(0) = 0",
+    "kernel: pid 4 tid 4 exited code=0 after 3 syscalls, 2.8 ms",
+    "run: ps cwd=/",
+    "run: guest-out 4 cwd=/"
+  ]
+}

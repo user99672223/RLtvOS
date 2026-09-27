@@ -87,6 +87,8 @@ struct Args {
     timeout: u64,
     status: Option<String>,
     ddi: Option<String>,
+    addr: Option<u64>,
+    len: u64,
 }
 
 fn parse_args() -> Result<Args> {
@@ -94,6 +96,7 @@ fn parse_args() -> Result<Args> {
     let cmd = it.next().ok_or_else(|| anyhow!("usage: rltvos-jit probe|run --tv IP:PORT --pairing FILE ..."))?;
     let (mut tv, mut pairing, mut host) = (None, None, "rltvos-laptop".to_string());
     let (mut launch, mut pid, mut timeout, mut status, mut ddi) = (None, None, 900u64, None, None);
+    let (mut addr, mut len) = (None, 64u64);
     while let Some(a) = it.next() {
         let mut val = || it.next().ok_or_else(|| anyhow!("{a} needs a value"));
         match a.as_str() {
@@ -105,6 +108,8 @@ fn parse_args() -> Result<Args> {
             "--timeout" => timeout = val()?.parse().context("--timeout")?,
             "--status" => status = Some(val()?),
             "--ddi" => ddi = Some(val()?),
+            "--addr" => addr = Some(u64::from_str_radix(val()?.trim_start_matches("0x"), 16).context("--addr HEX")?),
+            "--len" => len = val()?.parse().context("--len")?,
             _ => bail!("unknown argument {a}"),
         }
     }
@@ -118,6 +123,8 @@ fn parse_args() -> Result<Args> {
         timeout,
         status,
         ddi,
+        addr,
+        len,
     })
 }
 
@@ -422,6 +429,35 @@ async fn run(a: &Args, out: &Out) -> Result<()> {
     }
 }
 
+/// Read-only diagnostic: attach to PID, read LEN bytes at ADDR (e.g. the JIT code
+/// around a fault pc), detach. The app keeps running (vAttach stops it briefly).
+async fn peek(a: &Args, out: &Out) -> Result<()> {
+    let (pid, addr) = match (a.pid, a.addr) {
+        (Some(p), Some(x)) => (p, x),
+        _ => bail!("peek needs --pid PID --addr HEX [--len N]"),
+    };
+    let (_rpc, mut adapter, mut hs) = open_tunnel(a.tv, &a.pairing, &a.host).await?;
+    let mut dp: Dp = DebugProxyClient::connect_rsd(&mut adapter, &mut hs)
+        .await
+        .context("connect com.apple.internal.dt.remote.debugproxy")?;
+    dp.send_ack().await?;
+    dp.send_ack().await?;
+    cmd(&mut dp, "QStartNoAckMode").await?;
+    dp.set_ack_mode(false);
+    let r = cmd(&mut dp, &format!("vAttach;{pid:x}")).await?;
+    if r.starts_with('E') || r.is_empty() {
+        bail!("vAttach;{pid:x} failed: {r:?}");
+    }
+    let mem = cmd(&mut dp, &format!("m{addr:x},{:x}", a.len)).await;
+    let d = cmd(&mut dp, "D").await.unwrap_or_default();
+    let mem = mem?;
+    out.event(
+        "peek",
+        &[("pid", pid.to_string()), ("addr", format!("\"0x{addr:x}\"")), ("len", a.len.to_string()), ("hex", js(&mem)), ("detach", js(&d))],
+    );
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() {
     let out = Out { status: None, t0: Instant::now() };
@@ -437,7 +473,8 @@ async fn main() {
         "probe" => probe(&a, &out).await,
         "run" => run(&a, &out).await,
         "mount-ddi" => mount_ddi(&a, &out).await,
-        c => Err(anyhow!("unknown command {c} (probe|mount-ddi|run)")),
+        "peek" => peek(&a, &out).await,
+        c => Err(anyhow!("unknown command {c} (probe|mount-ddi|run|peek)")),
     };
     if let Err(e) = res {
         out.event("error", &[("error", js(&format!("{e:#}")))]);

@@ -1,0 +1,36 @@
+{
+  "http": 200,
+  "ok": true,
+  "reply": {
+    "dry_run": true,
+    "layout": {
+      "auxv": "0x1587f7dd8",
+      "auxv_entries": 20,
+      "brk": "0x15a800000-0x15e800000",
+      "entry": "0x101659000",
+      "interp": {
+        "base": "0x0",
+        "entry": "0x0",
+        "range": "0x0-0x0"
+      },
+      "main": {
+        "base": "0x101658000",
+        "dyn": true,
+        "entry": "0x101659000",
+        "interp": "",
+        "path": "/opt/rl/bin/hello-static",
+        "phdr": "0x101658040",
+        "phnum": 9,
+        "range": "0x101658000-0x10165c000"
+      },
+      "rsp": "0x1587f7d80",
+      "stack": "0x157ff8000-0x1587f8000"
+    },
+    "mapped_bytes": 75530240,
+    "maps": "000101658000-000101659000 r--p 00000000 00:00 6280409344877827725                           /opt/rl/bin/hello-static\n000101659000-00010165a000 r-xp 00001000 00:00 6280409344877827725                           /opt/rl/bin/hello-static\n00010165a000-00010165b000 r--p 00002000 00:00 6280409344877827725                           /opt/rl/bin/hello-static\n00010165b000-00010165c000 rw-p 00002000 00:00 6280409344877827725                           /opt/rl/bin/hello-static\n000157ff4000-000157ff8000 ---p 00000000 00:00 0                           [stack]\n000157ff8000-0001587f8000 rw-p 00004000 00:00 0                           [stack]\n00015a800000-00015e800000 ---p 00000000 00:00 0                           [heap]\n",
+    "ok": true,
+    "pid": 1,
+    "rc": 1,
+    "vmas": 6
+  }
+}

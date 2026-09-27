@@ -1,0 +1,63 @@
+{
+  "mem": {
+    "available": 2023356768,
+    "available_mb": 1929.6,
+    "compressed": 0,
+    "external": 25739264,
+    "internal": 158892032,
+    "kr": 0,
+    "limit_estimate": 2199912448,
+    "peak_phys_footprint": 176555680,
+    "phys_footprint": 176555680,
+    "phys_footprint_mb": 168.4,
+    "resident_size": 186187776,
+    "virtual_size": 476087484416
+  },
+  "ok": true,
+  "va2": {
+    "none_256mb": {
+      "gb": 6.25,
+      "ms": 0,
+      "steps": 25,
+      "stop_errno": 12
+    },
+    "none_64mb": {
+      "gb": 6.5,
+      "ms": 0,
+      "steps": 104,
+      "stop_errno": 12
+    },
+    "rlimit_as": {
+      "cur": 9223372036854775807,
+      "max": 9223372036854775807
+    },
+    "rlimit_data": {
+      "cur": 9223372036854775807,
+      "max": 9223372036854775807
+    },
+    "rw_256mb": {
+      "gb": 6.25,
+      "ms": 0,
+      "steps": 25,
+      "stop_errno": 12
+    },
+    "rw_noreserve_256mb": {
+      "gb": 6.25,
+      "ms": 0,
+      "steps": 25,
+      "stop_errno": 12
+    },
+    "rw_touched_256mb": {
+      "gb": 2,
+      "ms": 17,
+      "steps": 8,
+      "stop_errno": 0
+    },
+    "vm_allocate_256mb": {
+      "gb": 6.25,
+      "ms": 0,
+      "steps": 25,
+      "stop_kr": 3
+    }
+  }
+}
