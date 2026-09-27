@@ -558,12 +558,13 @@ int rlfex_init(char* Out, size_t Cap) {
   void* ProbeRW = g_ProbeRW;
   void* ProbeRX = g_ProbeRX;
   snprintf(g_InitJson, sizeof g_InitJson,
-           "{\"ok\":true,\"version\":\"%s\",\"init_ms\":%.1f,\"page_size\":%zu,\"probe\":{\"rw\":\"%p\",\"rx\":\"%p\"},"
+           "{\"ok\":true,\"version\":\"%s\",\"allocator\":\"%s\",\"init_ms\":%.1f,\"page_size\":%zu,"
+           "\"probe\":{\"rw\":\"%p\",\"rx\":\"%p\"},"
            "\"host_features\":{\"aes\":%u,\"crc\":%u,\"sha\":%u,\"lse\":%u,\"afp\":%u,\"rcpc\":%u,\"tso_imm9\":%u,"
            "\"pmull128\":%u,\"cssc\":%u,\"fcma\":%u,\"flagm\":%u,\"flagm2\":%u,\"frintts\":%u,\"rpres\":%u,\"ecv\":%u,"
            "\"wfxt\":%u,\"i8mm\":%u,\"dotprod\":%u,\"clzero\":%u,\"float_exceptions\":%u,\"avx\":%u,"
            "\"dcache_line\":%u,\"cpus\":%zu}}",
-           RLFEX_FEX_VERSION, NowMs() - T0, rlfex::HostPageSize(), ProbeRW, ProbeRX, F.SupportsAES, F.SupportsCRC,
+           RLFEX_FEX_VERSION, RLFEX_ALLOCATOR, NowMs() - T0, rlfex::HostPageSize(), ProbeRW, ProbeRX, F.SupportsAES, F.SupportsCRC,
            F.SupportsSHA, F.SupportsAtomics, F.SupportsAFP, F.SupportsRCPC, F.SupportsTSOImm9, F.SupportsPMULL_128Bit,
            F.SupportsCSSC, F.SupportsFCMA, F.SupportsFlagM, F.SupportsFlagM2, F.SupportsFRINTTS, F.SupportsRPRES,
            F.SupportsECV, F.SupportsWFXT, F.SupportsI8MM, F.SupportsDotProd, F.SupportsCLZERO, F.SupportsFloatExceptions,

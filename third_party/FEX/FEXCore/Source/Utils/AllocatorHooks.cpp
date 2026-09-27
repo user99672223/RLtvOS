@@ -17,6 +17,8 @@
 #include <cstdint>
 #ifndef __APPLE__ // RLtvOS: no <malloc.h> on Darwin
 #include <malloc.h>
+#else
+#include <malloc/malloc.h> // malloc_size
 #endif
 #include <stdlib.h>
 #include <stdio.h>
@@ -213,6 +215,10 @@ void SetupAllocatorHooks(vma_name_hook_type NameHook) {
 #error "Tried building _WIN32 without jemalloc"
 
 #else
+// The system allocator. RLtvOS uses this branch on Darwin: rpmalloc's
+// per-thread heaps (256 MB spans, mapped as 512 MB each) cost ~2 GB of
+// address space per guest thread on a device with a ~7 GB budget, while
+// libmalloc shares its zones across every thread of the process.
 void InitializeThread() {}
 
 void* malloc(size_t size) {
@@ -222,7 +228,15 @@ void* calloc(size_t n, size_t size) {
   return ::calloc(n, size);
 }
 void* memalign(size_t align, size_t s) {
+#ifdef __APPLE__ // RLtvOS: Darwin has no memalign; posix_memalign wants a power of two >= sizeof(void*)
+  void* ptr = nullptr;
+  if (align < sizeof(void*)) {
+    align = sizeof(void*);
+  }
+  return ::posix_memalign(&ptr, align, s) == 0 ? ptr : nullptr;
+#else
   return ::memalign(align, s);
+#endif
 }
 void* valloc(size_t size) {
   return ::valloc(size);
@@ -237,10 +251,18 @@ void free(void* ptr) {
   return ::free(ptr);
 }
 size_t malloc_usable_size(void* ptr) {
+#ifdef __APPLE__
+  return ::malloc_size(ptr);
+#else
   return ::malloc_usable_size(ptr);
+#endif
 }
 void* aligned_alloc(size_t a, size_t s) {
+#ifdef __APPLE__ // RLtvOS: libmalloc's aligned_alloc rejects sizes that are not a multiple of the alignment
+  return FEXCore::Allocator::memalign(a, s);
+#else
   return ::aligned_alloc(a, s);
+#endif
 }
 void aligned_free(void* ptr) {
   return ::free(ptr);

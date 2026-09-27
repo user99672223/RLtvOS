@@ -208,21 +208,59 @@ done:
     return NULL;
 }
 
+static uint16_t g_port = 0;
+
+// A listening TCP socket bound to every interface. Returns the fd or -errno.
+static int open_listener(uint16_t port) {
+    int fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0) return -errno;
+    int one = 1;
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
+    struct sockaddr_in a;
+    memset(&a, 0, sizeof a);
+    a.sin_len = sizeof a;
+    a.sin_family = AF_INET;
+    a.sin_port = htons(port);
+    a.sin_addr.s_addr = htonl(INADDR_ANY);
+    if (bind(fd, (struct sockaddr *)&a, sizeof a) != 0) { int e = errno; close(fd); return -e; }
+    if (listen(fd, 32) != 0) { int e = errno; close(fd); return -e; }
+    return fd;
+}
+
 static void *accept_thread(void *arg) {
     (void)arg;
     pthread_setname_np("rl.httpd.accept");
+    unsigned backoff_us = 200000;
     for (;;) {
         conn_t *c = calloc(1, sizeof *c);
         if (!c) { usleep(100000); continue; }
         socklen_t sl = sizeof c->peer;
         c->fd = accept(g_listen_fd, (struct sockaddr *)&c->peer, &sl);
         if (c->fd < 0) {
+            int e = errno;
             free(c);
-            if (errno == EINTR || errno == ECONNABORTED) continue;
-            rl_logf("httpd: accept failed errno=%d", errno);
-            usleep(200000);
+            if (e == EINTR || e == ECONNABORTED) continue;
+            if (e == EBADF || e == EINVAL || e == ENOTSOCK) {
+                // tvOS reclaims a suspended app's listening socket (result 003:
+                // accept = EBADF forever after a trip to the background).
+                // Re-create it; while still suspended bind may fail — back off.
+                close(g_listen_fd);
+                int fd = open_listener(g_port);
+                if (fd >= 0) {
+                    g_listen_fd = fd;
+                    backoff_us = 200000;
+                    rl_logf("httpd: listener lost (errno=%d); re-created on port %u", e, (unsigned)g_port);
+                    continue;
+                }
+                rl_logf("httpd: listener lost (errno=%d); re-create failed errno=%d, retry in %u ms", e, -fd, backoff_us / 1000);
+            } else {
+                rl_logf("httpd: accept failed errno=%d", e);
+            }
+            usleep(backoff_us);
+            if (backoff_us < 5000000) backoff_us *= 2;
             continue;
         }
+        backoff_us = 200000;
         pthread_t t;
         pthread_attr_t attr;
         pthread_attr_init(&attr);
@@ -239,19 +277,10 @@ static void *accept_thread(void *arg) {
 
 int httpd_start(uint16_t port, httpd_handler handler) {
     g_handler = handler;
+    g_port = port;
     signal(SIGPIPE, SIG_IGN);
-    int fd = socket(AF_INET, SOCK_STREAM, 0);
-    if (fd < 0) return -errno;
-    int one = 1;
-    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &one, sizeof one);
-    struct sockaddr_in a;
-    memset(&a, 0, sizeof a);
-    a.sin_len = sizeof a;
-    a.sin_family = AF_INET;
-    a.sin_port = htons(port);
-    a.sin_addr.s_addr = htonl(INADDR_ANY);
-    if (bind(fd, (struct sockaddr *)&a, sizeof a) != 0) { int e = errno; close(fd); return -e; }
-    if (listen(fd, 32) != 0) { int e = errno; close(fd); return -e; }
+    int fd = open_listener(port);
+    if (fd < 0) return fd;
     g_listen_fd = fd;
     pthread_t t;
     pthread_attr_t attr;

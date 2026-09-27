@@ -2,8 +2,13 @@
 
 ## repo
 
-- State (2026-09-27): C1 **PASS** on the TV (build-18); C2 failed on an unaligned
-  TSO load (fixed in build-20, re-run = request 003, open). FEX self-test 7/7.
+- State (2026-09-27): C1 **PASS** (build-18), C2 **PASS** (build-20, result 003);
+  dash/busybox/env run; the pipeline stops at pipe2 (ENOSYS in build-20 — C3 code
+  is in build-21+). FEX self-test 7/7.
+- Result 003's blocker: every finished guest left 2 GB of VA in FEX's rpmalloc
+  thread heaps (4th guest dies). Fixed by using the system allocator on Darwin
+  (build-23, DECISIONS 2026-09-27); request 004 re-measures `va --probe2` across
+  guests. The debug server re-creates its listener after a background trip.
 - Landed for C3 (build-21; not yet exercised on the TV): fork/vfork/clone
   (threads) with copy-on-write snapshots for fork, execve (+ `#!` scripts,
   CLOEXEC, fresh address space, CPU-state reset in place), wait4/SIGCHLD/
@@ -12,9 +17,11 @@
   procmask/sigaltstack/kill/tgkill/tkill/rt_sigsuspend/pause, x86-64
   rt_sigframe + rt_sigreturn, SA_RESTART/EINTR, default actions), interruptible
   sleeps, process reaping. Host-tested: waiter/queue, pipes, futex, loader.
-- Next: read result 003. If C2 passes → request 004 = C3 on build-21
-  (`/bin/busybox sh -c '<c3.sh body>'`, `threads-test`, `sh -c 'echo one | tr o 0'`).
-  If not → fix C2 first.
+- Next: request 004 = C3 on build-23 (allocator fix + C3 kernel): pipes/fork
+  steps, `/opt/rl/refs/c3.sh`, `threads-test`, signal exits, plus the VA
+  regression check (≥ 6 guests, `va --probe2` must not shrink). Meanwhile C4
+  kernel work (tmpfs/overlay, AF_UNIX sockets, poll/select/epoll, record locks)
+  is in progress on this side.
 - Known gaps: signals reach a thread running JIT code only at its next
   syscall (async delivery = FEX SRA spill, later); a guest fault kills the
   process instead of raising SIGSEGV to a guest handler; exit_group does not

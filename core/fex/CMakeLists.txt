@@ -24,7 +24,18 @@ set(CMAKE_INTERPROCEDURAL_OPTIMIZATION OFF)
 
 # ---- FEX options (subset) ---------------------------------------------------
 option(ENABLE_ASSERTIONS "FEX debug assertions" ON)
-set(ENABLE_FEX_ALLOCATOR TRUE)
+# FEX's own allocator (rpmalloc) exists so the emulator never shares glibc's
+# heap with the guest. Our guest never sees the host heap, and rpmalloc's
+# per-thread heaps (256 MB spans mapped as 512 MB, several per thread) cost
+# ~2 GB of address space per guest thread — result 003 lost the TV's whole
+# ~7 GB budget after three guests. On Apple, FEXCore uses libmalloc
+# (AllocatorHooks.cpp's system branch); the x86-64 host check keeps FEX's
+# default so it mirrors upstream.
+if(APPLE)
+  set(ENABLE_FEX_ALLOCATOR FALSE)
+else()
+  set(ENABLE_FEX_ALLOCATOR TRUE)
+endif()
 set(ENABLE_JEMALLOC_GLIBC_ALLOC FALSE)
 set(ENABLE_VIXL_DISASSEMBLER FALSE)
 set(ENABLE_VIXL_SIMULATOR FALSE)
@@ -95,7 +106,9 @@ set(FMT_INSTALL OFF)
 add_subdirectory(${FEX_ROOT}/External/fmt ext/fmt)
 add_subdirectory(${FEX_ROOT}/External/SoftFloat-3e ext/softfloat)
 add_subdirectory(${FEX_ROOT}/External/cephes ext/cephes)
-add_subdirectory(${FEX_ROOT}/External/rpmalloc ext/rpmalloc)
+if(ENABLE_FEX_ALLOCATOR)
+  add_subdirectory(${FEX_ROOT}/External/rpmalloc ext/rpmalloc)
+endif()
 add_subdirectory(${FEX_ROOT}/FEXHeaderUtils ext/fhu)
 add_subdirectory(${FEX_ROOT}/CodeEmitter ext/codeemitter)
 
@@ -106,6 +119,9 @@ add_subdirectory(${FEX_ROOT}/FEXCore fexcore)
 if(TARGET FEXCore_shared)
   set_target_properties(FEXCore_shared PROPERTIES EXCLUDE_FROM_ALL TRUE)
 endif()
+# AllocatorHooks.cpp includes <FEXCore/Utils/PrctlUtils.h> in both branches;
+# FEX only adds the include path under ENABLE_FEX_ALLOCATOR.
+target_include_directories(JemallocLibs PRIVATE ${FEX_ROOT}/FEXCore/include)
 
 # ---- rlfex: Darwin platform layer + bare-function runner -----------------------
 # Built on Apple only; the x86-64 host-debug build stops at FEXCore itself.
@@ -117,14 +133,21 @@ if(APPLE)
   )
   target_include_directories(rlfex PUBLIC include PRIVATE src ${FEX_ROOT}/Source ${FEX_ROOT}/Source/Tools/CommonTools)
   target_compile_options(rlfex PRIVATE -Wall -Wno-unused-parameter -fno-exceptions -fno-strict-aliasing)
+  if(ENABLE_FEX_ALLOCATOR)
+    set(RLFEX_ALLOCATOR "rpmalloc")
+  else()
+    set(RLFEX_ALLOCATOR "system")
+  endif()
   target_compile_definitions(rlfex PRIVATE ${DEFINES} "FEXCORE_PRESERVE_ALL_ATTR=" "FEXCORE_HAS_PRESERVE_ALL_ATTR=0"
-                                          RLFEX_FEX_VERSION="${GIT_DESCRIBE_STRING}")
-  target_link_libraries(rlfex PUBLIC FEXCore FEXCore_Base JemallocLibs rpmalloc fmt::fmt xxHash::xxhash
+                                          RLFEX_FEX_VERSION="${GIT_DESCRIBE_STRING}" RLFEX_ALLOCATOR="${RLFEX_ALLOCATOR}")
+  # JemallocLibs is FEX's name for the AllocatorHooks.cpp archive; on Apple it
+  # wraps the system allocator (ENABLE_FEX_ALLOCATOR off, no rpmalloc).
+  target_link_libraries(rlfex PUBLIC FEXCore FEXCore_Base JemallocLibs fmt::fmt xxHash::xxhash
                                      cephes_128bit softfloat_3e unordered_dense::unordered_dense FEXHeaderUtils CodeEmitter)
 
   # The list of archives the app has to link (written for the CI packaging step).
   file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/rlfex-archives.txt CONTENT
-    "$<TARGET_FILE:rlkernel>\n$<TARGET_FILE:rlkernel_base>\n$<TARGET_FILE:rlfex>\n$<TARGET_FILE:FEXCore>\n$<TARGET_FILE:FEXCore_Base>\n$<TARGET_FILE:JemallocLibs>\n$<TARGET_FILE:rpmalloc>\n$<TARGET_FILE:fmt>\n$<TARGET_FILE:xxhash>\n$<TARGET_FILE:cephes_128bit>\n$<TARGET_FILE:softfloat_3e>\n")
+    "$<TARGET_FILE:rlkernel>\n$<TARGET_FILE:rlkernel_base>\n$<TARGET_FILE:rlfex>\n$<TARGET_FILE:FEXCore>\n$<TARGET_FILE:FEXCore_Base>\n$<TARGET_FILE:JemallocLibs>\n$<TARGET_FILE:fmt>\n$<TARGET_FILE:xxhash>\n$<TARGET_FILE:cephes_128bit>\n$<TARGET_FILE:softfloat_3e>\n")
 endif()
 
 # ---- fake kernel (core/kernel) -------------------------------------------------
