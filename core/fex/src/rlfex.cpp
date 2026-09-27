@@ -11,6 +11,7 @@
 #include <FEXCore/HLE/SyscallHandler.h>
 #include <FEXCore/Utils/Allocator.h>
 #include <FEXCore/Utils/AllocatorHooks.h>
+#include <FEXCore/Utils/SignalScopeGuards.h>
 #include <FEXCore/fextl/memory.h>
 
 #include <array>
@@ -101,8 +102,14 @@ void InstallGuard() {
 
 uint8_t* g_HltPage = nullptr; // one `hlt`; exit syscalls park the guest here
 
+// Drops every translation of a guest range (defined after the state below).
+void InvalidateRange(Core::InternalThreadState* Thread, uint64_t Start, uint64_t Length);
+
 class RlSyscallHandler final : public HLE::SyscallHandler, public Allocator::FEXAllocOperators {
 public:
+  void InvalidateGuestCodeRange(Core::InternalThreadState* Thread, uint64_t Start, uint64_t Length) override {
+    InvalidateRange(Thread, Start, Length);
+  }
   void HandleSyscall(Core::CpuStateFrame* Frame) override {
     auto& S = Frame->State;
     const uint64_t Nr = S.gregs[X86State::REG_RAX];
@@ -147,12 +154,15 @@ class RlSignalDelegator final : public SignalDelegator, public Allocator::FEXAll
 
 std::mutex g_Mutex; // init + one guest at a time
 bool g_Init = false;
+bool g_PlatformInit = false;
 bool g_Poisoned = false;
 char g_LastError[256] = "";
 char g_InitJson[2048] = "";
 uint64_t g_Runs = 0;
 rlfex_exec_alloc_fn g_ExecAlloc = nullptr;
 rlfex_exec_free_fn g_ExecFree = nullptr;
+void* g_ProbeRW = nullptr;
+void* g_ProbeRX = nullptr;
 Context::Context* g_Ctx = nullptr;
 RlSyscallHandler* g_Syscalls = nullptr;
 RlSignalDelegator* g_Signals = nullptr;
@@ -163,6 +173,21 @@ double NowMs() {
   struct timeval TV;
   gettimeofday(&TV, nullptr);
   return static_cast<double>(TV.tv_sec) * 1000.0 + static_cast<double>(TV.tv_usec) / 1000.0;
+}
+
+// FEX's lookup cache is shared between threads and keyed by guest address:
+// a fresh thread running new code at an address a previous run used would
+// execute the old translation (build-15 on the TV: every self-test ran the
+// "add" block). Same call sequence as FEX's Linux frontend.
+void InvalidateRange(Core::InternalThreadState* Thread, uint64_t Start, uint64_t Length) {
+  if (!g_Ctx || Length == 0) {
+    return;
+  }
+  auto lk = FEXCore::GuardSignalDeferringSectionWithFallback(g_Ctx->GetCodeInvalidationMutex(), Thread);
+  g_Ctx->InvalidateCodeBuffersCodeRange(Start, Length);
+  if (Thread) {
+    g_Ctx->InvalidateThreadCachedCodeRange(Thread, Start, Length);
+  }
 }
 
 void SetError(const char* Fmt, ...) __attribute__((format(printf, 1, 2)));
@@ -272,6 +297,8 @@ RunResult RunBareLocked(const uint8_t* Code, size_t Len, uint64_t RDI, uint64_t 
   }
   Thread->CallRetStackBase = CallRetBase;
   Thread->CurrentFrame->State.callret_sp = reinterpret_cast<uint64_t>(CallRetBase) + CallRetSize / 4;
+  // The code page is usually handed back at the address of the previous run.
+  InvalidateRange(Thread, reinterpret_cast<uint64_t>(CodePage.Ptr), CodeBytes);
 
   const double T0 = NowMs();
   if (sigsetjmp(t_Jmp, 1) == 0) {
@@ -346,7 +373,86 @@ constexpr TestProgram Tests[] = {
   {"exit", P_Exit, sizeof P_Exit, 0, 0, 0, 7},
 };
 
+// ------------------------------------------------------------------ platform init
+//
+// Everything FEXCore needs before a Context exists. Shared by the
+// bare-function runner (rlfex_init) and the fake kernel
+// (rlfex_platform_init). Caller holds g_Mutex. On failure Stage names the
+// step and g_LastError has the message.
+bool PlatformInitLocked(const char*& Stage) {
+  if (g_PlatformInit) {
+    Stage = "";
+    return true;
+  }
+  Stage = "log";
+  rlfex::InstallLogHandlers();
+  Allocator::SetupHooks(rlfex::HostPageSize());
+  Allocator::InitializeThread();
+  rlfex::InstallThreadHooks();
+  Stage = "alloc";
+  if (!rlfex::InstallAllocatorHooks(g_ExecAlloc, g_ExecFree)) {
+    SetError("no exec allocator set (rlfex_set_exec_allocator)");
+    return false;
+  }
+  Stage = "probe";
+  void* ProbeRW = nullptr;
+  void* ProbeRX = nullptr;
+  if (!rlfex::ProbeExecAllocator(&ProbeRW, &ProbeRX)) {
+    SetError("exec allocator probe failed: JIT pool not ready (rw=%p rx=%p)", ProbeRW, ProbeRX);
+    return false;
+  }
+  g_ProbeRW = ProbeRW;
+  g_ProbeRX = ProbeRX;
+  Stage = "config";
+  rlfex::InstallConfig();
+  g_Features = rlfex::FetchHostFeatures();
+  InstallGuard();
+  g_PlatformInit = true;
+  Stage = "";
+  return true;
+}
+
 } // namespace
+
+// ------------------------------------------------------------------ kernel-facing API
+
+bool rlfex_platform_init(char* Err, size_t Cap) {
+  std::lock_guard lk(g_Mutex);
+  const char* Stage = "";
+  if (PlatformInitLocked(Stage)) {
+    if (Err && Cap) {
+      Err[0] = 0;
+    }
+    return true;
+  }
+  if (Err && Cap) {
+    snprintf(Err, Cap, "%s: %s", Stage, g_LastError);
+  }
+  return false;
+}
+
+const FEXCore::HostFeatures& rlfex_host_features() {
+  return g_Features;
+}
+
+int rlfex_run_guarded(void (*Fn)(void*), void* Arg, rlfex_fault_info* Out) {
+  if (!g_GuardInstalled) {
+    rlfex::Log("rlfex: run_guarded before platform init (no fault guard)");
+  }
+  if (sigsetjmp(t_Jmp, 1) == 0) {
+    t_GuardActive = true;
+    Fn(Arg);
+    t_GuardActive = false;
+    return 0;
+  }
+  t_GuardActive = false;
+  if (Out) {
+    Out->signal = t_Fault.Signal;
+    Out->pc = t_Fault.PC;
+    Out->addr = t_Fault.Addr;
+  }
+  return 1;
+}
 
 // ------------------------------------------------------------------ C API
 
@@ -368,24 +474,12 @@ int rlfex_init(char* Out, size_t Cap) {
     return 1;
   }
   const double T0 = NowMs();
-  rlfex::InstallLogHandlers();
-  Allocator::SetupHooks(rlfex::HostPageSize());
+  const char* Stage = "";
+  if (!PlatformInitLocked(Stage)) {
+    snprintf(Out, Cap, "{\"ok\":false,\"stage\":\"%s\",\"error\":\"%s\"}", Stage, g_LastError);
+    return 0;
+  }
   Allocator::InitializeThread();
-  rlfex::InstallThreadHooks();
-  if (!rlfex::InstallAllocatorHooks(g_ExecAlloc, g_ExecFree)) {
-    SetError("no exec allocator set (rlfex_set_exec_allocator)");
-    snprintf(Out, Cap, "{\"ok\":false,\"stage\":\"alloc\",\"error\":\"%s\"}", g_LastError);
-    return 0;
-  }
-  void* ProbeRW = nullptr;
-  void* ProbeRX = nullptr;
-  if (!rlfex::ProbeExecAllocator(&ProbeRW, &ProbeRX)) {
-    SetError("exec allocator probe failed: JIT pool not ready (rw=%p rx=%p)", ProbeRW, ProbeRX);
-    snprintf(Out, Cap, "{\"ok\":false,\"stage\":\"probe\",\"error\":\"%s\"}", g_LastError);
-    return 0;
-  }
-  rlfex::InstallConfig();
-  g_Features = rlfex::FetchHostFeatures();
   auto Ctx = Context::Context::CreateNewContext(g_Features);
   if (!Ctx) {
     SetError("CreateNewContext failed");
@@ -411,9 +505,10 @@ int rlfex_init(char* Out, size_t Cap) {
     return 0;
   }
   g_HltPage[0] = 0xF4;
-  InstallGuard();
   g_Init = true;
   const auto& F = g_Features;
+  void* ProbeRW = g_ProbeRW;
+  void* ProbeRX = g_ProbeRX;
   snprintf(g_InitJson, sizeof g_InitJson,
            "{\"ok\":true,\"version\":\"%s\",\"init_ms\":%.1f,\"page_size\":%zu,\"probe\":{\"rw\":\"%p\",\"rx\":\"%p\"},"
            "\"host_features\":{\"aes\":%u,\"crc\":%u,\"sha\":%u,\"lse\":%u,\"afp\":%u,\"rcpc\":%u,\"tso_imm9\":%u,"

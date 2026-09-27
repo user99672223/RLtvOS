@@ -1,5 +1,7 @@
 // hello_static.c — checkpoint C1: no libc, only write(2) and exit_group(2).
-// Build: gcc -static -nostdlib -nostartfiles -O2 -o hello-static hello_static.c
+// Build: gcc -static-pie -fPIE -nostdlib -nostartfiles -O2 -o hello-static hello_static.c
+// (PIE because the TV cannot map below 4 GB; the code is position independent
+// and has no relocations, so no startup code is needed to relocate it.)
 // Expected syscalls: write(1, "hello from x86-64 static\n", 25) = 25; exit_group(0)
 typedef unsigned long u64;
 

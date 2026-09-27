@@ -33,6 +33,7 @@ jobs:
           cmake -S core -B build/host -G Ninja -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DRL_BUILD_TESTS=ON
           cmake --build build/host --parallel
           build/host/vfs_test "$PWD"
+          build/host/kernel/kernel_test
           python3 -m py_compile tools/tv.py tools/gdbremote.py laptop/assets_server.py laptop/refs/summarize.py
           for f in laptop/setup/*.sh laptop/refs/run.sh laptop/refs/guest/*.sh handoff/wait.sh; do sh -n "$f"; done
 
@@ -47,8 +48,9 @@ jobs:
           set -euxo pipefail
           sudo apt-get update -qq && sudo apt-get install -y -qq --no-install-recommends cmake ninja-build clang python3
           cmake -S core/fex -B build/fex-host -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
-          cmake --build build/fex-host --target FEXCore --parallel
-          ls -la build/fex-host/fexcore/Source/*.a
+          # rlkernel: the fake kernel compiled against FEXCore's headers (x86-64 host, never linked here)
+          cmake --build build/fex-host --target FEXCore rlkernel --parallel
+          ls -la build/fex-host/fexcore/Source/*.a build/fex-host/kernel/*.a
 
   build:
     name: tvOS build (unsigned) → release build-${{ github.run_number }}
@@ -101,7 +103,7 @@ jobs:
               -DCMAKE_TOOLCHAIN_FILE="$PWD/cmake/tvos.toolchain.cmake" \
               -DCMAKE_BUILD_TYPE=Release \
               -DCMAKE_OSX_DEPLOYMENT_TARGET="$RL_DEPLOYMENT_TARGET" \
-            && cmake --build build/fex --parallel --target rlfex -- -k 0
+            && cmake --build build/fex --parallel --target rlfex rlkernel -- -k 0
           } > fex-build.log 2>&1 || status=$?
           echo "cmake/ninja exit status: $status"
           # -k 0: keep going after a failure so one round shows every error.
@@ -137,7 +139,8 @@ jobs:
           build_app() { # $1 = with_fex (true|false)
             local extra_ld="" swift_conds='$(inherited)'
             if [ "$1" = "true" ]; then
-              extra_ld="$GITHUB_WORKSPACE/build/fex/librlfex_all.a"
+              # librlvfs.a again after the FEX archive: rlkernel (inside librlfex_all.a) uses rlvfs.
+              extra_ld="$GITHUB_WORKSPACE/build/fex/librlfex_all.a $GITHUB_WORKSPACE/build/core/vfs/librlvfs.a"
               swift_conds='$(inherited) RL_HAVE_FEX'
             fi
             rm -rf build
@@ -204,7 +207,7 @@ jobs:
           BIN="Payload/$(basename "$APP")/RLtvOS"
           nm -m "$BIN" | grep -i 'jit26' || echo "WARNING: no JIT26 symbols in the symbol table"
           otool -tv "$BIN" | grep -A3 -i 'JIT26PrepareRegion\|JIT26Detach' | head -12 || true
-          echo "rlfex symbols: $(nm "$BIN" | grep -c ' T _rlfex_' || true)"
+          echo "rlfex symbols: $(nm "$BIN" | grep -c ' T _rlfex_' || true)  rlk symbols: $(nm "$BIN" | grep -c ' T _rlk_' || true)"
           echo "fex_built=${{ steps.fex.outputs.ok }} fex_linked=${{ steps.xcode.outputs.linked }}"
           echo "sha256: $(shasum -a 256 app.ipa)"
 

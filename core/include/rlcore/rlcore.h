@@ -32,6 +32,10 @@ int rlcore_vfs_ls(const char *guest_path, char *out, size_t cap);
 // Reads up to len (<= 65536) bytes at off; JSON has n, hex32 and escaped text.
 int rlcore_vfs_read(const char *guest_path, uint64_t off, uint32_t len, char *out, size_t cap);
 void rlcore_vfs_stats(char *out, size_t cap);
+// The mounted rlvfs::Vfs* (opaque here) for the fake kernel (rlk_set_vfs),
+// NULL when nothing is mounted. Valid until the next rlcore_vfs_mount, which
+// must not happen while guest processes run.
+void *rlcore_vfs_handle(void);
 
 #ifdef __cplusplus
 }

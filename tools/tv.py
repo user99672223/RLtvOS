@@ -779,6 +779,61 @@ def cmd_fex(a):
     out(j, 0 if isinstance(j, dict) and j.get("ok") else 1)
 
 
+def cmd_exec(a):
+    """Run a guest program through the fake kernel on the TV.
+    exec [--dry-run] [--env K=V]... [--cwd DIR] [--wait S] -- /guest/path [args...]
+    --dry-run loads the ELF (+ interpreter) and reports the layout without running.
+    Otherwise the process starts (needs the JIT pool ready) and, with --wait > 0, the
+    command polls `ps` until it exits and prints its stdout/stderr."""
+    if not wait_app(True, 20):
+        fail("app not reachable; launch it first (tv.py launch)")
+    argv = a.argv
+    if argv and argv[0] == "--":
+        argv = argv[1:]
+    if not argv:
+        fail("usage: tv.py exec [--dry-run] [--env K=V] [--cwd DIR] [--wait S] -- /guest/path [args...]")
+    builtin = ["exec"] + (["--dry-run"] if a.dry_run else []) + argv
+    st, j = app_json("POST", "/run", {"argv": builtin, "env": a.env or [], "cwd": a.cwd}, timeout=a.timeout)
+    if st == 0:
+        fail("app died during exec; relaunch and read /crash (tv.py crash)", argv=argv)
+    res = {"ok": bool(isinstance(j, dict) and j.get("ok")), "http": st, "reply": j}
+    pid = j.get("pid") if isinstance(j, dict) else None
+    if res["ok"] and not a.dry_run and pid and a.wait > 0:
+        deadline = time.time() + a.wait
+        proc = None
+        while time.time() < deadline:
+            _, ps = app_json("POST", "/run", {"argv": ["ps"], "env": [], "cwd": "/"}, timeout=30)
+            procs = (((ps or {}).get("kernel") or {}).get("processes")) or []
+            proc = next((p for p in procs if p.get("pid") == pid), None)
+            if proc and proc.get("state") != "running":
+                break
+            time.sleep(0.5)
+        res["process"] = proc
+        res["exited"] = bool(proc and proc.get("state") != "running")
+        _, o = app_json("POST", "/run", {"argv": ["guest-out", str(pid)], "env": [], "cwd": "/"}, timeout=30)
+        res["output"] = (o or {}).get("output", "") if isinstance(o, dict) else ""
+        if res["output"]:
+            sys.stderr.write(res["output"] if res["output"].endswith("\n") else res["output"] + "\n")
+        res["ok"] = bool(res["exited"] and proc.get("exit_code") == 0)
+    out(res, 0 if res["ok"] else 1)
+
+
+def cmd_ps(a):
+    """Guest process table of the fake kernel: ps | ps --out PID | ps --killall."""
+    if not wait_app(True, 20):
+        fail("app not reachable; launch it first (tv.py launch)")
+    if a.killall:
+        st, j = app_json("POST", "/run", {"argv": ["killall"], "env": [], "cwd": "/"}, timeout=30)
+        out(j, 0 if st == 200 else 1)
+    if a.out_pid is not None:
+        st, j = app_json("POST", "/run", {"argv": ["guest-out", str(a.out_pid)], "env": [], "cwd": "/"}, timeout=30)
+        text = (j or {}).get("output", "") if isinstance(j, dict) else ""
+        sys.stdout.write(text if (not text or text.endswith("\n")) else text + "\n")
+        sys.exit(0 if st == 200 else 1)
+    st, j = app_json("POST", "/run", {"argv": ["ps"], "env": [], "cwd": "/"}, timeout=30)
+    out(j, 0 if st == 200 else 1)
+
+
 def do_launch(fresh=False, timeout=60):
     res = {}
     if app_is_up():
@@ -1067,6 +1122,8 @@ def main():
     p = sp.add_parser("jit", help="TXM JIT: run JIT_CMD (laptop helper), wait for /status.jit ready, run the pool self-test"); p.add_argument("--no-test", action="store_true"); p.add_argument("--wait", type=float, help="seconds to wait for the pool (default JIT_READY_TIMEOUT)"); p.add_argument("--prep", action="store_true", help="only ask the app to (re)start its preparation and wait"); p.add_argument("--detach", action="store_true", help="only ask the app to detach the debugger"); p.add_argument("--legacy", action="store_true", help="old flow: gdbremote page-touch authorization of the RWX arena"); p.add_argument("--page", type=int, default=0); p.add_argument("--madvise", action="store_true", help="(legacy) madvise(MADV_FREE) the page first"); p.add_argument("--fresh", action="store_true", help="(legacy) execute in a fresh unauthorized page (expected SIGKILL)"); p.set_defaults(fn=cmd_jit)
     p = sp.add_parser("jitcfg", help="show or set the app's runtime JIT config: jitcfg [jit_pool_mb=128 jit_wait_s=60 jit_in_place=0 jit_detach=1 jit_selftest=1 jit_autostart=1]"); p.add_argument("kv", nargs="*"); p.set_defaults(fn=cmd_jitcfg)
     p = sp.add_parser("fex", help="FEXCore on the TV: fex status | init | selftest [add|loop|sse|call|mem|syscall|exit|all] | run HEX [rdi rsi rdx]"); p.add_argument("what", choices=["status", "init", "selftest", "run"]); p.add_argument("arg", nargs="?"); p.add_argument("regs", nargs="*"); p.add_argument("--timeout", type=int, default=300); p.set_defaults(fn=cmd_fex)
+    p = sp.add_parser("exec", help="fake kernel: exec [--dry-run] [--env K=V] [--cwd DIR] [--wait S] -- /guest/path [args...]"); p.add_argument("--dry-run", action="store_true", help="load the ELF + interpreter, report the layout, do not run"); p.add_argument("--env", action="append"); p.add_argument("--cwd", default="/"); p.add_argument("--wait", type=int, default=120, help="seconds to wait for the process to exit (0 = return right after the start)"); p.add_argument("--timeout", type=int, default=300); p.add_argument("argv", nargs=argparse.REMAINDER); p.set_defaults(fn=cmd_exec)
+    p = sp.add_parser("ps", help="fake kernel: guest process table; --out PID prints that process's stdout/stderr; --killall stops every guest"); p.add_argument("--out", dest="out_pid", type=int); p.add_argument("--killall", action="store_true"); p.set_defaults(fn=cmd_ps)
     p = sp.add_parser("launch"); p.add_argument("--fresh", action="store_true", help="kill first if running"); p.add_argument("--timeout", type=int, default=60); p.set_defaults(fn=cmd_launch)
     p = sp.add_parser("kill"); p.set_defaults(fn=cmd_kill)
     p = sp.add_parser("apps"); p.set_defaults(fn=cmd_apps)

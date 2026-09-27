@@ -2,44 +2,41 @@
 
 ## repo
 
-- State: Phase A answered by LAPTOP (result 001: PASS except JIT, TV
-  numbers in PROGRESS.md). Phase B code compiles and links into the app
-  since build-13 (`FEX built: true, FEX linked: true` in the release body);
-  it needs the TXM pool to run, which needs the tvOS 27 DDI (LAPTOP + user). CI: `macos-15`, Xcode 16.4, tvOS 18.5 SDK,
-  deployment target now 18.0; jobs `host-tests`, `fex-host-check` (vendored
-  FEXCore compiles on x86-64 Linux — passes locally) and `build`. The
-  FEX step (`core/fex` → `librlfex_all.a`) is allowed to fail: the app is
-  then built without FEX (`RL_HAVE_FEX` off, console says "FEX not linked")
-  and `fex-build.log` is in the `build-logs-N` artifact; the release body
-  says `FEX linked: true|false`.
-- Request 001 is answered (FAIL = JIT only). Next request 002 (no-JIT
-  checks on build-14+): `tv.py va --probe2` (reservation limit experiments
-  that fix the memory design), `tv.py fex status|init` with FEX linked
-  (expect "JIT pool not ready", no crash), then the kernel loader dry-run
-  once it lands. The JIT + FEX self-test re-run is its own request when
-  the DDI exists.
-- JIT: app half of LAPTOP's issue done in `app/Sources/Native/jit26.c`
-  (`/status.jit`, `tv.py jit|jitcfg`, details in `handoff/issues/001-jit.md`).
-  Debugger-allocated region is the default; in-place pool is an experiment.
-- FEX: `third_party/FEX` @59f85d6 + Darwin patches (`RLTVOS-PATCHES.md`) incl.
-  the RW/RX dual-mapping translation ported from AetherPS4's fork;
-  `core/fex/src/{darwin_platform,rlfex}.cpp` (log/threads/config/host
-  features/alloc hooks; bare-function runner; `/run fex-selftest`).
-  First tvOS compile will surface Apple-only errors — fix from
-  `fex-build.log`, re-push, repeat until `FEX linked: true`.
+- State (2026-09-27): request 001 **PASS** including JIT (tvOS 27 DDI from
+  Xcode 27 via the `xcode-27` Actions runner; details in results/001-harness
+  and issue 003). FEXCore's JIT executes on the TV (build-15, 3/7 self-tests:
+  the 4 "failures" ran the first test's stale translation — FEX's lookup
+  cache is shared between threads; fixed by invalidating the code range,
+  `InvalidateCodeBuffersCodeRange` + `InvalidateThreadCachedCodeRange`).
+- Landed with the kernel commit: `core/kernel` (Phase C, C1/C2 scope) —
+  `rlkernel_base` (ELF loader over `FileSource`, `AddressSpace` with per-4K
+  shadow protections on 16K host pages + FEX invalidation hook, fd table,
+  strace-format log; unit-tested by `kernel_test` in the host-tests job) and
+  `rlkernel` (guest processes/threads on FEXCore, ~90 syscalls, synthetic
+  /proc + /dev, rlvfs bridge, C API `rlkernel.h`). App: `/run exec [--dry-run]
+  PATH...`, `ps`, `guest-out PID`, `killall`, absolute guest paths run
+  directly, `KERN` console line, `/status.guest`. `tv.py exec|ps`.
+- **Low addresses are impossible** (XNU `mach_loader.c`: arm64 64-bit
+  binaries need a 4 GB hard page zero, else LOAD_BADMACHO). Guest
+  executables must be PIE: `hello-static` is now `-static-pie`, `busybox`
+  (dynamic) replaces `busybox-static`, `laptop/setup/45-elf-audit.sh` lists
+  offenders; the loader refuses ET_EXEC images below 4 GB with ENOEXEC. Wine's
+  0x7ffe0000 page is a C5 item (fault redirect, or one-constant Wine rebuild).
+- Next request 002 (after the build with this commit is released): FEX
+  self-test 7/7, `vaprobe2`, `45-elf-audit.sh`, rebuild `hello-static` as PIE
+  (+ manifest rebuild), then **C1** `tv.py exec -- /opt/rl/bin/hello-static`
+  and **C2** `tv.py exec -- /opt/rl/bin/hello-dyn` on the TV (dry-run first),
+  screenshot with the KERN line, log with the strace lines, mem.
+- Known gaps to close as the traces demand: exited processes are never
+  reaped (their memory stays mapped), no SMC tracking (mprotect(+W) drops
+  translations instead), one lock around every rlvfs call, no signal
+  delivery yet (C3), no fork/execve/pipes yet (C3).
+- CI: `macos-15`, Xcode 16.4, tvOS 18.5 SDK, deployment target 18.0; jobs
+  `host-tests` (vfs_test + kernel_test), `fex-host-check` (FEXCore + rlkernel
+  compile on x86-64), `build` (FEX step non-fatal → `FEX linked: true|false`
+  in the release body; `librlfex_all.a` now also carries rlkernel).
 - Shared branch is `claude/rocket-league-apple-tv-zek0mi` until `main`
   exists (see CLAUDE.md "Shared branch" and DECISIONS.md).
-- LAPTOP's issue 002 script fixes applied (rootless rootfs, `--bind`,
-  `--gpu`, wine i386 dummy, `-ldxguid -luuid`, `KEY= # comment`).
-- VFS layout question is closed: LAPTOP serves REPO's `assets_server.py`
-  (manifest.jsonl.gz), mount/ls/cat PASS on the TV.
-- To do next (REPO): `core/kernel` (fake kernel) C1/C2: ELF loader from the
-  VFS, shared address space with VMAs (kernel-design §2 rewritten for the
-  6 GB VA budget), fd table, syscall table with strace-format log,
-  `/run exec ARGV...` on the TV; host unit test for the loader.
-- `sigaltstack` is `__TVOS_PROHIBITED` at compile time; app resolves it via
-  dlsym and reports `/status.sysinfo.sigaltstack`. Design of the signal
-  delegator depends on that answer.
 
 ## laptop
 

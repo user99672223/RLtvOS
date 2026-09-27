@@ -124,5 +124,10 @@ if(APPLE)
 
   # The list of archives the app has to link (written for the CI packaging step).
   file(GENERATE OUTPUT ${CMAKE_BINARY_DIR}/rlfex-archives.txt CONTENT
-    "$<TARGET_FILE:rlfex>\n$<TARGET_FILE:FEXCore>\n$<TARGET_FILE:FEXCore_Base>\n$<TARGET_FILE:JemallocLibs>\n$<TARGET_FILE:rpmalloc>\n$<TARGET_FILE:fmt>\n$<TARGET_FILE:xxhash>\n$<TARGET_FILE:cephes_128bit>\n$<TARGET_FILE:softfloat_3e>\n")
+    "$<TARGET_FILE:rlkernel>\n$<TARGET_FILE:rlkernel_base>\n$<TARGET_FILE:rlfex>\n$<TARGET_FILE:FEXCore>\n$<TARGET_FILE:FEXCore_Base>\n$<TARGET_FILE:JemallocLibs>\n$<TARGET_FILE:rpmalloc>\n$<TARGET_FILE:fmt>\n$<TARGET_FILE:xxhash>\n$<TARGET_FILE:cephes_128bit>\n$<TARGET_FILE:softfloat_3e>\n")
 endif()
+
+# ---- fake kernel (core/kernel) -------------------------------------------------
+# rlkernel needs FEXCore's headers; built here on Apple (linked into the app)
+# and on the x86-64 host (compile check only, nothing links it there).
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../kernel kernel)

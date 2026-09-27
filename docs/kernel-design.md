@@ -45,14 +45,24 @@ Consequences (replaces the per-process slice plan):
   plain `mmap`. Two guest processes cannot both map the same fixed address
   — the second `MAP_FIXED` request into a range another process owns fails
   with EEXIST-like ENOMEM and is logged (`vma-conflict`). Wine tolerates
-  relocation of PE images; its one fixed page (KUSER_SHARED_DATA at
-  0x7ffe0000) is a MAP_SHARED view of one wineserver section and is shared
-  by design. The low 4 GB is reachable because the app is linked with
-  `-pagezero_size 0x4000`.
-- ET_EXEC binaries (non-PIE, fixed vaddr, e.g. `hello-static`) are mapped at
-  their fixed address if free; ET_DYN binaries are loaded top-down under the
-  stack region like the kernel does (main PIE at a hint near the top of the
-  47-bit range, interpreter and libraries below it).
+  relocation of PE images.
+- **The low 4 GB does not exist for the guest.** XNU refuses to exec an
+  arm64 64-bit binary whose `__PAGEZERO` is smaller than 4 GB
+  (`bsd/kern/mach_loader.c`: "64 bit ARM binary must have hard page zero of
+  4GB", `LOAD_BADMACHO`), so `-pagezero_size` cannot open it and no
+  `mmap` below 0x100000000 ever succeeds (`/va` on the TV starts at
+  0x107400000). Consequences: every guest executable must be PIE
+  (`AddressSpace::min_addr()` = 4 GB; the loader refuses ET_EXEC images
+  below it with ENOEXEC and "relink as PIE"; `hello-static` is built
+  `-static-pie`, `busybox` replaces `busybox-static`;
+  `laptop/setup/45-elf-audit.sh` lists offenders). Wine's one fixed low page,
+  KUSER_SHARED_DATA at 0x7ffe0000, is a C5 problem: plan A keeps Wine stock
+  and redirects the JIT's loads/stores that fault on that page to a relocated
+  copy (FEX already decodes host load/store instructions for its unaligned-
+  access handler); plan B is a one-constant Wine rebuild on the laptop.
+- ET_DYN binaries (main PIE, interpreter, libraries) are loaded wherever the
+  host has room; the main image and the interpreter each get one reservation
+  for their whole span so their segments keep their relative layout.
 - 4 KB guest pages on 16 KB host pages: a shadow protection table with one
   byte per 4 KB page for every VMA; the host page gets the union of the four
   4 KB protections. Guest code is never executed by the host (FEX reads it),

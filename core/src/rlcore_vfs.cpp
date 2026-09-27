@@ -202,6 +202,11 @@ extern "C" int rlcore_vfs_read(const char* guest_path, uint64_t off, uint32_t le
     return 1;
 }
 
+extern "C" void* rlcore_vfs_handle(void) {
+    std::lock_guard<std::mutex> g(g_mu);
+    return g_v.mounted ? static_cast<void*>(g_v.vfs.get()) : nullptr;
+}
+
 extern "C" void rlcore_vfs_stats(char* out, size_t cap) {
     std::lock_guard<std::mutex> g(g_mu);
     if (!g_v.mounted) { snprintf(out, cap, "{\"mounted\":false}"); return; }

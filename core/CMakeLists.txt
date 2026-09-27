@@ -20,7 +20,14 @@ else()
 endif()
 option(RL_BUILD_TESTS "Build host-side tests (Linux/macOS)" ${_rl_tests_default})
 
+if(RL_BUILD_TESTS)
+  enable_testing()
+endif()
+
 add_subdirectory(vfs)
+# Loader/mm/fd part of the fake kernel (+ its host test). The FEX-facing
+# part is built from core/fex, next to FEXCore.
+add_subdirectory(kernel)
 
 add_library(rlcore STATIC
   src/rlcore.cpp
@@ -38,7 +45,6 @@ endif()
 if(RL_BUILD_TESTS)
   add_executable(vfs_test tests/vfs_test.cpp)
   target_link_libraries(vfs_test PRIVATE rlvfs)
-  enable_testing()
   add_test(NAME vfs_test COMMAND vfs_test ${CMAKE_SOURCE_DIR}/..)
 endif()
 

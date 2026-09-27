@@ -151,7 +151,8 @@ final class HostState {
         #if RL_HAVE_FEX
         rlfex_set_log { line in if let line = line { rl_log_str(String(cString: line)) } }
         rlfex_set_exec_allocator({ size, rxOut in rl_jit26_alloc(size, rxOut) }, { rw, size in rl_jit26_free(rw, size) })
-        rl_log_str("host: rlfex bound to the jit26 pool")
+        rlk_set_log { line in if let line = line { rl_log_str(String(cString: line)) } }
+        rl_log_str("host: rlfex bound to the jit26 pool; kernel log bound")
         #else
         rl_log_str("host: rlfex not linked in this build")
         #endif
@@ -211,6 +212,61 @@ final class HostState {
         return HostState.parseJSON(s)
         #else
         return ["ok": false, "error": "rlfex not linked"]
+        #endif
+    }
+
+    // MARK: - fake kernel (rlkernel)
+
+    func kernelInfo() -> [String: Any] {
+        #if RL_HAVE_FEX
+        var d = HostState.parseJSON(HostState.fill(65536) { rlk_status_json($0, 65536) })
+        d["linked"] = true
+        return d
+        #else
+        return ["linked": false, "note": "app built without core/fex (kernel not linked)"]
+        #endif
+    }
+
+    /// Starts (or, with dryRun, only loads) a guest program in the fake kernel.
+    func guestExec(_ argv: [String], env: [String], cwd: String, dryRun: Bool) -> [String: Any] {
+        #if RL_HAVE_FEX
+        guard !argv.isEmpty else { return ["ok": false, "error": "empty argv"] }
+        let cargv: [UnsafePointer<CChar>?] = argv.map { UnsafePointer(strdup($0)) }
+        let cenv: [UnsafePointer<CChar>?] = env.map { UnsafePointer(strdup($0)) }
+        defer {
+            for p in cargv { if let p = p { free(UnsafeMutablePointer(mutating: p)) } }
+            for p in cenv { if let p = p { free(UnsafeMutablePointer(mutating: p)) } }
+        }
+        var rc: Int32 = 0
+        let s = HostState.fill(131072) { out in
+            cargv.withUnsafeBufferPointer { a in
+                cenv.withUnsafeBufferPointer { e in
+                    rc = rlk_exec(a.baseAddress, Int32(a.count), e.baseAddress, Int32(e.count), cwd, dryRun ? 1 : 0, out, 131072)
+                }
+            }
+        }
+        var d = HostState.parseJSON(s)
+        d["rc"] = Int(rc)
+        rl_log_str("host: guest exec\(dryRun ? " (dry-run)" : "") \(argv.joined(separator: " ")) → \(s.prefix(300))")
+        return d
+        #else
+        return ["ok": false, "error": "kernel not linked (app built without core/fex)"]
+        #endif
+    }
+
+    func guestOutput(_ pid: Int32) -> String {
+        #if RL_HAVE_FEX
+        return HostState.fill(65536) { _ = rlk_process_output(pid, $0, 65536) }
+        #else
+        return ""
+        #endif
+    }
+
+    func guestKillAll() -> Int {
+        #if RL_HAVE_FEX
+        return Int(rlk_kill_all())
+        #else
+        return 0
         #endif
     }
 
@@ -325,7 +381,7 @@ final class HostState {
             "frames": renderer?.frameCount ?? 0,
             "requests": httpd_request_count(),
             "log_next": rl_log_next_seq(),
-            "guest": ["kernel": "none (phase A)", "processes": [] as [Any]],
+            "guest": kernelInfo(),      // fake kernel: processes, syscall count, fex ready
             "input_queued": inputQueue.count,
             "caches_dir": cachesDir.path,
             "crash_report_present": FileManager.default.fileExists(atPath: crashFile.path),
@@ -422,7 +478,12 @@ final class HostState {
             let dir = cachesDir.appendingPathComponent(sub).path
             let s = HostState.fill(8192) { _ = rlcore_vfs_mount(argv[1], dir, $0, 8192) }
             rl_log_str("vfs: mount \(argv[1]) → \(s.prefix(300))")
-            return HostState.parseJSON(s)
+            let d = HostState.parseJSON(s)
+            #if RL_HAVE_FEX
+            // The kernel serves guest files from this mount from now on.
+            if (d["ok"] as? Bool) == true { rlk_set_vfs(rlcore_vfs_handle()) }
+            #endif
+            return d
         case "vfs-stat":
             guard argv.count > 1 else { return ["ok": false, "error": "usage: vfs-stat PATH [nofollow]"] }
             let follow: Int32 = argv.count > 2 && argv[2] == "nofollow" ? 0 : 1
@@ -446,11 +507,32 @@ final class HostState {
             let s = argv.count > 1 ? (Double(argv[1]) ?? 1) : 1
             Thread.sleep(forTimeInterval: min(s, 30))
             return ["ok": true, "slept": min(s, 30)]
+        case "exec":
+            // exec [--dry-run] /guest/path [args...]  — env and cwd come from the
+            // request (empty env → the kernel's default PATH/HOME/...). dry-run
+            // loads the ELF + interpreter and reports the layout without running.
+            var rest = Array(argv.dropFirst())
+            var dry = false
+            if rest.first == "--dry-run" { dry = true; rest.removeFirst() }
+            guard !rest.isEmpty else { return ["ok": false, "error": "usage: exec [--dry-run] /guest/path [args...]"] }
+            return guestExec(rest, env: env, cwd: cwd, dryRun: dry)
+        case "ps":
+            return ["ok": true, "kernel": kernelInfo()]
+        case "guest-out":
+            guard argv.count > 1, let pid = Int32(argv[1]) else { return ["ok": false, "error": "usage: guest-out PID"] }
+            return ["ok": true, "pid": Int(pid), "output": guestOutput(pid)]
+        case "killall":
+            return ["ok": true, "stopped": guestKillAll()]
         default:
+            if cmd.hasPrefix("/") {
+                // A guest program: POST /run {"argv":["/opt/rl/bin/hello-static"],"env":[],"cwd":"/"}
+                return guestExec(argv, env: env, cwd: cwd, dryRun: false)
+            }
             return [
                 "ok": false,
-                "error": "no guest kernel yet (phase A)",
-                "builtins": ["jittest [--legacy [--trust] [--page N] [--madvise] [--fresh]]", "jitprep [--wait S]", "jitdetach",
+                "error": "unknown builtin (guest programs are given as absolute guest paths)",
+                "builtins": ["exec [--dry-run] /guest/path [args...]", "ps", "guest-out PID", "killall",
+                             "jittest [--legacy [--trust] [--page N] [--madvise] [--fresh]]", "jitprep [--wait S]", "jitdetach",
                              "cfg key=value ...", "fex-init", "fex-selftest [add|loop|sse|call|mem|syscall|exit|all]",
                              "fex-run HEX [rdi rsi rdx]", "vaprobe [steps]", "vaprobe2", "memprobe",
                              "crashtest [0|1|2]", "log ...", "sleep s", "vfs-mount http://host:port [cache-subdir]",
@@ -505,6 +587,13 @@ final class HostState {
             lines.append("FEX  \(fi["version"] ?? "?") ready  runs=\(st["runs"] ?? 0) syscalls=\(st["syscalls"] ?? 0) poisoned=\(st["poisoned"] ?? false)")
         } else {
             lines.append("FEX  linked, \(fi["stage"] as? String ?? "not initialised")  \(fi["error"] ?? "")  (tv.py fex selftest)")
+        }
+        let kn = kernelInfo()
+        if (kn["linked"] as? Bool) == true {
+            let procs = (kn["processes"] as? [[String: Any]]) ?? []
+            let running = procs.filter { ($0["state"] as? String) == "running" }.count
+            let last = procs.last.map { "last: pid \($0["pid"] ?? 0) \($0["exe"] ?? "") \($0["state"] ?? "") exit=\($0["exit_code"] ?? 0) syscalls=\($0["syscalls"] ?? 0)" } ?? "no guest process yet (tv.py exec)"
+            lines.append("KERN procs \(procs.count) (\(running) running)  syscalls \(kn["syscalls_total"] ?? 0)  fex \(kn["fex"] ?? false)  \(last)")
         }
         let kill: String = { lock.lock(); defer { lock.unlock() }; return lastJitKill }()
         if !kill.isEmpty {

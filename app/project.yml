@@ -44,7 +44,7 @@ targets:
       - sdk: libz.tbd
     settings:
       base:
-        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../core/include $(SRCROOT)/../core/vfs/include $(SRCROOT)/../core/fex/include"
+        HEADER_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../core/include $(SRCROOT)/../core/vfs/include $(SRCROOT)/../core/fex/include $(SRCROOT)/../core/kernel/include"
         LIBRARY_SEARCH_PATHS: "$(inherited) $(SRCROOT)/../build/core $(SRCROOT)/../build/core/vfs"
         PRODUCT_BUNDLE_IDENTIFIER: dev.rltvos.app
         PRODUCT_NAME: RLtvOS

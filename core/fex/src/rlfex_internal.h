@@ -39,3 +39,25 @@ bool ProbeExecAllocator(void** RW, void** RX);
 size_t HostPageSize();
 
 } // namespace rlfex
+
+// ---- shared with the fake kernel (core/kernel/src/process.cpp) ---------------
+
+struct rlfex_fault_info {
+  int signal;
+  uint64_t pc;
+  uint64_t addr;
+};
+
+// Everything FEXCore needs before a Context can be created: log handlers,
+// allocator hooks + one probe allocation, thread hooks, config, host
+// features, the fault guard. Idempotent. Returns false (with a message in
+// err) when the JIT pool is not ready.
+bool rlfex_platform_init(char* err, size_t cap);
+
+// Valid after rlfex_platform_init returned true.
+const FEXCore::HostFeatures& rlfex_host_features();
+
+// Runs fn(arg) on this thread with the fault guard armed. Returns 0 when fn
+// returned normally, 1 when a fault (SIGSEGV/SIGBUS/SIGILL/SIGTRAP/SIGFPE)
+// was caught: the thread longjmp'd out of fn and *out describes the fault.
+int rlfex_run_guarded(void (*fn)(void*), void* arg, rlfex_fault_info* out);

@@ -15,7 +15,10 @@
 set -eu
 . "$(dirname "$0")/lib.sh"
 
-PKGS="busybox-static xvfb x11-utils x11-apps x11-xserver-utils xdotool evtest strace gdb-minimal \
+# busybox (dynamic, PIE), not busybox-static: Debian's static build is a non-PIE
+# ET_EXEC at 0x400000, which the TV cannot map (4 GB hard page zero; see
+# laptop/setup/45-elf-audit.sh and handoff/DECISIONS.md 2026-09-27).
+PKGS="busybox xvfb x11-utils x11-apps x11-xserver-utils xdotool evtest strace gdb-minimal \
 gcc libc6-dev make mingw-w64 \
 vulkan-tools libvulkan1 mesa-vulkan-drivers libgl1 libegl1 \
 libsdl2-2.0-0 libfreetype6 libgnutls30 libxcomposite1 libxcursor1 libxi6 libxrandr2 libxrender1 \

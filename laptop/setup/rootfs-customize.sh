@@ -8,7 +8,20 @@ export PATH=/opt/wine-stable/bin:/opt/wine-devel/bin:/opt/wine-staging/bin:/usr/
 mkdir -p /opt/rl/bin /opt/rl/src
 cd /opt/rl/src
 
-gcc -static -nostdlib -nostartfiles -O2 -o /opt/rl/bin/hello-static hello_static.c
+# Every guest executable must be PIE: the TV cannot map anything below 4 GB
+# (XNU enforces a 4 GB hard page zero on arm64 processes), so an ET_EXEC
+# linked at 0x400000 can never run there (handoff/DECISIONS.md 2026-09-27).
+# -static-pie works without startup code here: hello_static.c has no
+# relocations to apply (RIP-relative addressing only).
+if ! gcc -static-pie -fPIE -nostdlib -nostartfiles -O2 -o /opt/rl/bin/hello-static hello_static.c; then
+  echo "WARN: -static-pie failed; building a non-PIE hello-static (will NOT run on the TV)"
+  gcc -static -nostdlib -nostartfiles -O2 -o /opt/rl/bin/hello-static hello_static.c
+fi
+file /opt/rl/bin/hello-static
+case "$(file -b /opt/rl/bin/hello-static)" in
+  *"pie executable"*|*"shared object"*) echo "hello-static: PIE ok" ;;
+  *) echo "WARN: hello-static is not PIE" ;;
+esac
 gcc -O2 -o /opt/rl/bin/hello-dyn hello_dyn.c
 gcc -O2 -pthread -o /opt/rl/bin/threads-test threads_test.c
 if command -v x86_64-w64-mingw32-gcc >/dev/null 2>&1; then

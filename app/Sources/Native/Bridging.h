@@ -8,5 +8,6 @@
 #include "httpd.h"
 #include <rlcore/rlcore.h>
 #include <rlfex/rlfex.h>
+#include <rlkernel/rlkernel.h>
 
 #endif
