@@ -10,14 +10,36 @@ from the result's `mem.json`.
 | B  | FEXCore on tvOS, bare x86-64 function | 002 | **PASS** (LAPTOP 2026-09-27, build-18): self-test **7/7** (add, loop, sse, call, mem, syscall, exit), init 4.6 ms, runs 0.05–2 ms | build-18 | 168.4 MB (app + JIT pool, before any guest) | — | build-15's 3/7 was the shared lookup cache re-running the first test's translation; fixed by code-range invalidation. |
 | C1 | static hello (write/exit_group) | 002 | **PASS** (LAPTOP 2026-09-27, build-18): `hello from x86-64 static` / `333833500`, exit 0, 3 syscalls, 2.8 ms; KERN line `pid 4 … exit=0` on the screenshot | build-18 | 193.4 MB | — | First guest process on the TV: PIE static binary through the VFS, loader, syscall table and FEX. |
 | C2 | dynamic glibc hello (ld.so path) | 002 → 003 | **PASS** (LAPTOP 2026-09-27, build-20): all 7 lines (`uname`, `pid=1 ppid=0 uid=1000 cwd=/`, `exe=/opt/rl/bin/hello-dyn`, `HOME`, `malloc 64MB ok 63`), exit 0, 43 syscalls, 452 ms; dash, busybox and env run too | build-20 | 197.5 MB (peak 207.1) | — | build-18 failed with SIGBUS in ld.so's `memcmp` (FEX's TSO `ldapur` on an unaligned 8-byte load); the guard now back-patches it (`HandleUnalignedAccess`, 15 fix-ups during hello-dyn). Result 003 also found that every finished guest left 2 GB of VA in FEX's rpmalloc heaps (4th guest dies) → system allocator on Darwin from build-23. |
-| C3 | busybox sh pipeline + background job | 004 → 005 | **PARTIAL** (LAPTOP 2026-09-27, build-23): VA budget holds across 6 guests (7.5 → 7.25 GB, `allocator: system`); `x=$(echo hi); (echo sub; exit 3); echo rc=$?` passes; `echo one \| tr o 0` and `sleep 1 &` hang — the forked child loops on an unaligned `stlurh` into a copy-on-write page (hook claimed the alignment fault). Fixed in build-25; steps 2–5 (c3.sh, threads-test, signal exits) not run yet | build-23 | 197 MB after 6 guests | — | Fork/exec/wait4/SIGCHLD and the snapshot restore work (1b); `killall` could not stop the spinning thread → kicks in build-25. |
-| C4 | Xvfb + xdpyinfo + xeyes | — | — | — | — | — | |
+| C3 | busybox sh pipeline + background job | 004 → 005 → 006 | **PARTIAL** (LAPTOP 2026-09-27, build-25, result 005): threads-test (`counter=400000 joined=60 usr1=1`), signal exits (`kill -9` → 137, TERM trap → 5), the kick of a JIT-spinning thread, ps/reaping all PASS; every **fork** child (pipelines, `&`, `$(…)`) died on its first stack write — XNU delivers the copy-on-write write-protection fault as SIGBUS si_code 1 (= BUS_ADRALN) and build-25 left such faults to FEX's unaligned fix-up. vfork children were fine. Fixed in build-27 (classification from the exception syndrome); re-run = request 006 | build-25 | 204 MB (after part A) | — | Result 004 (build-23): VA budget holds across guests with the system allocator; `x=$(…); (…; exit 3)` passes. Result 005 also found 272 MB of address space leaked per thread ending by fault/kick (FEX lookup cache) → thread destroyed in build-27. |
+| C4 | Xvfb + xdpyinfo + xeyes | 005 → 006 | **PARTIAL** (LAPTOP 2026-09-27, build-25, result 005): B1 writable layer (`/tmp`, `/dev/shm`, `/run`, copy-up, `guest-put`/`guest-file` round trip) PASS; Xvfb as a top-level guest goes through `epoll_create1`, AF_UNIX `bind`/`listen` (abstract + `/tmp/.X11-unix/X1`), `epoll_ctl` and the lock file with no ENOSYS, xdpyinfo's `connect`/`poll`/`writev` too; Xvfb then dies at keyboard init because its `xkbcomp` fork died (the C3 fork bug) → B2/B3 not reached | build-25 | 444 MB (while Xvfb ran; 231 MB after) | — | Xvfb takes ~15 s to load Mesa/DRI libraries over the VFS. |
 | C5 | wine64 notepad under Xvfb | — | — | — | — | — | |
 | D1 | vkcube via Vulkan thunk | — | — | — | — | — | |
 | D2 | DXVK d3d11 sample under wine64 | — | — | — | — | — | |
 | D3 | synthetic evdev device from a paired controller | — | — | — | — | — | |
-| E1 | RocketLeague.exe reaches main menu | — | — | — | — | — | |
-| E2 | exhibition match vs bots | — | — | — | — | — | |
+| E1 | RocketLeague.exe reaches main menu | — | **ON HOLD** (feasibility, below) | — | — | — | |
+| E2 | exhibition match vs bots | — | **ON HOLD** (feasibility, below) | — | — | — | |
+
+## Feasibility (issue 004 → issue 005)
+
+The two go/no-go numbers for E1/E2, measured early as proxies (DECISIONS
+2026-09-27 "process correction"):
+
+- **Memory** (issue 004, LAPTOP 2026-09-27, native, 720p low, textures 256 px,
+  30 fps cap): RocketLeague.exe **4.1 GB private dirty anonymous** at the main
+  menu, **4.3 GB** in a 1v1 bot match (all Wine processes: 4.2 / 4.4 GB Pss),
+  plus **~1.1 GB GPU buffers** (DXVK: 1,136 MB allocated, 560 MB used), 30 fps.
+  The TV kills the app at **~2.1 GB `phys_footprint`**, which counts anonymous,
+  compressed and Metal/IOKit memory. The game's own heap is ~2× the whole
+  device budget before FEX, Wine, Xvfb and the JIT cache. The only mechanism
+  that could still fit it is file-backed guest memory (a `MAP_SHARED` Caches
+  file is external memory, outside the footprint, paged by XNU): issue 005 asks
+  the laptop to run the game under a 1–3 GB cgroup cap with swap, the same
+  situation, and report fps/paging. **D1–E2 are on hold until that result and
+  the user's decision.**
+- **CPU** (issue 004 part B): cpubench native baseline on the laptop (i5-1135G7):
+  int_alu 2.56 ns/op, fp_scalar 46 ns/step, simd 0.127 ns/elem, memcpy
+  16.5 GB/s, mem_random 87 ns, branchy 0.27 ns, calls 0.37 ns, total 2.4 s.
+  TV numbers come with request 006 (part D).
 
 ## Measurements log
 
@@ -26,4 +48,5 @@ from the result's `mem.json`.
 - 2026-09-27 build-11 A: phys_footprint 31.8 → 167.8 MB (+136 MB) once the 128 MB JIT pool is prepared (the debugger writes every page → all resident); available 2066 → 1930 MB; limit~ 2098 MB.
 - 2026-09-27 build-18 B/C1/C2: 168.4 MB before any guest → 193.4 MB after C1 (kernel FEX context + 16 MB code buffer + the guest's touched pages) → 197.5 MB after the C2 attempt; peak 201.4 MB; available 1900 MB. VA (vaprobe2): 6.25 GB reservable in 256 MB steps, 6.5 GB in 64 MB steps, the same for PROT_NONE / RW / RW+NORESERVE / vm_allocate; RLIMIT_AS unlimited.
 - 2026-09-27 build-23 C3 partial (result 004): 191 MB fresh → 197 MB after 6 `env` guests; VA (256 MB steps) 7.5 GB fresh → 7.25 → 7.25 after 6 guests (rpmalloc gone: no per-guest loss). Fork children hang on the CoW/alignment fault loop (fixed in build-25).
+- 2026-09-27 build-25 C3/C4 partial (result 005): 201 MB after part A (peak 204), 231 MB at the end (peak 444 MB while Xvfb + xdpyinfo ran as top-level guests). VA (256 MB steps): 1.25 GB at the end of part B, 0.75 GB after two more faulting children — **272 MB per guest thread that ended by FAULT or kick** (FEX's per-thread lookup cache: 128 MB + 128 MB code + 16 MB L1; 42 × 128 MB + 24 × 16 MB rw regions in the map walk), 21 such threads in the session. Fix: destroy the FEX thread after a longjmp out of JIT code (build-27).
 - 2026-09-27 build-20 C2 (result 003): 199.1 MB fresh → 196.2 MB after hello-dyn (reaped) → 213.5 MB after 4 guests, peak 214.8 MB, available 1884 MB. VA (vaprobe2, 256 MB steps): 7.25 GB fresh → 5.25 → 3.25 → 1.25 GB after ls, env and the pipeline: **2 GB per finished guest process**, held by FEX's rpmalloc thread heaps (48 × 128 MB rw regions in the map walk; 256 MB spans mapped as 512 MB, 4 per heap, never finalized). Fix: FEXCore uses the system allocator on Darwin (build-23; DECISIONS 2026-09-27).
