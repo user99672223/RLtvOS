@@ -19,15 +19,19 @@
   exists — the guest `si_code` ACCERR/MAPERR must come from the VMA table, not
   the syndrome, when task 9 delivers SIGSEGV), handler not entered (task 9),
   abort 134, loop kicked → 137/term_signal 9, no address-space loss per fault.
-- **Feasibility hold (issue 004 → 005):** the native game is 4.1–4.3 GB of
-  private dirty anonymous memory + ~1.1 GB GPU buffers at 720p low; the TV
-  kills at ~2.1 GB footprint (compressed and Metal memory count). Only
-  file-backed guest memory (MAP_SHARED Caches file = external memory, outside
-  the footprint) could fit it; issue 005 asks the laptop for the cgroup-cap +
-  swap experiment (1–3 GB caps, fps, swap-in rate). **D1–E2 on hold until the
-  user decides on that result**; C3–C5 verification of built code continues.
-  If the user continues: file-backed guest anonymous memory moves to the front
-  of the plan (before D1), plus `dxvk.maxChunkSize`, JIT cache cap, no audio.
+- **Feasibility (issues 004/005): hold lifted.** The native game is 4.1–4.3 GB
+  of private dirty anonymous memory + ~1.1 GB GPU buffers against the TV's
+  ~2.1 GB footprint limit, but it touches only 34–188 MB of that heap per
+  minute; under a 1536 MB cgroup cap with NVMe swap the bot match runs at
+  30 fps with ~1 MB/s of swap-in and no OOM (1024 MB OOMs at start-up: GPU
+  shmem floor). CPU: FEX on the A15 = 0.85× the native laptop (cpubench).
+  **Plan change (DECISIONS 2026-09-27):** file-backed guest memory becomes
+  checkpoint **M1**, before D1 — first a pager probe on the TV (host-side C
+  in the app + `tv.py pager`: 4 GB sparse `MAP_SHARED` Caches file dirtied
+  end to end, 200 MB working set touched at a few MB/s, `phys_footprint`,
+  page-ins and survival sampled), then the kernel backs guest anonymous
+  mappings (and MAP_PRIVATE file mappings) with ranges of such a file.
+  GPU memory follows (DXVK allocated 1.1 GB vs used 0.6 GB; `dxvk.maxChunkSize`).
 - Next kernel item (task 9, build-28): guest fault / async signal delivery
   while a thread is in JIT code — in the guard, spill SRA GPRs/FPRs from the
   ucontext into CpuState via `SignalDelegatorConfig`, `rip =

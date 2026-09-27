@@ -58,7 +58,13 @@ thread_local FaultInfo t_Fault;
 thread_local Core::InternalThreadState* t_GuardThread = nullptr; // the FEX thread running under the guard
 std::atomic<uint64_t> g_UnalignedFixups {0};
 rlfex_fault_hook_fn g_FaultHook = nullptr;
+rlfex_guest_signal_hook_fn g_GuestSignalHook = nullptr;
+rlfex_kick_hook_fn g_KickHook = nullptr;
 constexpr int GuardSignals[] = {SIGSEGV, SIGBUS, SIGILL, SIGTRAP, SIGFPE, RLFEX_KICK_SIGNAL};
+#if defined(__aarch64__) || defined(__arm64__)
+void SpillJITState(Core::InternalThreadState* Thread, ucontext_t* U); // defined after the state block
+void ResumeAtFillSRA(ucontext_t* U);
+#endif
 struct sigaction g_Prev[NSIG] {};
 bool g_GuardInstalled = false;
 
@@ -128,6 +134,23 @@ void GuardHandler(int Sig, siginfo_t* SI, void* UC) {
     if (!(Thread && PC && Thread->CTX->IsAddressInCodeBuffer(Thread, PC))) {
       return;
     }
+    const int Want = g_KickHook ? g_KickHook() : 1;
+    if (Want == 0) {
+      return;
+    }
+    if (Want == 2) {
+#if defined(__aarch64__) || defined(__arm64__)
+      // A guest signal into JIT code: spill the live state, let the kernel
+      // build the frame, continue through the dispatcher's fill-SRA entry.
+      if (g_GuestSignalHook && U && U->uc_mcontext && Thread->CurrentFrame->State.DeferredSignalRefCount.Load() == 0) {
+        SpillJITState(Thread, U);
+        if (g_GuestSignalHook(0, RLFEX_FAULT_UNKNOWN, 0, PC, false) == 1) {
+          ResumeAtFillSRA(U);
+        }
+      }
+#endif
+      return; // not delivered: the interrupted code continues, the next syscall boundary delivers
+    }
     t_Fault.Signal = Sig;
     t_Fault.Code = 0;
     t_Fault.Kind = RLFEX_FAULT_UNKNOWN;
@@ -172,6 +195,16 @@ void GuardHandler(int Sig, siginfo_t* SI, void* UC) {
         return;
       }
     }
+    if (InJIT && g_GuestSignalHook && U && U->uc_mcontext && Thread->CurrentFrame->State.DeferredSignalRefCount.Load() == 0) {
+      // A guest fault with a guest handler (or one that ends the thread):
+      // spill the live state, let the kernel build the frame, continue through
+      // the dispatcher's fill-SRA entry. Refused: the kill path below.
+      SpillJITState(Thread, U);
+      if (g_GuestSignalHook(Sig, Kind, Addr, PC, FaultIsWrite(U)) == 1) {
+        ResumeAtFillSRA(U);
+        return;
+      }
+    }
 #endif
     t_Fault.Signal = Sig;
     t_Fault.Code = SI ? SI->si_code : 0;
@@ -207,7 +240,9 @@ void InstallGuard() {
   for (int Sig : GuardSignals) {
     struct sigaction SA {};
     SA.sa_sigaction = GuardHandler;
-    SA.sa_flags = SA_SIGINFO | SA_NODEFER;
+    // The kick may land while the thread is in a host syscall (the VFS's
+    // HTTP socket): SA_RESTART keeps that transparent.
+    SA.sa_flags = SA_SIGINFO | SA_NODEFER | (Sig == RLFEX_KICK_SIGNAL ? SA_RESTART : 0);
     sigemptyset(&SA.sa_mask);
     sigaction(Sig, &SA, &g_Prev[Sig]);
   }
@@ -284,6 +319,42 @@ RlSyscallHandler* g_Syscalls = nullptr;
 RlSignalDelegator* g_Signals = nullptr;
 HostFeatures g_Features {};
 std::array<Core::CPUState::gdt_segment, 32> g_GDT {};
+
+#if defined(__aarch64__) || defined(__arm64__)
+// The live guest state of a thread interrupted in JIT code, into its frame:
+// SRA GPRs and FPRs from the host context (the config's mapping says which
+// host register holds which guest one), the guest rip from the host pc,
+// EFLAGS from NZCV and the PF/AF registers. Afterwards the frame is complete
+// and the thread can re-enter through the dispatcher's fill-SRA entry — what
+// FEX's Linux frontend does for every signal that lands in JIT code.
+void SpillJITState(Core::InternalThreadState* Thread, ucontext_t* U) {
+  const auto& Cfg = g_Signals->GetConfig();
+  auto& State = Thread->CurrentFrame->State;
+  const uint64_t* GPRs = reinterpret_cast<const uint64_t*>(&U->uc_mcontext->__ss.__x[0]); // x0..x28, fp, lr, sp
+  for (size_t i = 0; i < Cfg.SRAGPRCount && i < 16; i++) {
+    State.gregs[i] = GPRs[Cfg.SRAGPRMapping[i]];
+  }
+  for (size_t i = 0; i < Cfg.SRAFPRCount && i < 16; i++) {
+    // 128-bit SRA (no SVE-256 on the A15): the low half; the upper half of an
+    // AVX register lives in the frame already.
+    memcpy(&State.xmm.avx.data[i][0], &U->uc_mcontext->__ns.__v[Cfg.SRAFPRMapping[i]], 16);
+  }
+  const uint64_t PC = static_cast<uint64_t>(__darwin_arm_thread_state64_get_pc(U->uc_mcontext->__ss));
+  State.rip = g_Ctx->RestoreRIPFromHostPC(Thread, PC);
+  const uint32_t EFLAGS = g_Ctx->ReconstructCompactedEFLAGS(Thread, true, GPRs, U->uc_mcontext->__ss.__cpsr);
+  g_Ctx->SetFlagsFromCompactedEFLAGS(Thread, EFLAGS);
+}
+
+// Continue at the dispatcher's fill-SRA entry: it reloads every static
+// register from the frame and dispatches on State.rip. x28 (STATE) still
+// holds the frame and sp is the dispatcher's; x1 = 0 asks for a normal block
+// (ENTRY_FILL_SRA_SINGLE_INST_REG).
+void ResumeAtFillSRA(ucontext_t* U) {
+  const auto& Cfg = g_Signals->GetConfig();
+  U->uc_mcontext->__ss.__x[1] = 0;
+  __darwin_arm_thread_state64_set_pc_fptr(U->uc_mcontext->__ss, reinterpret_cast<void*>(Cfg.AbsoluteLoopTopAddressFillSRA));
+}
+#endif
 
 double NowMs() {
   struct timeval TV;
@@ -536,6 +607,14 @@ bool PlatformInitLocked(const char*& Stage) {
 
 void rlfex_set_fault_hook(rlfex_fault_hook_fn Fn) {
   g_FaultHook = Fn;
+}
+
+void rlfex_set_guest_signal_hook(rlfex_guest_signal_hook_fn Fn) {
+  g_GuestSignalHook = Fn;
+}
+
+void rlfex_set_kick_hook(rlfex_kick_hook_fn Fn) {
+  g_KickHook = Fn;
 }
 
 int rlfex_kick(pthread_t HostThread) {

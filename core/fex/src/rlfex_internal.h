@@ -81,13 +81,33 @@ const FEXCore::HostFeatures& rlfex_host_features();
 using rlfex_fault_hook_fn = bool (*)(int sig, int kind, uint64_t addr, uint64_t pc);
 void rlfex_set_fault_hook(rlfex_fault_hook_fn fn);
 
-// Interrupts a guest host thread that is executing JIT code: rlfex_run_guarded
-// on that thread returns 1 with fault.signal == RLFEX_KICK_SIGNAL (the FEX
-// thread object is then in an unknown state and is leaked, like after a
-// fault). A thread inside the kernel or FEX's runtime ignores the kick (it
-// exits at its next syscall boundary). The caller must know the thread is alive.
+// Interrupts a guest host thread that is executing JIT code. The guard asks
+// the kick hook what to do: leave the JIT (rlfex_run_guarded on that thread
+// returns 1 with fault.signal == RLFEX_KICK_SIGNAL), deliver a guest signal
+// (state spilled, guest signal hook, resume through the dispatcher), or
+// nothing. A thread inside the kernel or FEX's runtime ignores the kick (it
+// acts at its next syscall boundary). The caller must know the thread is alive.
 #define RLFEX_KICK_SIGNAL SIGUSR2
 int rlfex_kick(pthread_t host_thread);
+
+// A guest thread in JIT code with a signal to take: a fault the kernel could
+// not resolve, or a kick with something deliverable. Before the call the guard
+// spilled the thread's live register state into its CpuStateFrame (SRA GPRs
+// and FPRs from the host context, rip via RestoreRIPFromHostPC, EFLAGS from
+// NZCV and the PF/AF registers), so the kernel builds the guest signal frame
+// on that state. sig/kind/addr/write describe a synchronous fault; sig = 0 is
+// a kick. Return 1 when the frame was written (or the thread was ended with
+// State.rip on the hlt page): the thread resumes at the dispatcher's fill-SRA
+// entry. Anything else: a fault kills the thread as before, a kick resumes
+// the interrupted code.
+using rlfex_guest_signal_hook_fn = int (*)(int sig, int kind, uint64_t addr, uint64_t pc, bool write);
+void rlfex_set_guest_signal_hook(rlfex_guest_signal_hook_fn fn);
+
+// Asked first on a kick that landed in JIT code (nothing spilled yet):
+// 0 = nothing to do, 1 = the process is exiting (leave the JIT by longjmp),
+// 2 = a signal is deliverable (spill, then the guest signal hook with sig 0).
+using rlfex_kick_hook_fn = int (*)();
+void rlfex_set_kick_hook(rlfex_kick_hook_fn fn);
 
 // Runs fn(arg) on this thread with the fault guard armed for FEX thread
 // `thread` (may be null). A SIGBUS inside that thread's JIT code is first

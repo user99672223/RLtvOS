@@ -95,7 +95,9 @@ int Kernel::send_signal(GuestProcess& p, int sig, const lx::siginfo* info) {
     }
     std::lock_guard<std::mutex> lk(mu);  // the thread list may grow (clone) meanwhile
     for (auto& th : p.threads) {
-        if (!th->exited && !(th->sigmask & lx::sigbit(sig))) th->waiter.notify();
+        if (th->exited || (th->sigmask & lx::sigbit(sig))) continue;
+        th->waiter.notify();      // blocked in a syscall: -EINTR, delivered at the boundary
+        kick_thread_locked(*th);  // running JIT code: delivered there (guest_signal_hook)
     }
     return 0;
 }
@@ -114,7 +116,11 @@ int Kernel::send_signal_thread(GuestThread& t, int sig, const lx::siginfo* info)
             fill_default_info(t.siginfo_by_sig[sig], sig);
         }
     }
-    t.waiter.notify();
+    t.waiter.notify();  // blocked in a syscall: -EINTR, delivered at the boundary
+    {
+        std::lock_guard<std::mutex> lk(mu);
+        kick_thread_locked(t);  // running JIT code: delivered there (guest_signal_hook)
+    }
     return 0;
 }
 
@@ -219,6 +225,11 @@ void Kernel::deliver_signals(GuestThread& t, void* frame_, int64_t ret) {
         t.saved_mask_valid = false;
         sc.oldmask = saved_mask;
         sc.cr2 = (sig == lx::sigsegv || sig == lx::sigbus) ? info.u.fault.addr : 0;
+        if (t.fault_trapno && (sig == lx::sigsegv || sig == lx::sigbus || sig == lx::sigill || sig == lx::sigfpe || sig == lx::sigtrap)) {
+            sc.trapno = t.fault_trapno;  // a guest fault in JIT code (guest_signal_hook)
+            sc.err = t.fault_err;
+            t.fault_trapno = t.fault_err = 0;
+        }
         sc.fpstate = fp;
         fr.uc.uc_sigmask = saved_mask;
         fr.info = info;

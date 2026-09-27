@@ -16,8 +16,9 @@ from the result's `mem.json`.
 | D1 | vkcube via Vulkan thunk | — | — | — | — | — | |
 | D2 | DXVK d3d11 sample under wine64 | — | — | — | — | — | |
 | D3 | synthetic evdev device from a paired controller | — | — | — | — | — | |
-| E1 | RocketLeague.exe reaches main menu | — | **ON HOLD** (feasibility, below) | — | — | — | |
-| E2 | exhibition match vs bots | — | **ON HOLD** (feasibility, below) | — | — | — | |
+| M1 | pager probe: 4 GB `MAP_SHARED` Caches file dirtied + a working set touched, footprint flat, page-in rate | — | — | — | — | — | New checkpoint after issue 005: file-backed guest memory verified on the TV before D1. |
+| E1 | RocketLeague.exe reaches main menu | — | — | — | — | — | Feasibility: issue 004/005 (below) — the game needs file-backed guest memory (M1) and a ~1.5 GB page cache; CPU is not the limit. |
+| E2 | exhibition match vs bots | — | — | — | — | — | Same. |
 
 ## Feasibility (issue 004 → issue 005)
 
@@ -30,12 +31,33 @@ The two go/no-go numbers for E1/E2, measured early as proxies (DECISIONS
   plus **~1.1 GB GPU buffers** (DXVK: 1,136 MB allocated, 560 MB used), 30 fps.
   The TV kills the app at **~2.1 GB `phys_footprint`**, which counts anonymous,
   compressed and Metal/IOKit memory. The game's own heap is ~2× the whole
-  device budget before FEX, Wine, Xvfb and the JIT cache. The only mechanism
-  that could still fit it is file-backed guest memory (a `MAP_SHARED` Caches
-  file is external memory, outside the footprint, paged by XNU): issue 005 asks
-  the laptop to run the game under a 1–3 GB cgroup cap with swap, the same
-  situation, and report fps/paging. **D1–E2 are on hold until that result and
-  the user's decision.**
+  device budget before FEX, Wine, Xvfb and the JIT cache. The one mechanism
+  that can still fit it is file-backed guest memory (a `MAP_SHARED` Caches
+  file is external memory, outside the footprint, paged by XNU).
+  **Issue 005 (LAPTOP 2026-09-27) measured that situation on the laptop**
+  (cgroup cap + NVMe swap, THP off, no virtual desktop): the game touches only
+  **34–53 MB** of its heap per 2–60 s at the menu and **53–188 MB** per 2–60 s
+  in a match (`clear_refs`/`Referenced`, cross-checked with smaps). Capped
+  runs, 1v1 vs a Rookie bot:
+
+  | cap | menu fps | match fps kickoff / +30 s / +60 s | swap used | swap-in over the match minute | major faults/s | outcome |
+  |---|---|---|---|---|---|---|
+  | 3072 MB | 29.9 | 29.9 / 29.9 / 29.9 | 2.8 GB | 0.04 MB/s (peak 0.14) | 1.8 | fine |
+  | 2048 MB | 30.0 | 29.9 / 29.9 / 30.0 | 3.7 GB | 0.22 MB/s (peak 0.69) | 18.6 | fine |
+  | **1536 MB** | 30.0 | **29.9 / 30.0 / 30.5** | 4.3 GB | **1.15 MB/s (peak 6.6)** | 135 | **fine, no OOM** |
+  | 1024 MB | — | — | 5.5 GB peak | — | — | OOM-killed 40 s after launch (GPU shmem 0.6 GB + hot heap do not fit) |
+
+  Load time grows with the cap (title screen at 63 s instead of ≤30 s at
+  1536 MB: ~190 k major faults during start-up). **The pre-committed pass
+  criterion (1536 MB: match ≥ 25 fps, swap-in < 50 MB/s, no OOM) is met with a
+  large margin → the hold is lifted; E1/E2 stay the target and file-backed
+  guest memory moves to the front of the plan as checkpoint M1** (a pager
+  probe on the TV first: does `phys_footprint` stay flat while a 4 GB
+  `MAP_SHARED` Caches file is dirtied and a 200 MB working set is touched, and
+  at what page-in rate). The floor is GPU memory: DXVK's ~1.1 GB allocated /
+  0.6 GB used count toward the footprint on the TV (Metal), so
+  `dxvk.maxChunkSize` and the allocated-vs-used gap are the next memory items
+  after M1; CPU is not the limit (below).
 - **CPU** (issue 004 part B + result 006 part D): cpubench native on the laptop
   (i5-1135G7) vs FEX on the A15, warm run. TV/laptop time ratios: int_alu
   **0.78**, fp_scalar **1.28**, simd **1.02**, memcpy **0.54** (TV 30.6 GB/s),

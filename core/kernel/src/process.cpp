@@ -196,6 +196,70 @@ int linux_signal_of_fault(const rlfex_fault_info& f) {
     return linux_signal_of_host(f.signal);
 }
 
+namespace {
+// si_code of a synchronous fault: from the guest's own mapping table, never
+// from the hardware syndrome (a first write to an untouched page is a
+// translation fault at the MMU although the VMA exists — result 006).
+int fault_si_code(GuestProcess& p, int lsig, uint64_t addr) {
+    switch (lsig) {
+        case lx::sigsegv: return (p.mm && p.mm->is_mapped(addr, 1)) ? lx::segv_accerr : lx::segv_maperr;
+        case lx::sigbus: return lx::bus_adraln;
+        case lx::sigill: return lx::ill_illopc;
+        case lx::sigfpe: return lx::fpe_intdiv;
+        default: return lx::si_kernel;
+    }
+}
+}  // namespace
+
+// A signal for a thread that is in JIT code (the guard spilled the live state
+// into the FEX frame first). sig != 0 is a synchronous fault at State.rip,
+// with Linux semantics: SIGSEGV for permission and translation faults
+// (SEGV_ACCERR when a mapping covers the address, SEGV_MAPERR otherwise),
+// SIGBUS/BUS_ADRALN for alignment, SIGILL/SIGFPE/SIGTRAP as the host says;
+// blocked or ignored, a synchronous fault kills the process (force_sig).
+// Returns 1 when the guest frame was built — or the thread was ended, with
+// State.rip on the hlt page — and the guard resumes through the dispatcher.
+int Kernel::guest_signal_hook(int sig, int kind, uint64_t addr, uint64_t pc, bool write) {
+    (void)pc;
+    GuestThread* t = t_current_thread;
+    if (!t || t->exited || !t->fex_thread) return 0;
+    Kernel& k = Kernel::get();
+    GuestProcess& p = *t->proc;
+    if (p.state.load() != (int)ProcState::Running) return 0;
+    auto* frame = static_cast<FEXCore::Core::InternalThreadState*>(t->fex_thread)->CurrentFrame;
+    if (sig) {
+        rlfex_fault_info f {};
+        f.signal = sig;
+        f.kind = kind;
+        const int lsig = linux_signal_of_fault(f);
+        const uint64_t bit = lx::sigbit(lsig);
+        const lx::sigaction act = p.sigactions[lsig];
+        if (act.handler == lx::sig_dfl || act.handler == lx::sig_ign || (t->sigmask & bit)) return 0;
+        lx::siginfo info {};
+        info.si_signo = lsig;
+        info.si_code = fault_si_code(p, lsig, addr);
+        info.u.fault.addr = addr;
+        // x86 trap numbers and the page-fault error code (bit 0 protection, bit 1 write, bit 2 user)
+        t->fault_trapno = (lsig == lx::sigsegv || lsig == lx::sigbus) ? 14 : lsig == lx::sigill ? 6 : lsig == lx::sigtrap ? 3 : 0;
+        t->fault_err = lsig == lx::sigsegv ? (4u | (write ? 2u : 0u) | (info.si_code == lx::segv_accerr ? 1u : 0u)) : 0;
+        std::lock_guard<std::mutex> lk(k.sig_mu);
+        t->sigpending |= bit;
+        t->siginfo_by_sig[lsig] = info;
+    }
+    if (!k.has_deliverable(*t)) return 0;
+    Log("kernel: pid %d tid %d %s in JIT code, guest rip=0x%llx", p.pid, t->tid, sig ? "fault" : "signal (kicked)",
+        (unsigned long long)frame->State.rip);
+    k.deliver_signals(*t, frame, 0);
+    return 1;
+}
+
+int Kernel::kick_hook() {
+    GuestThread* t = t_current_thread;
+    if (!t || t->exited) return 0;
+    if (t->proc->state.load() != (int)ProcState::Running) return 1;
+    return Kernel::get().has_deliverable(*t) ? 2 : 0;
+}
+
 bool Kernel::ensure_fex(std::string& err) {
     std::lock_guard<std::mutex> lk(mu);
     if (fex_ready) return true;
@@ -236,6 +300,8 @@ bool Kernel::ensure_fex(std::string& err) {
         hlt_page = reinterpret_cast<uint64_t>(hp);
         AddressSpace::set_invalidate_hook(&invalidate_range);
         rlfex_set_fault_hook(&Kernel::host_fault_hook);
+        rlfex_set_guest_signal_hook(&Kernel::guest_signal_hook);
+        rlfex_set_kick_hook(&Kernel::kick_hook);
     }
     fex_ready = true;
     Log("kernel: FEX context ready (hwcap=0x%llx hwcap2=0x%llx)", (unsigned long long)hwcap, (unsigned long long)hwcap2);

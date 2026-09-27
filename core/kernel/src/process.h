@@ -76,6 +76,7 @@ struct GuestThread {
     bool in_vfork_wait = false;     // not interruptible while waiting for the child
     bool saved_mask_valid = false;  // rt_sigsuspend: restore `saved_mask` after delivery
     uint64_t saved_mask = 0;
+    uint64_t fault_trapno = 0, fault_err = 0;  // a guest fault in JIT code: sigcontext.trapno/err of its frame
 };
 
 enum class ProcState { Running, Zombie, Dead };
@@ -186,6 +187,10 @@ public:
     // `code`; term_signal != 0 records death by that signal for wait4.
     void exit_thread(GuestThread& t, void* frame, int code, bool whole_group, int term_signal = 0);
     static bool host_fault_hook(int sig, int kind, uint64_t addr, uint64_t pc);  // kind: RLFEX_FAULT_*
+    // rlfex: a signal into a thread that is in JIT code (state already spilled
+    // into its FEX frame); sig = 0 is a kick with something pending.
+    static int guest_signal_hook(int sig, int kind, uint64_t addr, uint64_t pc, bool write);
+    static int kick_hook();  // rlfex: 0 nothing, 1 the process is exiting, 2 a signal is deliverable
     // Interrupts a thread of an exiting process that is spinning in JIT code
     // (it never reaches a syscall boundary otherwise). Caller holds mu.
     void kick_thread_locked(GuestThread& t);

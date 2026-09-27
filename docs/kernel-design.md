@@ -295,7 +295,17 @@ ENOSYS/wrong return before the next request.
   `ReconstructCompactedEFLAGS`, 512-byte fxsave area, siginfo) on the guest
   stack or the sigaltstack and enters the handler; `rt_sigreturn` restores
   everything. Default actions: terminate (recorded for wait4) or ignore.
-  Asynchronous delivery into JIT code is not implemented yet (see DECISIONS).
+  A thread that is running JIT code gets its signals there too: the sender
+  kicks the host thread (SIGUSR2), the guard spills the live SRA registers,
+  `rip` (`RestoreRIPFromHostPC`) and EFLAGS (`ReconstructCompactedEFLAGS`
+  from NZCV + the PF/AF registers) into the FEX frame, the kernel builds the
+  same `rt_sigframe` on it (`guest_signal_hook`) and the thread re-enters
+  through the dispatcher's fill-SRA entry with the handler as `rip`. A guest
+  fault in JIT code that the kernel cannot resolve takes the same path as
+  SIGSEGV/SIGBUS (`si_code` from the VMA table, `trapno`/`err` in the
+  sigcontext); blocked, ignored or SIG_DFL, it kills the process. Threads
+  inside the kernel or FEX's runtime still see signals at their next syscall
+  boundary.
 - **wait4**: children are found through `ppid` in the process table; zombies
   keep their entry until waited; a child whose parent is gone is reaped at
   exit. `SIGCHLD` with CLD_EXITED/CLD_KILLED siginfo goes to the parent.
