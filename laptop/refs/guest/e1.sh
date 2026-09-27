@@ -2,7 +2,7 @@
 # E1 — RocketLeague.exe (no EAC, 720p, low settings, 30 fps cap, -nomovie)
 # reaches the main menu. RL_USE_REAL_DISPLAY=1 keeps the caller's DISPLAY
 # (laptop reference with hardware Vulkan); otherwise Xvfb :0 like the TV.
-. /refs/guest/_lib.sh
+. "$(dirname "$0")/_lib.sh"
 if [ "${RL_USE_REAL_DISPLAY:-0}" = 1 ] && [ -n "${DISPLAY:-}" ]; then
   say "using real display $DISPLAY"
 else

@@ -1,6 +1,6 @@
 #!/bin/sh
 # D2 — DXVK d3d11 sample under wine64 (d3d11tri.exe, built by 10-rootfs.sh).
-. /refs/guest/_lib.sh
+. "$(dirname "$0")/_lib.sh"
 start_xvfb :0 || exit 1
 wine_env
 start_wineserver

@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstring>
 
+#include "locks.h"
 #include "log.h"
 
 namespace rlk {
@@ -31,6 +32,10 @@ RegularFile::RegularFile(std::shared_ptr<FileSource> src, const lx::stat& st, st
     : src_(std::move(src)), st_(st) {
     path = std::move(guest_path);
     this->oflags = oflags;
+}
+
+RegularFile::~RegularFile() {
+    if (has_locks) LockTable::get().release_ofd(this);  // OFD / flock locks die with the description
 }
 
 int64_t RegularFile::read(void* buf, size_t len) {

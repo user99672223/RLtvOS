@@ -834,6 +834,40 @@ def cmd_ps(a):
     out(j, 0 if st == 200 else 1)
 
 
+def cmd_guest_file(a):
+    """Fetch a file the guest can see (rootfs, /proc, its writable layer): guest-file /tmp/xvfb.log [--out FILE]."""
+    if not wait_app(True, 20):
+        fail("app not reachable; launch it first (tv.py launch)")
+    st, body, _ = app_get("/guest-file?path=" + urllib.parse.quote(a.path, safe="/"), timeout=120)
+    if st != 200:
+        fail(f"HTTP {st}", body=body[:300].decode(errors="replace"))
+    if a.out:
+        p = pathlib.Path(a.out)
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_bytes(body)
+        out({"ok": True, "path": a.path, "saved": str(p), "size": len(body)})
+    sys.stdout.buffer.write(body)
+    sys.stdout.flush()
+    sys.exit(0)
+
+
+def cmd_guest_put(a):
+    """Write a local file into the guest's writable layer: guest-put LOCAL /guest/path."""
+    if not wait_app(True, 20):
+        fail("app not reachable; launch it first (tv.py launch)")
+    body = pathlib.Path(a.local).read_bytes()
+    st, j = app_json("POST", "/guest-file?path=" + urllib.parse.quote(a.path, safe="/"), data=body, timeout=120)
+    out(j, 0 if st == 200 else 1)
+
+
+def cmd_guest_ls(a):
+    """List a guest directory (merged view): guest-ls /tmp."""
+    if not wait_app(True, 20):
+        fail("app not reachable; launch it first (tv.py launch)")
+    st, j = app_json("GET", "/guest-ls?path=" + urllib.parse.quote(a.path, safe="/"), timeout=60)
+    out(j, 0 if st == 200 else 1)
+
+
 def do_launch(fresh=False, timeout=60):
     res = {}
     if app_is_up():
@@ -1140,6 +1174,9 @@ def main():
     p = sp.add_parser("mem"); p.set_defaults(fn=cmd_mem)
     p = sp.add_parser("va"); p.add_argument("--probe", action="store_true"); p.add_argument("--probe2", action="store_true", help="reservation-limit experiments (256/64 MB steps, RW vs PROT_NONE, vm_allocate, rlimits)"); p.add_argument("--steps", type=int, default=1024); p.set_defaults(fn=cmd_va)
     p = sp.add_parser("crash"); p.add_argument("--clear", action="store_true"); p.add_argument("--out"); p.set_defaults(fn=cmd_crash)
+    p = sp.add_parser("guest-file", help="fake kernel: fetch a guest file (any layer): guest-file /tmp/xvfb.log [--out FILE]"); p.add_argument("path"); p.add_argument("--out"); p.set_defaults(fn=cmd_guest_file)
+    p = sp.add_parser("guest-put", help="fake kernel: write a local file into the guest's writable layer: guest-put LOCAL /guest/path"); p.add_argument("local"); p.add_argument("path"); p.set_defaults(fn=cmd_guest_put)
+    p = sp.add_parser("guest-ls", help="fake kernel: list a guest directory (merged view)"); p.add_argument("path"); p.set_defaults(fn=cmd_guest_ls)
     p = sp.add_parser("shot"); p.add_argument("--out"); p.set_defaults(fn=cmd_shot)
     p = sp.add_parser("log"); p.add_argument("--since", type=int); p.add_argument("--all", action="store_true"); p.add_argument("--follow", action="store_true"); p.add_argument("--interval", type=float, default=2.0); p.add_argument("--max", type=int, default=4000); p.add_argument("--out"); p.set_defaults(fn=cmd_log)
     p = sp.add_parser("input"); p.add_argument("--json"); p.add_argument("--key"); p.add_argument("--up", action="store_true"); p.add_argument("--text"); p.add_argument("--mouse", nargs=2); p.add_argument("--click", type=int); p.add_argument("--pad"); p.set_defaults(fn=cmd_input)

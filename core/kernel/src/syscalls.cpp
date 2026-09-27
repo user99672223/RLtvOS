@@ -1,26 +1,22 @@
-// syscalls.cpp — the Linux x86-64 syscall table (C1/C2 set) on top of the
-// process/mm/fd objects. Guest pointers are host pointers (one address
-// space), so arguments are used directly.
-// FEXCore and host headers first (linux_abi.h removes the host macros).
-#include <FEXCore/Core/CoreState.h>
-#include <FEXCore/Core/X86Enums.h>
-#include <FEXCore/Debug/InternalThreadState.h>
+// syscalls.cpp — the Linux x86-64 syscall table on top of the process/mm/fd
+// objects: files, memory, identity, time, signals, processes, futex. The
+// filesystem namespace lives in syscalls_fs.cpp, polling/sockets/timers in
+// syscalls_io.cpp; Sc and the shared helpers are in syscalls.h.
+#include "syscalls.h"
 
 #include <sys/time.h>
 #include <time.h>
 #include <unistd.h>
 
 #include <array>
-#include <cstdarg>
 #include <cstdio>
 #include <cstring>
 #include <thread>
 
 #include "futex.h"
-#include "linux_abi.h"
 #include "log.h"
+#include "overlay.h"
 #include "pipe.h"
-#include "process.h"
 
 namespace rlk {
 
@@ -28,30 +24,7 @@ namespace {
 
 #include "syscall_names.inc"
 
-struct Sc {
-    GuestThread& t;
-    GuestProcess& p;
-    FEXCore::Core::CpuStateFrame* f;
-    uint64_t a[6];
-    uint64_t nr;
-    char args[512];
-
-    void fmt(const char* format, ...) __attribute__((format(printf, 2, 3))) {
-        va_list ap;
-        va_start(ap, format);
-        vsnprintf(args, sizeof args, format, ap);
-        va_end(ap);
-    }
-    const char* str(uint64_t p) const { return p ? reinterpret_cast<const char*>(p) : "(null)"; }
-    int fd(int i) const { return (int)(int32_t)a[i]; }
-};
-
-using Handler = int64_t (*)(Sc&);
 std::array<Handler, kSyscallNamesCount> g_table {};
-
-inline Kernel& K() {
-    return Kernel::get();
-}
 
 const char* Nr(uint64_t nr) {
     return nr < kSyscallNamesCount && kSyscallNames[nr][0] ? kSyscallNames[nr] : "unknown";
@@ -59,61 +32,15 @@ const char* Nr(uint64_t nr) {
 
 // ---- files ---------------------------------------------------------------------
 
-std::shared_ptr<OpenFile> fd_get(Sc& c, int fd) {
-    return c.p.fds.get(fd);
-}
-
-int64_t do_openat(Sc& c, int dirfd, const char* path, int flags, int mode) {
-    if (!path) return -lx::efault;
-    const std::string full = K().resolve_path(c.p, dirfd, path);
-    const int acc = flags & lx::o_accmode;
-    const bool cloexec = flags & lx::o_cloexec;
-    // devices
-    if (full == "/dev/null" || full == "/dev/zero" || full == "/dev/urandom" || full == "/dev/random") {
-        int kind = full == "/dev/null" ? 0 : (full == "/dev/zero" ? 1 : 2);
-        return c.p.fds.alloc(std::make_shared<DevNullFile>(kind), cloexec);
-    }
-    if (full == "/dev/tty") return -lx::enxio;
-    lx::stat st {};
-    int err = K().stat_path(full, !(flags & lx::o_nofollow), st);
-    if (err) {
-        if (err == lx::enoent && (flags & lx::o_creat)) return -lx::erofs;
-        return -err;
-    }
-    if ((flags & lx::o_nofollow) && (st.st_mode & lx::s_ifmt) == lx::s_iflnk) return -lx::eloop;
-    const bool is_dir = (st.st_mode & lx::s_ifmt) == lx::s_ifdir;
-    if ((flags & lx::o_directory) && !is_dir) return -lx::enotdir;
-    if (acc != lx::o_rdonly || (flags & lx::o_trunc)) {
-        if (is_dir) return -lx::eisdir;
-        return -lx::erofs;  // read-only guest filesystem until the overlay lands (Phase C)
-    }
-    if (is_dir) {
-        std::vector<DirEntryInfo> ents;
-        err = K().readdir_path(full, ents);
-        if (err) return -err;
-        return c.p.fds.alloc(std::make_shared<DirFile>(std::move(ents), st, full, flags), cloexec);
-    }
-    if ((st.st_mode & lx::s_ifmt) != lx::s_ifreg) return -lx::enxio;
-    int oerr = 0;
-    auto src = K().open_source(full, oerr, nullptr);
-    if (!src) return -oerr;
-    std::shared_ptr<FileSource> shared(std::move(src));
-    return c.p.fds.alloc(std::make_shared<RegularFile>(shared, st, full, flags), cloexec);
-}
-
-int64_t sys_openat(Sc& c) {
-    c.fmt("%d, \"%s\", 0x%llx, 0%llo", c.fd(0), c.str(c.a[1]), (unsigned long long)c.a[2], (unsigned long long)c.a[3]);
-    return do_openat(c, c.fd(0), c.str(c.a[1]), (int)c.a[2], (int)c.a[3]);
-}
-
-int64_t sys_open(Sc& c) {
-    c.fmt("\"%s\", 0x%llx, 0%llo", c.str(c.a[0]), (unsigned long long)c.a[1], (unsigned long long)c.a[2]);
-    return do_openat(c, lx::at_fdcwd, c.str(c.a[0]), (int)c.a[1], (int)c.a[2]);
-}
-
 int64_t sys_close(Sc& c) {
     c.fmt("%d", c.fd(0));
-    return c.p.fds.close(c.fd(0));
+    auto f = fd_get(c, c.fd(0));
+    int r = c.p.fds.close(c.fd(0));
+    if (r == 0 && f && f->has_locks) {  // POSIX: any close by the owner drops its locks on the file
+        LockKey key;
+        if (lock_key_of(*f, key)) LockTable::get().release_posix(key, c.p.pid);
+    }
+    return r;
 }
 
 int64_t sys_read(Sc& c) {
@@ -235,27 +162,6 @@ int64_t sys_statx(Sc& c) {
     return -lx::enosys;  // glibc falls back to newfstatat
 }
 
-int64_t do_access(Sc& c, int dirfd, const char* path, int mode) {
-    if (!path) return -lx::efault;
-    const std::string full = K().resolve_path(c.p, dirfd, path);
-    lx::stat st {};
-    int err = K().stat_path(full, true, st);
-    if (err) return -err;
-    if (mode & lx::w_ok) return -lx::erofs;
-    if ((mode & lx::x_ok) && !(st.st_mode & 0111) && (st.st_mode & lx::s_ifmt) != lx::s_ifdir) return -lx::eacces;
-    return 0;
-}
-
-int64_t sys_access(Sc& c) {
-    c.fmt("\"%s\", %d", c.str(c.a[0]), (int)c.a[1]);
-    return do_access(c, lx::at_fdcwd, c.str(c.a[0]), (int)c.a[1]);
-}
-
-int64_t sys_faccessat(Sc& c) {
-    c.fmt("%d, \"%s\", %d", c.fd(0), c.str(c.a[1]), (int)c.a[2]);
-    return do_access(c, c.fd(0), c.str(c.a[1]), (int)c.a[2]);
-}
-
 int64_t do_readlinkat(Sc& c, int dirfd, const char* path, char* buf, size_t size) {
     if (!path || !buf) return -lx::efault;
     const std::string full = K().resolve_path(c.p, dirfd, path);
@@ -325,25 +231,6 @@ int64_t sys_getdents64(Sc& c) {
     return f->getdents64(reinterpret_cast<void*>(c.a[1]), (size_t)c.a[2]);
 }
 
-int64_t sys_fcntl(Sc& c) {
-    c.fmt("%d, %d, 0x%llx", c.fd(0), (int)c.a[1], (unsigned long long)c.a[2]);
-    int fd = c.fd(0), cmd = (int)c.a[1];
-    auto f = fd_get(c, fd);
-    if (!f) return -lx::ebadf;
-    switch (cmd) {
-        case lx::f_dupfd: return c.p.fds.dup(fd, (int)c.a[2], false);
-        case lx::f_dupfd_cloexec: return c.p.fds.dup(fd, (int)c.a[2], true);
-        case lx::f_getfd: return c.p.fds.get_cloexec(fd);
-        case lx::f_setfd: return c.p.fds.set_cloexec(fd, (c.a[2] & lx::fd_cloexec) != 0);
-        case lx::f_getfl: return f->oflags;
-        case lx::f_setfl: f->oflags = (f->oflags & lx::o_accmode) | ((int)c.a[2] & ~lx::o_accmode); return 0;
-        case lx::f_getlk:
-        case lx::f_setlk:
-        case lx::f_setlkw: return 0;  // no other users of the read-only files yet
-        default: return -lx::einval;
-    }
-}
-
 int64_t sys_dup(Sc& c) {
     c.fmt("%d", c.fd(0));
     return c.p.fds.dup(c.fd(0), 0, false);
@@ -364,7 +251,10 @@ int64_t sys_ioctl(Sc& c) {
     c.fmt("%d, 0x%llx, 0x%llx", c.fd(0), (unsigned long long)c.a[1], (unsigned long long)c.a[2]);
     auto f = fd_get(c, c.fd(0));
     if (!f) return -lx::ebadf;
-    return f->ioctl((unsigned)c.a[1], c.a[2]);
+    const unsigned req = (unsigned)c.a[1];
+    if (req == lx::fioclex) return c.p.fds.set_cloexec(c.fd(0), true);
+    if (req == lx::fionclex) return c.p.fds.set_cloexec(c.fd(0), false);
+    return f->ioctl(req, c.a[2]);
 }
 
 // ---- memory ---------------------------------------------------------------------
@@ -394,6 +284,13 @@ int64_t sys_mmap(Sc& c) {
     }
     int64_t r = c.p.mm->map(addr, len, prot, fixed || noreplace, noreplace, name, off, ino);
     if (r < 0) return r;
+    if (src && (flags & lx::map_shared)) {
+        // MAP_SHARED of a writable upper file: a private copy now, written
+        // back on munmap/msync/exit (DECISIONS 2026-09-27).
+        if (auto tmp = std::dynamic_pointer_cast<TmpFileSource>(src)) {
+            if (prot & lx::prot_write) K().add_shared_map(c.p, (uint64_t)r, lx::PageUp(len), tmp->node(), off);
+        }
+    }
     if (src) {
         // populate [off, off+len) — short files leave the rest zero
         const uint64_t fsz = src->size();
@@ -415,6 +312,7 @@ int64_t sys_mmap(Sc& c) {
 
 int64_t sys_munmap(Sc& c) {
     c.fmt("0x%llx, %llu", (unsigned long long)c.a[0], (unsigned long long)c.a[1]);
+    K().writeback_shared(c.p, c.a[0], c.a[1], true);
     return c.p.mm->unmap(c.a[0], c.a[1]);
 }
 
@@ -453,6 +351,7 @@ int64_t sys_mremap(Sc& c) {
 
 int64_t sys_msync(Sc& c) {
     c.fmt("0x%llx, %llu, %d", (unsigned long long)c.a[0], (unsigned long long)c.a[1], (int)c.a[2]);
+    K().writeback_shared(c.p, c.a[0], c.a[1], false);
     return 0;
 }
 
@@ -957,43 +856,6 @@ int64_t sys_futex(Sc& c) {
     }
 }
 
-int64_t sys_socket(Sc& c) {
-    c.fmt("%d, %d, %d", (int)c.a[0], (int)c.a[1], (int)c.a[2]);
-    return -lx::eafnosupport;
-}
-
-int64_t sys_statfs(Sc& c) {
-    c.fmt("\"%s\", 0x%llx", c.str(c.a[0]), (unsigned long long)c.a[1]);
-    if (!c.a[1]) return -lx::efault;
-    lx::stat st {};
-    int err = K().stat_path(K().resolve_path(c.p, lx::at_fdcwd, c.str(c.a[0])), true, st);
-    if (err) return -err;
-    uint64_t* f = reinterpret_cast<uint64_t*>(c.a[1]);
-    memset(f, 0, 120);
-    f[0] = 0xEF53;          // f_type
-    f[1] = 4096;            // f_bsize
-    f[2] = 12u << 20;       // f_blocks
-    f[3] = f[4] = 4u << 20; // free/avail
-    f[5] = 1u << 20;        // files
-    f[6] = 1u << 19;        // ffree
-    f[8] = 255;             // namelen
-    f[9] = 4096;            // frsize
-    return 0;
-}
-
-int64_t sys_fstatfs(Sc& c) {
-    c.fmt("%d, 0x%llx", c.fd(0), (unsigned long long)c.a[1]);
-    if (!fd_get(c, c.fd(0))) return -lx::ebadf;
-    uint64_t* f = reinterpret_cast<uint64_t*>(c.a[1]);
-    if (!f) return -lx::efault;
-    memset(f, 0, 120);
-    f[0] = 0xEF53;
-    f[1] = 4096;
-    f[8] = 255;
-    f[9] = 4096;
-    return 0;
-}
-
 int64_t sys_prctl(Sc& c) {
     c.fmt("%d, 0x%llx, 0x%llx", (int)c.a[0], (unsigned long long)c.a[1], (unsigned long long)c.a[2]);
     switch ((int)c.a[0]) {
@@ -1018,12 +880,53 @@ int64_t sys_prctl(Sc& c) {
 
 int64_t sys_ret0(Sc& c) { c.fmt("0x%llx, 0x%llx", (unsigned long long)c.a[0], (unsigned long long)c.a[1]); return 0; }
 int64_t sys_enosys(Sc& c) { c.fmt("0x%llx, 0x%llx, 0x%llx", (unsigned long long)c.a[0], (unsigned long long)c.a[1], (unsigned long long)c.a[2]); return -lx::enosys; }
-int64_t sys_erofs(Sc& c) { c.fmt("0x%llx, 0x%llx", (unsigned long long)c.a[0], (unsigned long long)c.a[1]); return -lx::erofs; }
 int64_t sys_enotsup(Sc& c) { c.fmt("\"%s\", 0x%llx", c.str(c.a[0]), (unsigned long long)c.a[1]); return -lx::eopnotsupp; }
 int64_t sys_getcpu(Sc& c) {
     c.fmt("0x%llx, 0x%llx", (unsigned long long)c.a[0], (unsigned long long)c.a[1]);
     if (c.a[0]) *reinterpret_cast<uint32_t*>(c.a[0]) = 0;
     if (c.a[1]) *reinterpret_cast<uint32_t*>(c.a[1]) = 0;
+    return 0;
+}
+
+int64_t sys_setid(Sc& c) {
+    c.fmt("%d, %d, %d", (int)c.a[0], (int)c.a[1], (int)c.a[2]);
+    for (int i = 0; i < 3; i++) {
+        if (c.a[i] != (uint64_t)-1 && (uint32_t)c.a[i] != (uint32_t)-1 && (uint32_t)c.a[i] != 1000) return -lx::eperm;
+        if (c.nr == 105 || c.nr == 106) break;  // setuid/setgid: one argument
+        if ((c.nr == 113 || c.nr == 114) && i == 1) break;  // setreuid/setregid: two
+    }
+    return 0;
+}
+int64_t sys_getresid(Sc& c) {
+    c.fmt("0x%llx, 0x%llx, 0x%llx", (unsigned long long)c.a[0], (unsigned long long)c.a[1], (unsigned long long)c.a[2]);
+    for (int i = 0; i < 3; i++) {
+        if (c.a[i]) *reinterpret_cast<uint32_t*>(c.a[i]) = 1000;
+    }
+    return 0;
+}
+int64_t sys_getgroups(Sc& c) {
+    c.fmt("%d, 0x%llx", (int)c.a[0], (unsigned long long)c.a[1]);
+    if ((int)c.a[0] == 0) return 1;
+    if ((int)c.a[0] < 1) return -lx::einval;
+    if (c.a[1]) *reinterpret_cast<uint32_t*>(c.a[1]) = 1000;
+    return 1;
+}
+int64_t sys_sched_getparam(Sc& c) {
+    c.fmt("%d, 0x%llx", (int)c.a[0], (unsigned long long)c.a[1]);
+    if (c.a[1]) *reinterpret_cast<int32_t*>(c.a[1]) = 0;
+    return 0;
+}
+int64_t sys_sched_rr_get_interval(Sc& c) {
+    c.fmt("%d, 0x%llx", (int)c.a[0], (unsigned long long)c.a[1]);
+    if (c.a[1]) *reinterpret_cast<lx::timespec*>(c.a[1]) = {0, 4000000};
+    return 0;
+}
+int64_t sys_mincore(Sc& c) {
+    c.fmt("0x%llx, %llu, 0x%llx", (unsigned long long)c.a[0], (unsigned long long)c.a[1], (unsigned long long)c.a[2]);
+    if (!c.a[2]) return -lx::efault;
+    if (c.a[0] & (lx::page - 1)) return -lx::einval;
+    if (!c.p.mm->is_mapped(c.a[0], c.a[1])) return -lx::enomem;
+    memset(reinterpret_cast<void*>(c.a[2]), 1, (size_t)((c.a[1] + lx::page - 1) / lx::page));
     return 0;
 }
 
@@ -1035,34 +938,46 @@ void init_table() {
     static bool done = false;
     if (done) return;
     done = true;
-    set(0, sys_read); set(1, sys_write); set(2, sys_open); set(3, sys_close); set(4, sys_stat); set(5, sys_fstat);
+    set(0, sys_read); set(1, sys_write); set(3, sys_close); set(4, sys_stat); set(5, sys_fstat);
     set(6, sys_lstat); set(8, sys_lseek); set(9, sys_mmap); set(10, sys_mprotect); set(11, sys_munmap);
     set(12, sys_brk); set(13, sys_rt_sigaction); set(14, sys_rt_sigprocmask); set(15, sys_rt_sigreturn);
     set(22, sys_pipe); set(34, sys_pause); set(56, sys_clone); set(57, sys_fork); set(58, sys_vfork); set(59, sys_execve);
     set(130, sys_rt_sigsuspend); set(200, sys_tkill); set(293, sys_pipe2); set(435, sys_enosys /*clone3 → glibc uses clone*/);
     set(247, sys_enosys /*waitid*/);
     set(16, sys_ioctl); set(17, sys_pread64); set(18, sys_pwrite64); set(19, sys_readv); set(20, sys_writev);
-    set(21, sys_access); set(24, sys_sched_yield); set(25, sys_mremap); set(26, sys_msync); set(28, sys_madvise);
-    set(32, sys_dup); set(33, sys_dup2); set(35, sys_nanosleep); set(39, sys_getpid); set(41, sys_socket);
-    set(60, sys_exit); set(61, sys_wait4); set(62, sys_kill); set(63, sys_uname); set(72, sys_fcntl);
-    set(73, sys_ret0 /*flock*/); set(74, sys_ret0 /*fsync*/); set(75, sys_ret0 /*fdatasync*/); set(77, sys_erofs /*ftruncate*/);
+    set(24, sys_sched_yield); set(25, sys_mremap); set(26, sys_msync); set(28, sys_madvise);
+    set(32, sys_dup); set(33, sys_dup2); set(35, sys_nanosleep); set(39, sys_getpid);
+    set(60, sys_exit); set(61, sys_wait4); set(62, sys_kill); set(63, sys_uname);
+    set(74, sys_ret0 /*fsync*/); set(75, sys_ret0 /*fdatasync*/);
     set(79, sys_getcwd); set(80, sys_chdir); set(81, sys_fchdir); set(89, sys_readlink); set(95, sys_umask);
     set(96, sys_gettimeofday); set(97, sys_getrlimit); set(98, sys_ret0 /*getrusage*/); set(99, sys_sysinfo);
     set(100, sys_ret0 /*times*/); set(102, sys_getuid); set(104, sys_getuid /*getgid*/); set(107, sys_getuid /*geteuid*/);
     set(108, sys_getuid /*getegid*/); set(109, sys_setpgid); set(110, sys_getppid); set(111, sys_getpgrp);
     set(112, sys_setsid); set(121, sys_getpgid); set(124, sys_getsid); set(131, sys_sigaltstack);
-    set(137, sys_statfs); set(138, sys_fstatfs); set(157, sys_prctl); set(158, sys_arch_prctl);
+    set(157, sys_prctl); set(158, sys_arch_prctl);
     set(160, sys_setrlimit); set(186, sys_gettid); set(201, sys_time); set(202, sys_futex);
     set(203, sys_ret0 /*sched_setaffinity*/); set(204, sys_sched_getaffinity); set(217, sys_getdents64);
     set(218, sys_set_tid_address); set(221, sys_ret0 /*fadvise64*/); set(228, sys_clock_gettime);
     set(229, sys_clock_getres); set(230, sys_clock_nanosleep); set(231, sys_exit_group); set(234, sys_tgkill);
-    set(257, sys_openat); set(262, sys_newfstatat); set(267, sys_readlinkat); set(269, sys_faccessat);
+    set(262, sys_newfstatat); set(267, sys_readlinkat);
     set(273, sys_set_robust_list); set(274, sys_enosys /*get_robust_list*/); set(292, sys_dup3);
     set(302, sys_prlimit64); set(309, sys_getcpu); set(318, sys_getrandom); set(332, sys_statx);
-    set(334, sys_enosys /*rseq*/); set(439, sys_faccessat /*faccessat2*/);
+    set(334, sys_enosys /*rseq*/);
+    // identity setters: uid 1000 is the only user
+    set(105, sys_setid); set(106, sys_setid); set(113, sys_setid); set(114, sys_setid); set(117, sys_setid);
+    set(119, sys_setid); set(116, sys_ret0 /*setgroups*/); set(115, sys_getgroups); set(118, sys_getresid);
+    set(120, sys_getresid);
+    // scheduling: everything is SCHED_OTHER at priority 0
+    set(140, sys_ret0 /*getpriority*/); set(141, sys_ret0 /*setpriority*/); set(142, sys_ret0 /*sched_setparam*/);
+    set(143, sys_sched_getparam); set(144, sys_ret0 /*sched_setscheduler*/); set(145, sys_ret0 /*sched_getscheduler*/);
+    set(146, sys_ret0 /*sched_get_priority_max*/); set(147, sys_ret0 /*sched_get_priority_min*/);
+    set(148, sys_sched_rr_get_interval); set(314, sys_enosys /*sched_setattr*/); set(315, sys_enosys /*sched_getattr*/);
+    set(27, sys_mincore);
     // xattr family: not supported on this filesystem
     set(191, sys_enotsup); set(192, sys_enotsup); set(193, sys_enotsup); set(194, sys_enotsup); set(195, sys_enotsup);
     set(196, sys_enotsup);
+    register_fs_syscalls(set);
+    register_io_syscalls(set);
 }
 
 }  // namespace
@@ -1081,6 +996,7 @@ void Kernel::handle_syscall(GuestThread& t, void* frame_) {
     total_syscalls++;
     t.syscall_nr = c.nr;
     t.restartable = false;
+    t.no_handler_restart = false;
     if (t.proc->state.load() != (int)ProcState::Running) {
         // The group is exiting (exit_group elsewhere, SIGKILL, killall): leave quietly.
         const int code = t.proc->term_signal ? 128 + t.proc->term_signal : t.proc->exit_code;

@@ -42,6 +42,14 @@ size_t rlk_process_output(int pid, char *out, size_t cap);
 // Ask every running guest thread to stop (best effort). Returns count.
 int rlk_kill_all(void);
 
+// The guest filesystem from the app side (debug server /guest-file,
+// /guest-ls): read a file of any layer into a malloc'd buffer (caller frees;
+// 0 or -errno), write a file into the writable layer (created or replaced),
+// list a directory as JSON {"ok","path","entries":[{"name","type","size","mode"}]}.
+int rlk_read_file(const char *path, unsigned char **out, size_t *len);
+int rlk_write_file(const char *path, const unsigned char *data, size_t len);
+int rlk_list_dir(const char *path, char *out, size_t cap);
+
 #ifdef __cplusplus
 }
 #endif

@@ -40,7 +40,9 @@ public:
     int64_t write(const void* buf, size_t len) override;
     int fstat(lx::stat& st) override;
     int64_t ioctl(unsigned req, uint64_t arg) override;
-    // poll(): readable = data or EOF; writable = space or no reader.
+    // Read end: POLLIN with data, POLLIN|POLLHUP at EOF; write end: POLLOUT
+    // with room, POLLERR when no reader is left.
+    unsigned poll(PollTable* pt) override;
     bool readable();
     bool writable();
     std::shared_ptr<Pipe> pipe() { return pipe_; }

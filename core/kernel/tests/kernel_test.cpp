@@ -10,6 +10,7 @@
 #include <unistd.h>
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <map>
 #include <memory>
@@ -25,9 +26,13 @@
 #include "file_source.h"
 #include "futex.h"
 #include "linux_abi.h"
+#include "locks.h"
 #include "log.h"
 #include "mm.h"
+#include "overlay.h"
 #include "pipe.h"
+#include "poll.h"
+#include "socket.h"
 #include "waitq.h"
 
 using namespace rlk;
@@ -588,15 +593,523 @@ static void test_futex() {
     CHECK_MSG(n3 == 1 && word2 == 1 && s3 == 1, "n3=%d word2=%u s3=%d", n3, word2, (int)s3);
 }
 
+// ---- overlay ---------------------------------------------------------------------------
+
+// A lower tree in memory: directories, files, symlinks.
+struct FakeLower final : LowerFs {
+    struct Node {
+        uint32_t mode;
+        std::string content;  // file bytes or link target
+    };
+    std::map<std::string, Node> nodes;
+    int lstat_calls = 0;
+
+    FakeLower() {
+        nodes["/"] = {lx::s_ifdir | 0755, ""};
+        nodes["/etc"] = {lx::s_ifdir | 0755, ""};
+        nodes["/etc/passwd"] = {lx::s_ifreg | 0644, "root:x\n"};
+        nodes["/etc/hostname"] = {lx::s_ifreg | 0644, "box\n"};
+        nodes["/var"] = {lx::s_ifdir | 0755, ""};
+        nodes["/var/run"] = {lx::s_iflnk | 0777, "/run"};
+        nodes["/var/lock"] = {lx::s_iflnk | 0777, "../run/lock"};
+        nodes["/usr"] = {lx::s_ifdir | 0755, ""};
+        nodes["/usr/bin"] = {lx::s_ifdir | 0755, ""};
+        nodes["/usr/bin/true"] = {lx::s_ifreg | 0755, "#!/bin/sh\n"};
+        nodes["/bin"] = {lx::s_iflnk | 0777, "usr/bin"};
+    }
+    int lstat(const std::string& path, lx::stat& st) override {
+        lstat_calls++;
+        auto it = nodes.find(path);
+        if (it == nodes.end()) return lx::enoent;
+        FillStat(st, it->second.mode, it->second.content.size(), 1000, 5000 + (uint64_t)std::distance(nodes.begin(), it), 0, 0, 0);
+        return 0;
+    }
+    int readlink(const std::string& path, std::string& target) override {
+        auto it = nodes.find(path);
+        if (it == nodes.end()) return lx::enoent;
+        if ((it->second.mode & lx::s_ifmt) != lx::s_iflnk) return lx::einval;
+        target = it->second.content;
+        return 0;
+    }
+    int readdir(const std::string& path, std::vector<DirEntryInfo>& out) override {
+        auto it = nodes.find(path);
+        if (it == nodes.end()) return lx::enoent;
+        if ((it->second.mode & lx::s_ifmt) != lx::s_ifdir) return lx::enotdir;
+        out.push_back({".", lx::dt_dir, 1});
+        out.push_back({"..", lx::dt_dir, 1});
+        const std::string prefix = path == "/" ? "/" : path + "/";
+        for (auto& [p, n] : nodes) {
+            if (p.size() <= prefix.size() || p.compare(0, prefix.size(), prefix) != 0) continue;
+            if (p.find('/', prefix.size()) != std::string::npos) continue;
+            uint32_t t = n.mode & lx::s_ifmt;
+            out.push_back({p.substr(prefix.size()), t == lx::s_ifdir ? lx::dt_dir : (t == lx::s_iflnk ? lx::dt_lnk : lx::dt_reg), 1});
+        }
+        return 0;
+    }
+    std::unique_ptr<FileSource> open(const std::string& path, int& err) override {
+        auto it = nodes.find(path);
+        if (it == nodes.end()) {
+            err = lx::enoent;
+            return nullptr;
+        }
+        if ((it->second.mode & lx::s_ifmt) == lx::s_ifdir) {
+            err = lx::eisdir;
+            return nullptr;
+        }
+        return std::make_unique<MemFileSource>(path, std::vector<uint8_t>(it->second.content.begin(), it->second.content.end()));
+    }
+};
+
+static bool has_name(const std::vector<DirEntryInfo>& ents, const std::string& name) {
+    for (auto& e : ents) {
+        if (e.name == name) return true;
+    }
+    return false;
+}
+
+static std::string read_all(FileSource& f) {
+    std::string s(f.size(), 0);
+    if (!s.empty()) ReadAll(f, 0, s.data(), s.size());
+    return s;
+}
+
+static void test_overlay() {
+    FakeLower lower;
+    Overlay ov(&lower);
+    ov.mkdir_boot("/tmp", 01777, true);
+    ov.mkdir_boot("/run", 0755, true);
+    ov.mkdir_boot("/run/lock", 01777, true);
+    ov.mkdir_boot("/dev/shm", 01777, true);
+
+    lx::stat st {};
+    CHECK(ov.stat("/etc/passwd", true, st) == 0 && st.st_size == 7 && (st.st_mode & lx::s_ifmt) == lx::s_ifreg);
+    CHECK(ov.stat("/tmp", true, st) == 0 && (st.st_mode & lx::s_ifmt) == lx::s_ifdir && (st.st_mode & 07777) == 01777);
+    CHECK(ov.stat("/dev/shm", true, st) == 0 && (st.st_mode & lx::s_ifmt) == lx::s_ifdir);
+    CHECK(ov.stat("/nope", true, st) == lx::enoent);
+    CHECK(ov.stat("/etc/passwd/x", true, st) == lx::enotdir);
+    std::vector<DirEntryInfo> ents;
+    CHECK(ov.readdir("/", ents) == 0 && has_name(ents, "etc") && has_name(ents, "tmp") && has_name(ents, "run") &&
+          has_name(ents, "dev") && has_name(ents, "usr"));
+    // symlinks in the lower tree, absolute and relative
+    CHECK(ov.stat("/bin/true", true, st) == 0 && (st.st_mode & 0111));
+    CHECK(ov.stat("/var/run", false, st) == 0 && (st.st_mode & lx::s_ifmt) == lx::s_iflnk);
+    CHECK(ov.stat("/var/run", true, st) == 0 && (st.st_mode & lx::s_ifmt) == lx::s_ifdir);
+    CHECK(ov.stat("/var/lock", true, st) == 0 && (st.st_mode & 07777) == 01777);
+
+    // create + write + read back through the upper layer
+    Lookup l;
+    CHECK(ov.create("/tmp/a", 0644, true, l) == 0 && l.upper && !l.lower);
+    CHECK(ov.create("/tmp/a", 0644, true, l) == lx::eexist);
+    CHECK(ov.create("/tmp/a", 0644, false, l) == 0 && l.upper);
+    {
+        TmpFile f(l.upper, "/tmp/a", lx::o_rdwr);
+        CHECK(f.write("hello", 5) == 5);
+        CHECK(f.lseek(0, lx::seek_set) == 0);
+        char buf[16] = {};
+        CHECK(f.read(buf, sizeof buf) == 5 && memcmp(buf, "hello", 5) == 0);
+        CHECK(f.pwrite("HE", 2, 0) == 2 && f.pread(buf, 5, 0) == 5 && memcmp(buf, "HEllo", 5) == 0);
+        CHECK(f.lseek(0, lx::seek_end) == 5);
+        CHECK(f.ftruncate(3) == 0);
+        lx::stat fs {};
+        CHECK(f.fstat(fs) == 0 && fs.st_size == 3 && fs.st_dev != 0x801);
+        TmpFile ap(l.upper, "/tmp/a", lx::o_wronly | lx::o_append);
+        CHECK(ap.write("!!", 2) == 2);
+        CHECK(f.pread(buf, 16, 0) == 5 && memcmp(buf, "HEl!!", 5) == 0);
+    }
+    CHECK(ov.stat("/tmp/a", true, st) == 0 && st.st_size == 5);
+    ents.clear();
+    CHECK(ov.readdir("/tmp", ents) == 0 && has_name(ents, "a") && has_name(ents, ".") && ents.size() == 3);
+    int err = 0;
+    auto src = ov.open_source("/tmp/a", err);
+    CHECK(src && read_all(*src) == "HEl!!");
+
+    // copy-up of a lower file
+    std::shared_ptr<TmpNode> n;
+    CHECK(ov.for_write("/etc/passwd", true, n) == 0 && n && n->kind == TmpNode::Reg);
+    {
+        TmpFile f(n, "/etc/passwd", lx::o_wronly | lx::o_append);
+        CHECK(f.write("user:x\n", 7) == 7);
+    }
+    CHECK(ov.stat("/etc/passwd", true, st) == 0 && st.st_size == 14);
+    src = ov.open_source("/etc/passwd", err);
+    CHECK(src && read_all(*src) == "root:x\nuser:x\n");
+    CHECK(lower.nodes["/etc/passwd"].content == "root:x\n");  // the lower tree never changes
+    ents.clear();
+    CHECK(ov.readdir("/etc", ents) == 0 && has_name(ents, "passwd") && has_name(ents, "hostname"));
+    size_t count_passwd = 0;
+    for (auto& e : ents) count_passwd += e.name == "passwd";
+    CHECK(count_passwd == 1);  // merged, not duplicated
+
+    // whiteouts
+    CHECK(ov.unlink("/etc/hostname") == 0);
+    CHECK(ov.stat("/etc/hostname", true, st) == lx::enoent);
+    ents.clear();
+    CHECK(ov.readdir("/etc", ents) == 0 && !has_name(ents, "hostname"));
+    CHECK(ov.create("/etc/hostname", 0644, true, l) == 0 && l.upper);
+    CHECK(ov.stat("/etc/hostname", true, st) == 0 && st.st_size == 0);
+    CHECK(ov.unlink("/etc") == lx::eisdir);
+    CHECK(ov.rmdir("/etc") == lx::enotempty);
+    CHECK(ov.unlink("/etc/hostname") == 0 && ov.unlink("/etc/passwd") == 0);
+    CHECK(ov.rmdir("/etc") == 0);
+    CHECK(ov.stat("/etc", true, st) == lx::enoent);
+    CHECK(ov.mkdir("/etc", 0755) == 0);
+    ents.clear();
+    CHECK(ov.readdir("/etc", ents) == 0 && ents.size() == 2);  // opaque: the lower files stay hidden
+
+    // directories
+    CHECK(ov.mkdir("/tmp/d", 0700) == 0 && ov.mkdir("/tmp/d", 0700) == lx::eexist);
+    CHECK(ov.mkdir("/nodir/x", 0700) == lx::enoent);
+    CHECK(ov.rmdir("/tmp") == lx::enotempty);
+    CHECK(ov.rmdir("/usr/bin") == lx::enotempty);
+    CHECK(ov.rmdir("/tmp/d") == 0 && ov.stat("/tmp/d", true, st) == lx::enoent);
+    CHECK(ov.mkdir("/usr/bin/newdir", 0755) == 0);  // an upper dir inside a lower dir
+    ents.clear();
+    CHECK(ov.readdir("/usr/bin", ents) == 0 && has_name(ents, "true") && has_name(ents, "newdir"));
+
+    // symlinks in the upper layer, lower symlink leading into the upper layer
+    CHECK(ov.symlink("/tmp/a", "/tmp/l") == 0);
+    CHECK(ov.stat("/tmp/l", true, st) == 0 && st.st_size == 5);
+    CHECK(ov.stat("/tmp/l", false, st) == 0 && (st.st_mode & lx::s_ifmt) == lx::s_iflnk);
+    std::string target;
+    CHECK(ov.readlink("/tmp/l", target) == 0 && target == "/tmp/a");
+    CHECK(ov.readlink("/tmp/a", target) == lx::einval);
+    CHECK(ov.symlink("/tmp/loop", "/tmp/loop") == 0 && ov.stat("/tmp/loop", true, st) == lx::eloop);
+    CHECK(ov.create("/var/run/x.pid", 0644, true, l) == 0 && l.canon == "/run/x.pid");
+    CHECK(ov.stat("/run/x.pid", true, st) == 0);
+    CHECK(ov.create("/var/lock/y", 0644, true, l) == 0 && ov.stat("/run/lock/y", true, st) == 0);
+
+    // rename / link / mknod / truncate / chmod / utimens
+    CHECK(ov.rename("/tmp/a", "/tmp/b", 0) == 0);
+    CHECK(ov.stat("/tmp/a", true, st) == lx::enoent && ov.stat("/tmp/b", true, st) == 0 && st.st_size == 5);
+    CHECK(ov.rename("/usr/bin/true", "/tmp/true", 0) == 0);  // lower file: copy-up + whiteout
+    CHECK(ov.stat("/usr/bin/true", true, st) == lx::enoent);
+    CHECK(ov.stat("/tmp/true", true, st) == 0 && (st.st_mode & 07777) == 0755 && st.st_size == 10);
+    CHECK(ov.rename("/usr", "/tmp/usr", 0) == lx::exdev);  // merged directory
+    CHECK(ov.create("/tmp/c", 0644, true, l) == 0);
+    CHECK(ov.rename("/tmp/c", "/tmp/b", lx::rename_noreplace) == lx::eexist);
+    CHECK(ov.rename("/tmp/c", "/tmp/b", 0) == 0 && ov.stat("/tmp/b", true, st) == 0 && st.st_size == 0);
+    CHECK(ov.link("/tmp/true", "/tmp/true2") == 0);
+    CHECK(ov.stat("/tmp/true", true, st) == 0 && st.st_nlink == 2);
+    CHECK(ov.unlink("/tmp/true2") == 0 && ov.stat("/tmp/true", true, st) == 0 && st.st_nlink == 1);
+    std::shared_ptr<TmpNode> sock;
+    CHECK(ov.mknod("/tmp/.X11-unix", lx::s_ifdir, sock) == lx::eperm);
+    CHECK(ov.mkdir("/tmp/.X11-unix", 01777) == 0);
+    CHECK(ov.mknod("/tmp/.X11-unix/X0", lx::s_ifsock | 0777, sock) == 0 && sock && sock->kind == TmpNode::Sock);
+    CHECK(ov.mknod("/tmp/.X11-unix/X0", lx::s_ifsock | 0777, sock) == lx::eexist);
+    CHECK(ov.stat("/tmp/.X11-unix/X0", true, st) == 0 && (st.st_mode & lx::s_ifmt) == lx::s_ifsock);
+    CHECK(ov.unlink("/tmp/.X11-unix/X0") == 0);
+    std::shared_ptr<TmpNode> fifo;
+    CHECK(ov.mknod("/tmp/fifo", lx::s_ififo | 0600, fifo) == 0 && fifo->fifo);
+    CHECK(ov.truncate("/tmp/true", 2) == 0 && ov.stat("/tmp/true", true, st) == 0 && st.st_size == 2);
+    CHECK(ov.chmod("/tmp/true", true, 0600) == 0 && ov.stat("/tmp/true", true, st) == 0 && (st.st_mode & 07777) == 0600);
+    CHECK(ov.chmod("/usr/bin", true, 0700) == 0 && ov.stat("/usr/bin", true, st) == 0 && (st.st_mode & 07777) == 0700);
+    ents.clear();
+    CHECK(ov.readdir("/usr/bin", ents) == 0 && has_name(ents, "newdir") && !has_name(ents, "true"));
+    CHECK(ov.utimens("/tmp/true", true, 5, 7) == 0 && ov.stat("/tmp/true", true, st) == 0 && st.st_mtim.tv_sec == 7 &&
+          st.st_atim.tv_sec == 5);
+    CHECK(ov.chown("/tmp/true", true, 1000, (uint32_t)-1) == 0 && ov.stat("/tmp/true", true, st) == 0 &&
+          st.st_uid == 1000 && st.st_gid == 0);  // copied up from a root-owned lower file; gid untouched
+    // O_CREAT on a read-only lower name that was never touched must not copy
+    CHECK(ov.create("/usr/bin", 0644, false, l) == 0 && l.upper && l.upper->kind == TmpNode::Dir);
+}
+
+// ---- poll / eventfd / epoll ---------------------------------------------------------
+
+static void test_poll() {
+    std::shared_ptr<PipeFile> rd, wr;
+    MakePipe(rd, wr);
+    std::vector<PollEntry> pe;
+    pe.push_back({rd, lx::pollin, 0});
+    pe.push_back({wr, lx::pollout, 0});
+    CHECK(DoPoll(pe, 0, true) == 1 && pe[0].revents == 0 && pe[1].revents == lx::pollout);
+    CHECK(wr->write("x", 1) == 1);
+    CHECK(DoPoll(pe, 0, true) == 2 && (pe[0].revents & lx::pollin));
+    char c;
+    CHECK(rd->read(&c, 1) == 1);
+    // timeout
+    const int64_t t0 = MonotonicNs();
+    CHECK(DoPoll(pe, MonotonicNs() + 30'000'000, false) == 1);  // only POLLOUT is ready → returns at once
+    pe.pop_back();
+    CHECK(DoPoll(pe, MonotonicNs() + 30'000'000, false) == 0);
+    CHECK(MonotonicNs() - t0 >= 25'000'000);
+    // a writer wakes a blocked poller
+    std::thread t([&] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(40));
+        wr->write("y", 1);
+    });
+    CHECK(DoPoll(pe, MonotonicNs() + 2'000'000'000, false) == 1 && (pe[0].revents & lx::pollin));
+    t.join();
+    CHECK(rd->read(&c, 1) == 1 && c == 'y');
+    // closed write end: POLLHUP on the read end; closed read end: POLLERR on the write end
+    std::shared_ptr<PipeFile> rd2, wr2;
+    MakePipe(rd2, wr2);
+    wr2.reset();
+    std::vector<PollEntry> pe2 {{rd2, lx::pollin, 0}};
+    CHECK(DoPoll(pe2, 0, true) == 1 && (pe2[0].revents & lx::pollhup));
+    pe.clear();  // drops the poll entries' reference to the read end
+    rd.reset();
+    std::vector<PollEntry> pe3 {{wr, lx::pollout, 0}};
+    CHECK(DoPoll(pe3, 0, true) == 1 && (pe3[0].revents & lx::pollerr));
+    // bad fd
+    std::vector<PollEntry> pe4 {{nullptr, lx::pollin, 0}};
+    CHECK(DoPoll(pe4, 0, true) == 1 && pe4[0].revents == lx::pollnval);
+
+    // eventfd
+    auto ef = std::make_shared<EventFdFile>(0, lx::efd_nonblock);
+    uint64_t v = 0;
+    CHECK(ef->read(&v, 8) == -lx::eagain);
+    CHECK(ef->poll(nullptr) == lx::pollout);
+    v = 3;
+    CHECK(ef->write(&v, 8) == 8 && ef->poll(nullptr) == (lx::pollin | lx::pollout));
+    v = 0;
+    CHECK(ef->read(&v, 8) == 8 && v == 3);
+    auto sem = std::make_shared<EventFdFile>(2, lx::efd_semaphore | lx::efd_nonblock);
+    CHECK(sem->read(&v, 8) == 8 && v == 1 && sem->read(&v, 8) == 8 && v == 1 && sem->read(&v, 8) == -lx::eagain);
+    auto blocking = std::make_shared<EventFdFile>(0, 0);
+    std::thread t2([&] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        uint64_t one = 1;
+        blocking->write(&one, 8);
+    });
+    CHECK(blocking->read(&v, 8) == 8 && v == 1);
+    t2.join();
+
+    // epoll
+    auto ep = std::make_shared<EpollFile>();
+    std::shared_ptr<PipeFile> rd3, wr3;
+    MakePipe(rd3, wr3);
+    CHECK(ep->ctl(lx::epoll_ctl_add, 5, rd3, lx::epollin, 0x55) == 0);
+    CHECK(ep->ctl(lx::epoll_ctl_add, 5, rd3, lx::epollin, 0x55) == -lx::eexist);
+    CHECK(ep->ctl(lx::epoll_ctl_add, 6, ef, lx::epollin | lx::epolloneshot, 0x66) == 0);
+    CHECK(ep->ctl(lx::epoll_ctl_add, 7, sem, lx::epollout | lx::epollet, 0x77) == 0);
+    lx::epoll_event evs[8];
+    // sem (POLLOUT, edge-triggered) reports once; the pipe and the eventfd are not readable
+    int n = (int)ep->wait(evs, 8, 0, true);
+    CHECK_MSG(n == 1 && evs[0].data == 0x77, "n=%d", n);
+    CHECK(ep->wait(evs, 8, 0, true) == 0);  // no new edge
+    CHECK(wr3->write("z", 1) == 1);
+    v = 1;
+    CHECK(ef->write(&v, 8) == 8);
+    n = (int)ep->wait(evs, 8, 0, true);
+    CHECK_MSG(n == 2, "n=%d", n);
+    CHECK(ep->wait(evs, 8, 0, true) == 1 && evs[0].data == 0x55);  // oneshot fired, pipe still readable
+    CHECK(ep->ctl(lx::epoll_ctl_mod, 6, ef, lx::epollin, 0x66) == 0);
+    CHECK(ep->wait(evs, 8, 0, true) == 2);
+    CHECK(ep->poll(nullptr) == lx::pollin);
+    CHECK(ep->ctl(lx::epoll_ctl_del, 6, nullptr, 0, 0) == 0 && ep->ctl(lx::epoll_ctl_del, 6, nullptr, 0, 0) == -lx::enoent);
+    CHECK(rd3->read(&c, 1) == 1);
+    // blocked epoll_wait woken by a write, then timeout
+    std::thread t3([&] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        wr3->write("w", 1);
+    });
+    CHECK(ep->wait(evs, 8, MonotonicNs() + 2'000'000'000, false) == 1 && evs[0].data == 0x55);
+    t3.join();
+    CHECK(rd3->read(&c, 1) == 1);
+    CHECK(ep->wait(evs, 8, MonotonicNs() + 20'000'000, false) == 0);
+    // a file closed everywhere drops out of the interest list
+    CHECK(ep->size() == 2);
+    rd3.reset();
+    wr3.reset();
+    CHECK(ep->wait(evs, 8, 0, true) == 0 && ep->size() == 1);
+}
+
+// ---- unix sockets -----------------------------------------------------------------
+
+static void test_socket() {
+    SockCreds me {42, 1000, 1000};
+    std::shared_ptr<UnixSocket> a, b;
+    UnixSocket::pair(lx::sock_stream, me, a, b);
+    auto fa = std::make_shared<SocketFile>(a, 0);
+    auto fb = std::make_shared<SocketFile>(b, 0);
+    CHECK(fa->write("hello", 5) == 5);
+    char buf[64] = {};
+    CHECK(fb->read(buf, sizeof buf) == 5 && memcmp(buf, "hello", 5) == 0);
+    CHECK(a->poll(nullptr) & lx::pollout);
+    CHECK(!(b->poll(nullptr) & lx::pollin));
+    // fd passing: one set per recv, data before it stays separate
+    std::vector<std::shared_ptr<OpenFile>> fds {std::make_shared<DevNullFile>(0), std::make_shared<DevNullFile>(1)};
+    CHECK(a->send((const uint8_t*)"ab", 2, {}, 0, nullptr, false) == 2);
+    CHECK(a->send((const uint8_t*)"cd", 2, fds, 0, nullptr, false) == 2);
+    CHECK(a->send((const uint8_t*)"ef", 2, {}, 0, nullptr, false) == 2);
+    RecvInfo info;
+    int64_t n = b->recv((uint8_t*)buf, sizeof buf, 0, false, &info);
+    CHECK_MSG(n == 4 && memcmp(buf, "abcd", 4) == 0 && info.fds.size() == 2 && info.creds.pid == 42, "n=%lld fds=%zu", (long long)n, info.fds.size());
+    info = RecvInfo {};
+    CHECK(b->recv((uint8_t*)buf, sizeof buf, 0, false, &info) == 2 && memcmp(buf, "ef", 2) == 0 && info.fds.empty());
+    CHECK(b->recv((uint8_t*)buf, sizeof buf, 0, true, nullptr) == -lx::eagain);
+    CHECK(a->peer_creds().pid == 42 && b->has_peer_creds());
+    // shutdown(WR) → EOF on the other side; then close → HUP
+    CHECK(a->shutdown(lx::shut_wr) == 0);
+    CHECK(fb->read(buf, sizeof buf) == 0);
+    CHECK(fa->write("x", 1) == -lx::epipe);
+    CHECK(fb->write("back", 4) == 4);  // the other direction still works
+    CHECK(fa->read(buf, sizeof buf) == 4);
+    fa.reset();
+    CHECK((b->poll(nullptr) & (lx::pollhup | lx::pollin | lx::pollrdhup)) == (lx::pollhup | lx::pollin | lx::pollrdhup));
+    CHECK(fb->write("y", 1) == -lx::epipe);
+    CHECK(fb->read(buf, sizeof buf) == 0);
+
+    // listener in the abstract namespace
+    auto srv = std::make_shared<UnixSocket>(lx::sock_stream, SockCreds {7, 1000, 1000});
+    auto srvf = std::make_shared<SocketFile>(srv, 0);
+    CHECK(srv->listen(5) == -lx::einval);  // unbound
+    CHECK(srv->bind_abstract("/tmp/.X11-unix/X0") == 0);
+    auto dup = std::make_shared<UnixSocket>(lx::sock_stream, me);
+    CHECK(dup->bind_abstract("/tmp/.X11-unix/X0") == -lx::eaddrinuse);
+    CHECK(srv->name() == "@/tmp/.X11-unix/X0");
+    auto cli = std::make_shared<UnixSocket>(lx::sock_stream, SockCreds {9, 1000, 1000});
+    auto clif = std::make_shared<SocketFile>(cli, 0);
+    CHECK(cli->connect(UnixSocket::find_abstract("/tmp/.X11-unix/X0"), false) == -lx::econnrefused);  // not listening yet
+    CHECK(srv->listen(5) == 0);
+    CHECK(!(srv->poll(nullptr) & lx::pollin));
+    int err = 0;
+    CHECK(srv->accept(true, err) == nullptr && err == lx::eagain);
+    CHECK(cli->connect(UnixSocket::find_abstract("/tmp/.X11-unix/X0"), false) == 0);
+    CHECK(cli->connect(UnixSocket::find_abstract("/tmp/.X11-unix/X0"), false) == -lx::eisconn);
+    CHECK(srv->poll(nullptr) & lx::pollin);
+    auto conn = srv->accept(true, err);
+    CHECK(conn && err == 0);
+    auto connf = std::make_shared<SocketFile>(conn, 0);
+    CHECK(conn->peer_creds().pid == 9 && cli->peer_creds().pid == 7);
+    CHECK(cli->peer_name() == "@/tmp/.X11-unix/X0" && conn->name() == "@/tmp/.X11-unix/X0");
+    CHECK(clif->write("req", 3) == 3 && connf->read(buf, sizeof buf) == 3);
+    CHECK(connf->write("rep", 3) == 3 && clif->read(buf, sizeof buf) == 3 && memcmp(buf, "rep", 3) == 0);
+    // a blocked reader is woken by the peer
+    std::thread t([&] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        connf->write("late", 4);
+    });
+    CHECK(clif->read(buf, sizeof buf) == 4 && memcmp(buf, "late", 4) == 0);
+    t.join();
+    // closing the listener with a queued, unaccepted connection resets that client
+    auto cli2 = std::make_shared<UnixSocket>(lx::sock_stream, me);
+    auto cli2f = std::make_shared<SocketFile>(cli2, lx::sock_nonblock);
+    CHECK(cli2->connect(UnixSocket::find_abstract("/tmp/.X11-unix/X0"), true) == 0);
+    srvf.reset();
+    CHECK(UnixSocket::find_abstract("/tmp/.X11-unix/X0") == nullptr);
+    CHECK(cli2f->read(buf, sizeof buf) == 0);
+    CHECK(clif->write("still", 5) == 5 && connf->read(buf, sizeof buf) == 5);  // accepted connections survive
+
+    // flow control
+    conn->rcvbuf = 8;
+    CHECK(cli->send((const uint8_t*)"0123456789", 10, {}, 0, nullptr, true) == 8);
+    CHECK(cli->send((const uint8_t*)"x", 1, {}, 0, nullptr, true) == -lx::eagain);
+    CHECK(!(cli->poll(nullptr) & lx::pollout));
+    CHECK(connf->read(buf, 4) == 4);
+    CHECK(cli->poll(nullptr) & lx::pollout);
+    std::thread t2([&] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        char tmp[64];
+        connf->read(tmp, sizeof tmp);
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+        connf->read(tmp, sizeof tmp);
+    });
+    CHECK(cli->send((const uint8_t*)"abcdefghij", 10, {}, 0, nullptr, false) == 10);  // blocks until drained
+    t2.join();
+
+    // dgram: boundaries, truncation, unconnected sends
+    std::shared_ptr<UnixSocket> d1, d2;
+    UnixSocket::pair(lx::sock_dgram, me, d1, d2);
+    CHECK(d1->send((const uint8_t*)"one", 3, {}, 0, nullptr, false) == 3);
+    CHECK(d1->send((const uint8_t*)"three", 5, {}, 0, nullptr, false) == 5);
+    info = RecvInfo {};
+    CHECK(d2->recv((uint8_t*)buf, 2, 0, false, &info) == 2 && info.truncated && memcmp(buf, "on", 2) == 0);
+    CHECK(d2->queued_bytes() == 5);
+    CHECK(d2->recv((uint8_t*)buf, 2, lx::msg_trunc, false, &info) == 5);
+    CHECK(d2->recv((uint8_t*)buf, sizeof buf, 0, true, nullptr) == -lx::eagain);
+    auto d3 = std::make_shared<UnixSocket>(lx::sock_dgram, me);
+    CHECK(d3->send((const uint8_t*)"x", 1, {}, 0, nullptr, true) == -lx::enotconn);
+    CHECK(d3->send((const uint8_t*)"to-d2", 5, {}, 0, d2, true) == 5);
+    info = RecvInfo {};
+    CHECK(d2->recv((uint8_t*)buf, sizeof buf, 0, true, &info) == 5 && info.from.empty());
+    CHECK(d3->poll(nullptr) & lx::pollout);
+
+    // a filesystem name through the overlay
+    FakeLower lower;
+    Overlay ov(&lower);
+    ov.mkdir_boot("/tmp", 01777, true);
+    std::shared_ptr<TmpNode> node;
+    CHECK(ov.mknod("/tmp/sock", lx::s_ifsock | 0777, node) == 0);
+    auto fsrv = std::make_shared<UnixSocket>(lx::sock_stream, me);
+    CHECK(fsrv->bind_path("/tmp/sock", node) == 0 && fsrv->listen(1) == 0);
+    Lookup l;
+    CHECK(ov.lookup("/tmp/sock", true, l) == 0 && l.upper && l.upper->socket.lock() == fsrv);
+    CHECK(fsrv->name() == "/tmp/sock");
+}
+
+// ---- record locks ---------------------------------------------------------------------
+
+static void test_locks() {
+    auto& lt = LockTable::get();
+    const LockKey k {0x14, 77};
+    const uint64_t inf = UINT64_MAX;
+    CHECK(lt.set(k, 0, inf, lx::f_wrlck, 1, nullptr, false) == 0);
+    CHECK(lt.set(k, 0, inf, lx::f_wrlck, 2, nullptr, false) == -lx::eagain);
+    CHECK(lt.set(k, 0, inf, lx::f_rdlck, 2, nullptr, false) == -lx::eagain);
+    lx::flock fl {};
+    CHECK(lt.get(k, 10, 20, lx::f_wrlck, 2, nullptr, fl) == 0 && fl.l_type == lx::f_wrlck && fl.l_pid == 1 && fl.l_len == 0);
+    CHECK(lt.get(k, 10, 20, lx::f_wrlck, 1, nullptr, fl) == 0 && fl.l_type == lx::f_unlck);  // own lock
+    CHECK(lt.set(k, 0, inf, lx::f_unlck, 1, nullptr, false) == 0 && lt.count() == 0);
+    CHECK(lt.set(k, 0, inf, lx::f_rdlck, 2, nullptr, false) == 0);
+    CHECK(lt.set(k, 0, inf, lx::f_rdlck, 3, nullptr, false) == 0);  // shared readers
+    CHECK(lt.set(k, 0, 10, lx::f_wrlck, 3, nullptr, false) == -lx::eagain);
+    lt.release_pid(2);
+    CHECK(lt.set(k, 0, 10, lx::f_wrlck, 3, nullptr, false) == 0);  // upgrade of its own range
+    CHECK(lt.count() == 2);
+    lt.release_posix(k, 3);
+    CHECK(lt.count() == 0);
+    // splitting
+    CHECK(lt.set(k, 0, 100, lx::f_wrlck, 1, nullptr, false) == 0);
+    CHECK(lt.set(k, 40, 60, lx::f_unlck, 1, nullptr, false) == 0 && lt.count() == 2);
+    CHECK(lt.get(k, 45, 50, lx::f_wrlck, 2, nullptr, fl) == 0 && fl.l_type == lx::f_unlck);
+    CHECK(lt.get(k, 0, 10, lx::f_wrlck, 2, nullptr, fl) == 0 && fl.l_type == lx::f_wrlck && fl.l_start == 0 && fl.l_len == 40);
+    CHECK(lt.set(k, 40, 60, lx::f_wrlck, 1, nullptr, false) == 0 && lt.count() == 1);  // merged back
+    // blocking waiter released by an unlock
+    std::thread t([&] {
+        std::this_thread::sleep_for(std::chrono::milliseconds(30));
+        lt.release_pid(1);
+    });
+    CHECK(lt.set(k, 0, inf, lx::f_wrlck, 2, nullptr, true) == 0);
+    t.join();
+    lt.release_pid(2);
+    // OFD locks: owned by the description, conflict within one pid
+    int ofd_a, ofd_b;
+    CHECK(lt.set(k, 0, inf, lx::f_wrlck, 5, &ofd_a, false) == 0);
+    CHECK(lt.set(k, 0, inf, lx::f_wrlck, 5, &ofd_b, false) == -lx::eagain);
+    CHECK(lt.get(k, 0, 1, lx::f_wrlck, 5, &ofd_b, fl) == 0 && fl.l_type == lx::f_wrlck && fl.l_pid == -1);
+    lt.release_ofd(&ofd_a);
+    CHECK(lt.set(k, 0, inf, lx::f_wrlck, 5, &ofd_b, false) == 0);
+    lt.release_ofd(&ofd_b);
+    // flock
+    CHECK(lt.flock(k, &ofd_a, lx::lock_ex) == 0);
+    CHECK(lt.flock(k, &ofd_b, lx::lock_sh | lx::lock_nb) == -lx::eagain);
+    CHECK(lt.flock(k, &ofd_a, lx::lock_sh) == 0);  // downgrade
+    CHECK(lt.flock(k, &ofd_b, lx::lock_sh | lx::lock_nb) == 0);
+    CHECK(lt.flock(k, &ofd_a, lx::lock_un) == 0 && lt.flock(k, &ofd_b, lx::lock_un) == 0);
+    CHECK(lt.count() == 0);
+}
+
 int main() {
-    test_normalize();
-    test_address_space();
-    test_fds();
-    test_waitq();
-    test_pipe();
-    test_futex();
-    test_loader_images();
-    test_loader_host_binary();
+    const bool verbose = getenv("KERNEL_TEST_VERBOSE") != nullptr;
+#define RUN(t)                                          \
+    do {                                                \
+        if (verbose) fprintf(stderr, "-- %s\n", #t);    \
+        t();                                            \
+    } while (0)
+    RUN(test_normalize);
+    RUN(test_address_space);
+    RUN(test_fds);
+    RUN(test_waitq);
+    RUN(test_pipe);
+    RUN(test_futex);
+    RUN(test_overlay);
+    RUN(test_poll);
+    RUN(test_socket);
+    RUN(test_locks);
+    RUN(test_loader_images);
+    RUN(test_loader_host_binary);
+#undef RUN
     if (g_failures) {
         fprintf(stderr, "kernel_test: %d failure(s)\n", g_failures);
         return 1;

@@ -2,7 +2,7 @@
 # C5 — wine64 notepad under Xvfb: wineserver -f -p, wineboot chain
 # (services.exe, winedevice, plugplay, rpcss, explorer), /proc/self/*,
 # /proc/<pid>/mem, futex, eventfd, memfd_create, /dev/shm, tgkill.
-. /refs/guest/_lib.sh
+. "$(dirname "$0")/_lib.sh"
 start_xvfb :0 || exit 1
 wine_env
 start_wineserver

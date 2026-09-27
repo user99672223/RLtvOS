@@ -1,7 +1,7 @@
 #!/bin/sh
 # C4 — Xvfb :0 + xdpyinfo + xeyes: unix sockets, poll/select, SO_PEERCRED,
 # fcntl locks (Xvfb's /tmp/.X0-lock), XTEST via xdotool.
-. /refs/guest/_lib.sh
+. "$(dirname "$0")/_lib.sh"
 start_xvfb :0 || exit 1
 xdpyinfo -display :0 | head -30
 xeyes -display :0 -geometry 400x300+100+100 &

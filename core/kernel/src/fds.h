@@ -14,6 +14,8 @@
 
 namespace rlk {
 
+struct PollTable;  // poll.h: where poll()/select()/epoll register their waiter
+
 class OpenFile {
 public:
     virtual ~OpenFile() = default;
@@ -23,15 +25,21 @@ public:
     virtual int64_t pwrite(const void* buf, size_t len, uint64_t off) { return -lx::espipe; }
     virtual int64_t lseek(int64_t off, int whence) { return -lx::espipe; }
     virtual int fstat(lx::stat& st) = 0;
+    virtual int ftruncate(uint64_t len) { return -lx::einval; }
     virtual int64_t getdents64(void* buf, size_t cap) { return -lx::enotdir; }
     virtual int64_t ioctl(unsigned req, uint64_t arg) { return -lx::enotty; }
     virtual bool is_dir() const { return false; }
     virtual bool is_tty() const { return false; }
+    // Readiness (lx::poll* bits) and, with a table, registration of the
+    // caller's waiter on the queues that change it. Regular files, devices
+    // and directories are always ready.
+    virtual unsigned poll(PollTable* pt) { return lx::pollin | lx::pollout; }
     // For mmap of a file: the byte source (nullptr = not mappable).
     virtual std::shared_ptr<FileSource> source() { return nullptr; }
 
     std::string path;   // guest path (for /proc/self/fd, openat(dirfd))
     int oflags = 0;     // lx::o_* at open
+    bool has_locks = false;  // a record lock was taken through this description (released with it)
     std::mutex mu;
 };
 
@@ -39,6 +47,7 @@ public:
 class RegularFile final : public OpenFile {
 public:
     RegularFile(std::shared_ptr<FileSource> src, const lx::stat& st, std::string guest_path, int oflags);
+    ~RegularFile() override;
     int64_t read(void* buf, size_t len) override;
     int64_t pread(void* buf, size_t len, uint64_t off) override;
     int64_t lseek(int64_t off, int whence) override;
@@ -80,6 +89,7 @@ public:
     int64_t read(void* buf, size_t len) override { return 0; }
     int64_t write(const void* buf, size_t len) override;
     int fstat(lx::stat& st) override;
+    unsigned poll(PollTable*) override { return fdnum_ == 0 ? (lx::pollin | lx::pollhup) : lx::pollout; }
 
 private:
     int fdnum_;

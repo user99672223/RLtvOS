@@ -89,16 +89,25 @@ constexpr int eperm = 1, enoent = 2, esrch = 3, eintr = 4, eio = 5, enxio = 6, e
               echild = 10, eagain = 11, enomem = 12, eacces = 13, efault = 14, ebusy = 16, eexist = 17, exdev = 18,
               enodev = 19, enotdir = 20, eisdir = 21, einval = 22, enfile = 23, emfile = 24, enotty = 25, efbig = 27,
               enospc = 28, espipe = 29, erofs = 30, emlink = 31, epipe = 32, erange = 34, edeadlk = 35,
-              enametoolong = 36, enosys = 38, enotempty = 39, eloop = 40, enotsock = 88, eopnotsupp = 95,
-              eafnosupport = 97, econnrefused = 111, etimedout = 110;
+              enametoolong = 36, enolck = 37, enosys = 38, enotempty = 39, eloop = 40, eoverflow = 75, enotsock = 88,
+              edestaddrreq = 89, emsgsize = 90, eprototype = 91, enoprotoopt = 92, eprotonosupport = 93,
+              esocktnosupport = 94, eopnotsupp = 95, eafnosupport = 97, eaddrinuse = 98, eaddrnotavail = 99,
+              enetunreach = 101, econnreset = 104, enobufs = 105, eisconn = 106, enotconn = 107, eshutdown = 108,
+              etoomanyrefs = 109, etimedout = 110, econnrefused = 111, ealready = 114, einprogress = 115;
 
 // ---- open / at ----------------------------------------------------------
 constexpr int o_rdonly = 0, o_wronly = 1, o_rdwr = 2, o_accmode = 3, o_creat = 0100, o_excl = 0200, o_noctty = 0400,
               o_trunc = 01000, o_append = 02000, o_nonblock = 04000, o_dsync = 010000, o_directory = 0200000,
-              o_nofollow = 0400000, o_cloexec = 02000000, o_path = 010000000, o_largefile = 0100000;
+              o_nofollow = 0400000, o_noatime = 01000000, o_cloexec = 02000000, o_path = 010000000,
+              o_tmpfile = 020000000 | 0200000, o_largefile = 0100000;
 constexpr int at_fdcwd = -100, at_symlink_nofollow = 0x100, at_removedir = 0x200, at_symlink_follow = 0x400,
               at_empty_path = 0x1000;
 constexpr int f_ok = 0, x_ok = 1, w_ok = 2, r_ok = 4;
+constexpr unsigned rename_noreplace = 1, rename_exchange = 2, rename_whiteout = 4;
+constexpr int64_t utime_now = (1 << 30) - 1, utime_omit = (1 << 30) - 2;
+constexpr unsigned mfd_cloexec = 1, mfd_allow_sealing = 2;
+constexpr uint64_t tmpfs_magic = 0x01021994, proc_super_magic = 0x9fa0, ext4_super_magic = 0xEF53,
+                   sockfs_magic = 0x534F434B, pipefs_magic = 0x50495045;
 
 // ---- mmap ----------------------------------------------------------------
 constexpr int prot_none = 0, prot_read = 1, prot_write = 2, prot_exec = 4;
@@ -111,10 +120,89 @@ constexpr int madv_normal = 0, madv_random = 1, madv_sequential = 2, madv_willne
 // ---- lseek / fcntl / ioctl ----------------------------------------------
 constexpr int seek_set = 0, seek_cur = 1, seek_end = 2;
 constexpr int f_dupfd = 0, f_getfd = 1, f_setfd = 2, f_getfl = 3, f_setfl = 4, f_getlk = 5, f_setlk = 6,
-              f_setlkw = 7, f_dupfd_cloexec = 1030;
+              f_setlkw = 7, f_setown = 8, f_getown = 9, f_setsig = 10, f_getsig = 11, f_ofd_getlk = 36,
+              f_ofd_setlk = 37, f_ofd_setlkw = 38, f_dupfd_cloexec = 1030, f_setpipe_sz = 1031, f_getpipe_sz = 1032,
+              f_add_seals = 1033, f_get_seals = 1034;
+constexpr int f_rdlck = 0, f_wrlck = 1, f_unlck = 2;
+constexpr int lock_sh = 1, lock_ex = 2, lock_nb = 4, lock_un = 8;
 constexpr int fd_cloexec = 1;
-constexpr unsigned tcgets = 0x5401, tcsets = 0x5402, tiocgpgrp = 0x540F, tiocgwinsz = 0x5413, fionread = 0x541B,
-                   fioclex = 0x5451, fionbio = 0x5421;
+struct flock {  // 32 bytes
+    int16_t l_type;
+    int16_t l_whence;
+    int32_t pad0;
+    int64_t l_start;
+    int64_t l_len;
+    int32_t l_pid;
+    int32_t pad1;
+};
+static_assert(sizeof(flock) == 32, "linux flock layout");
+constexpr unsigned tcgets = 0x5401, tcsets = 0x5402, tiocgpgrp = 0x540F, tiocspgrp = 0x5410, tiocgwinsz = 0x5413,
+                   fionread = 0x541B, fioclex = 0x5451, fionclex = 0x5450, fionbio = 0x5421, siocgifconf = 0x8912,
+                   siocgifindex = 0x8933, siocgifflags = 0x8913;
+
+// ---- poll / select / epoll ---------------------------------------------------
+constexpr unsigned pollin = 1, pollpri = 2, pollout = 4, pollerr = 8, pollhup = 0x10, pollnval = 0x20, pollrdnorm = 0x40,
+                   pollrdband = 0x80, pollwrnorm = 0x100, pollwrband = 0x200, pollmsg = 0x400, pollrdhup = 0x2000;
+struct pollfd {
+    int32_t fd;
+    int16_t events;
+    int16_t revents;
+};
+constexpr int fd_setsize = 1024;
+constexpr int epoll_cloexec = 02000000;
+constexpr int epoll_ctl_add = 1, epoll_ctl_del = 2, epoll_ctl_mod = 3;
+constexpr uint32_t epollin = 1, epollpri = 2, epollout = 4, epollerr = 8, epollhup = 0x10, epollrdnorm = 0x40,
+                   epollrdband = 0x80, epollwrnorm = 0x100, epollwrband = 0x200, epollmsg = 0x400, epollrdhup = 0x2000,
+                   epollexclusive = 1u << 28, epollwakeup = 1u << 29, epolloneshot = 1u << 30, epollet = 1u << 31;
+struct __attribute__((packed)) epoll_event {  // x86-64: 12 bytes, packed
+    uint32_t events;
+    uint64_t data;
+};
+static_assert(sizeof(epoll_event) == 12, "linux epoll_event layout");
+constexpr int efd_semaphore = 1, efd_cloexec = 02000000, efd_nonblock = 04000;
+constexpr int tfd_cloexec = 02000000, tfd_nonblock = 04000, tfd_timer_abstime = 1;
+
+// ---- sockets ------------------------------------------------------------------
+constexpr int af_unspec = 0, af_unix = 1, af_inet = 2, af_inet6 = 10, af_netlink = 16;
+constexpr int sock_stream = 1, sock_dgram = 2, sock_raw = 3, sock_seqpacket = 5, sock_type_mask = 0xf,
+              sock_nonblock = 04000, sock_cloexec = 02000000;
+constexpr int sol_socket = 1;
+constexpr int so_debug = 1, so_reuseaddr = 2, so_type = 3, so_error = 4, so_dontroute = 5, so_broadcast = 6,
+              so_sndbuf = 7, so_rcvbuf = 8, so_keepalive = 9, so_oobinline = 10, so_linger = 13, so_reuseport = 15,
+              so_passcred = 16, so_peercred = 17, so_rcvlowat = 18, so_sndlowat = 19, so_rcvtimeo = 20,
+              so_sndtimeo = 21, so_acceptconn = 30, so_protocol = 38, so_domain = 39;
+constexpr int scm_rights = 1, scm_credentials = 2;
+constexpr int msg_oob = 1, msg_peek = 2, msg_dontroute = 4, msg_ctrunc = 8, msg_trunc = 0x20, msg_dontwait = 0x40,
+              msg_eor = 0x80, msg_waitall = 0x100, msg_nosignal = 0x4000, msg_cmsg_cloexec = 0x40000000;
+constexpr int shut_rd = 0, shut_wr = 1, shut_rdwr = 2;
+struct sockaddr_un {
+    uint16_t sun_family;
+    char sun_path[108];
+};
+struct msghdr {  // 56 bytes
+    uint64_t msg_name;
+    uint32_t msg_namelen;
+    uint32_t pad0;
+    uint64_t msg_iov;
+    uint64_t msg_iovlen;
+    uint64_t msg_control;
+    uint64_t msg_controllen;
+    uint32_t msg_flags;
+    uint32_t pad1;
+};
+static_assert(sizeof(msghdr) == 56, "linux msghdr layout");
+struct cmsghdr {  // followed by data, padded to 8
+    uint64_t cmsg_len;
+    int32_t cmsg_level;
+    int32_t cmsg_type;
+};
+inline uint64_t CmsgAlign(uint64_t n) { return (n + 7) & ~7ull; }
+struct ucred {
+    int32_t pid, uid, gid;
+};
+
+// ---- itimers (struct itimerval follows struct timeval below) --------------------------
+constexpr int itimer_real = 0, itimer_virtual = 1, itimer_prof = 2;
 
 // ---- arch_prctl / futex / clocks ----------------------------------------
 constexpr int arch_set_gs = 0x1001, arch_set_fs = 0x1002, arch_get_fs = 0x1003, arch_get_gs = 0x1004;
@@ -144,7 +232,8 @@ constexpr uint64_t at_null = 0, at_phdr = 3, at_phent = 4, at_phnum = 5, at_page
 
 // ---- file types --------------------------------------------------------------
 constexpr uint32_t s_ifmt = 0170000, s_ifsock = 0140000, s_iflnk = 0120000, s_ifreg = 0100000, s_ifblk = 0060000,
-                   s_ifdir = 0040000, s_ifchr = 0020000, s_ififo = 0010000;
+                   s_ifdir = 0040000, s_ifchr = 0020000, s_ififo = 0010000, s_isuid = 04000, s_isgid = 02000,
+                   s_isvtx = 01000;
 constexpr uint8_t dt_unknown = 0, dt_fifo = 1, dt_chr = 2, dt_dir = 4, dt_blk = 6, dt_reg = 8, dt_lnk = 10,
                   dt_sock = 12;
 
@@ -156,6 +245,10 @@ struct timespec {
 struct timeval {
     int64_t tv_sec;
     int64_t tv_usec;
+};
+struct itimerval {
+    timeval it_interval;
+    timeval it_value;
 };
 struct stat {  // 144 bytes
     uint64_t st_dev;

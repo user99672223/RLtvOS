@@ -270,6 +270,41 @@ final class HostState {
         #endif
     }
 
+    /// A file of the guest filesystem (any layer); failure = -errno (Linux numbering).
+    func guestReadFile(_ path: String) -> Result<Data, Int32> {
+        #if RL_HAVE_FEX
+        var buf: UnsafeMutablePointer<UInt8>? = nil
+        var len: Int = 0
+        let rc = rlk_read_file(path, &buf, &len)
+        if rc != 0 { return .failure(rc) }
+        defer { free(buf) }
+        guard let b = buf else { return .success(Data()) }
+        return .success(Data(bytes: b, count: len))
+        #else
+        return .failure(-38)
+        #endif
+    }
+
+    /// Creates or replaces a file in the guest's writable layer. 0 or -errno.
+    func guestWriteFile(_ path: String, _ data: Data) -> Int32 {
+        #if RL_HAVE_FEX
+        if data.isEmpty { return rlk_write_file(path, nil, 0) }
+        return data.withUnsafeBytes { raw in
+            rlk_write_file(path, raw.bindMemory(to: UInt8.self).baseAddress, data.count)
+        }
+        #else
+        return -38
+        #endif
+    }
+
+    func guestListDir(_ path: String) -> [String: Any] {
+        #if RL_HAVE_FEX
+        return HostState.parseJSON(HostState.fill(1 << 20) { _ = rlk_list_dir(path, $0, 1 << 20) })
+        #else
+        return ["ok": false, "error": "kernel not linked (app built without core/fex)"]
+        #endif
+    }
+
     var jitMarkerFile: URL { cachesDir.appendingPathComponent("jittest-inflight.txt") }
     private var lastJitKill: String = ""
 

@@ -114,6 +114,34 @@ final class DebugServer {
             DispatchQueue.global().asyncAfter(deadline: .now() + 0.25) { exit(0) }
             return json(["ok": true, "note": "exiting in 250 ms"])
 
+        case ("GET", "/guest-file"):
+            // A file the guest can see (rootfs, /proc, or what it wrote to its
+            // writable layer: Xvfb's log, an xwd dump, Wine's registry).
+            guard let gpath = params["path"], gpath.hasPrefix("/") else {
+                return json(["ok": false, "error": "path=/guest/path required"], status: 400)
+            }
+            switch host.guestReadFile(gpath) {
+            case .success(let d):
+                return Reply(status: 200, type: "application/octet-stream", data: d)
+            case .failure(let rc):
+                return json(["ok": false, "path": gpath, "errno": Int(-rc)], status: rc == -2 ? 404 : 500)
+            }
+
+        case ("POST", "/guest-file"):
+            guard let gpath = params["path"], gpath.hasPrefix("/") else {
+                return json(["ok": false, "error": "path=/guest/path required"], status: 400)
+            }
+            let rc = host.guestWriteFile(gpath, body)
+            rl_log_str("host: guest-file put \(gpath) (\(body.count) bytes) rc=\(rc)")
+            return json(["ok": rc == 0, "path": gpath, "bytes": body.count, "errno": Int(-rc)], status: rc == 0 ? 200 : 500)
+
+        case ("GET", "/guest-ls"):
+            guard let gpath = params["path"], gpath.hasPrefix("/") else {
+                return json(["ok": false, "error": "path=/guest/path required"], status: 400)
+            }
+            let d = host.guestListDir(gpath)
+            return json(d, status: (d["ok"] as? Bool) == true ? 200 : 404)
+
         case ("GET", "/ping"):
             return text("pong\n")
 
@@ -125,7 +153,8 @@ final class DebugServer {
                 "ok": false, "error": "not found", "path": path,
                 "routes": ["GET /status", "GET /screenshot", "GET /log?since=N[&max=M][&format=text]",
                            "GET /mem", "GET /va[?probe=1&steps=N]", "GET /jit[?run=1]", "GET /crash",
-                           "DELETE /crash", "POST /input", "POST /run", "POST /kill"],
+                           "DELETE /crash", "POST /input", "POST /run", "POST /kill",
+                           "GET /guest-file?path=P", "POST /guest-file?path=P", "GET /guest-ls?path=P"],
             ], status: 404)
         }
     }

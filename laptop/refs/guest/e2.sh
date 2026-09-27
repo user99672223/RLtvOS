@@ -2,7 +2,7 @@
 # E2 — exhibition match vs bots. Launches like E1, waits for the menu, then
 # replays /refs/guest/e2-keys.txt through xdotool (LAPTOP validates the key
 # sequence on the laptop first and records the working one in the result).
-. /refs/guest/_lib.sh
+. "$(dirname "$0")/_lib.sh"
 if [ "${RL_USE_REAL_DISPLAY:-0}" = 1 ] && [ -n "${DISPLAY:-}" ]; then
   say "using real display $DISPLAY"
 else

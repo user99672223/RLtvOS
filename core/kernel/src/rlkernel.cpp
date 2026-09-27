@@ -22,6 +22,7 @@
 #include "fds.h"
 #include "linux_abi.h"
 #include "log.h"
+#include "overlay.h"
 #include "process.h"
 
 namespace rlk {
@@ -505,7 +506,7 @@ const DevNode* dev_node(const std::string& path) {
 
 }  // namespace
 
-// ---- Kernel: guest filesystem ------------------------------------------------------------
+// ---- Kernel: guest filesystem — the lower (read-only) tree: /proc, rlvfs, /dev fallback ----
 
 std::string Kernel::resolve_path(GuestProcess& p, int dirfd, std::string_view path) {
     if (!path.empty() && path[0] == '/') return NormalizePath(path);
@@ -518,9 +519,9 @@ std::string Kernel::resolve_path(GuestProcess& p, int dirfd, std::string_view pa
     return NormalizePath(base + "/" + std::string(path));
 }
 
-int Kernel::stat_path(const std::string& path, bool follow, lx::stat& st) {
+static int lower_stat(Kernel& k, const std::string& path, bool follow, lx::stat& st) {
     ProcNode n;
-    if (proc_lookup(*this, path, n)) {
+    if (proc_lookup(k, path, n)) {
         switch (n.kind) {
             case ProcNode::Dir:
                 FillStat(st, lx::s_ifdir | 0555, 0, 0, proc_ino(path), 0, 0, 0);
@@ -544,11 +545,11 @@ int Kernel::stat_path(const std::string& path, bool follow, lx::stat& st) {
                     FillStat(st, lx::s_ifdir | 0555, 0, 0, proc_ino("/proc/" + n.target), 0, 0, 0);
                     return 0;
                 }
-                return stat_path(n.target, true, st);
+                return lower_stat(k, n.target, true, st);
             case ProcNode::None: return lx::enoent;
         }
     }
-    auto* vfs = vfs_of(*this);
+    auto* vfs = vfs_of(k);
     int err = lx::enoent;
     if (vfs) {
         rlvfs::GuestStat g;
@@ -561,32 +562,32 @@ int Kernel::stat_path(const std::string& path, bool follow, lx::stat& st) {
         err = HostErrno(-rc);
     }
     if (const DevNode* d = dev_node(path)) {
-        if ((d->mode & lx::s_ifmt) == lx::s_iflnk && follow) return stat_path(d->link, true, st);
+        if ((d->mode & lx::s_ifmt) == lx::s_iflnk && follow) return lower_stat(k, d->link, true, st);
         FillStat(st, d->mode, d->link ? strlen(d->link) : 0, 0, proc_ino(path), d->rdev, 0, 0);
         return 0;
     }
     return err;
 }
 
-std::unique_ptr<FileSource> Kernel::open_source(const std::string& path, int& err, lx::stat* st) {
+static std::unique_ptr<FileSource> lower_open(Kernel& k, const std::string& path, int& err, lx::stat* st) {
     ProcNode n;
-    if (proc_lookup(*this, path, n)) {
+    if (proc_lookup(k, path, n)) {
         if (n.kind == ProcNode::Link) {
             if (n.target.empty() || n.target[0] != '/') {
                 err = lx::eisdir;
                 return nullptr;
             }
-            return open_source(n.target, err, st);
+            return lower_open(k, n.target, err, st);
         }
         if (n.kind == ProcNode::File) {
-            std::string content = n.proc ? gen_pid(*this, *n.proc, n.name) : gen_global(*this, n.name);
+            std::string content = n.proc ? gen_pid(k, *n.proc, n.name) : gen_global(k, n.name);
             if (st) FillStat(*st, lx::s_ifreg | 0444, 0, 0, proc_ino(path), 0, 0, 0);
             return std::make_unique<MemFileSource>(path, std::vector<uint8_t>(content.begin(), content.end()));
         }
         err = n.kind == ProcNode::Dir ? lx::eisdir : lx::enoent;
         return nullptr;
     }
-    auto* vfs = vfs_of(*this);
+    auto* vfs = vfs_of(k);
     if (!vfs) {
         err = lx::enoent;
         return nullptr;
@@ -618,16 +619,16 @@ std::unique_ptr<FileSource> Kernel::open_source(const std::string& path, int& er
     return std::make_unique<VfsFileSource>(vfs, e, canon.empty() ? path : canon);
 }
 
-int Kernel::readlink_path(const std::string& path, std::string& target) {
+static int lower_readlink(Kernel& k, const std::string& path, std::string& target) {
     ProcNode n;
-    if (proc_lookup(*this, path, n)) {
+    if (proc_lookup(k, path, n)) {
         if (n.kind == ProcNode::Link) {
             target = n.target;
             return 0;
         }
         return n.kind == ProcNode::None ? lx::enoent : lx::einval;
     }
-    auto* vfs = vfs_of(*this);
+    auto* vfs = vfs_of(k);
     int err = lx::enoent;
     if (vfs) {
         std::lock_guard<std::mutex> lk(g_vfs_mu);
@@ -643,9 +644,9 @@ int Kernel::readlink_path(const std::string& path, std::string& target) {
     return err;
 }
 
-int Kernel::readdir_path(const std::string& path, std::vector<DirEntryInfo>& out) {
+static int lower_readdir(Kernel& k, const std::string& path, std::vector<DirEntryInfo>& out) {
     ProcNode n;
-    if (proc_lookup(*this, path, n)) {
+    if (proc_lookup(k, path, n)) {
         if (n.kind == ProcNode::Link && n.proc && (n.target.empty() || n.target[0] != '/')) {
             // /proc/self as a directory
             n.kind = ProcNode::Dir;
@@ -654,10 +655,10 @@ int Kernel::readdir_path(const std::string& path, std::vector<DirEntryInfo>& out
         if (n.kind != ProcNode::Dir) return n.kind == ProcNode::None ? lx::enoent : lx::enotdir;
         out.push_back({".", lx::dt_dir, proc_ino(path)});
         out.push_back({"..", lx::dt_dir, 1});
-        proc_list(*this, n, out);
+        proc_list(k, n, out);
         return 0;
     }
-    auto* vfs = vfs_of(*this);
+    auto* vfs = vfs_of(k);
     int rc = -1;
     int err = lx::enoent;
     if (vfs) {
@@ -695,6 +696,62 @@ int Kernel::readdir_path(const std::string& path, std::vector<DirEntryInfo>& out
         return 0;  // /dev/shm, /dev/pts: empty until the overlay exists
     }
     return err;
+}
+
+// ---- the overlay over the lower tree -----------------------------------------------------
+
+namespace {
+
+class KernelLower final : public LowerFs {
+public:
+    explicit KernelLower(Kernel& k) : k_(k) {}
+    int lstat(const std::string& path, lx::stat& st) override { return lower_stat(k_, path, false, st); }
+    int readlink(const std::string& path, std::string& target) override { return lower_readlink(k_, path, target); }
+    int readdir(const std::string& path, std::vector<DirEntryInfo>& out) override { return lower_readdir(k_, path, out); }
+    std::unique_ptr<FileSource> open(const std::string& path, int& err) override { return lower_open(k_, path, err, nullptr); }
+
+private:
+    Kernel& k_;
+};
+
+}  // namespace
+
+Overlay& Kernel::overlay() {
+    static KernelLower lower(*this);
+    static Overlay ov(&lower);
+    static const bool booted = [] {
+        // Upper-only directories every boot starts with (the rootfs' own
+        // /tmp, /run and /var/tmp are hidden: they are empty in the image).
+        ov.mkdir_boot("/tmp", 01777, true);
+        ov.mkdir_boot("/var/tmp", 01777, true);
+        ov.mkdir_boot("/run", 0755, true);
+        ov.mkdir_boot("/run/lock", 01777, true);
+        ov.mkdir_boot("/run/user", 0755, true);
+        ov.mkdir_boot("/run/user/1000", 0700, true);
+        ov.mkdir_boot("/dev/shm", 01777, true);
+        ov.mkdir_boot("/dev/pts", 0755, true);
+        return true;
+    }();
+    (void)booted;
+    return ov;
+}
+
+int Kernel::stat_path(const std::string& path, bool follow, lx::stat& st) {
+    return overlay().stat(path, follow, st);
+}
+
+std::unique_ptr<FileSource> Kernel::open_source(const std::string& path, int& err, lx::stat* st) {
+    auto src = overlay().open_source(path, err);
+    if (src && st) overlay().stat(path, true, *st);
+    return src;
+}
+
+int Kernel::readlink_path(const std::string& path, std::string& target) {
+    return overlay().readlink(path, target);
+}
+
+int Kernel::readdir_path(const std::string& path, std::vector<DirEntryInfo>& out) {
+    return overlay().readdir(path, out);
 }
 
 }  // namespace rlk
@@ -761,4 +818,85 @@ extern "C" size_t rlk_process_output(int pid, char* out, size_t cap) {
 
 extern "C" int rlk_kill_all(void) {
     return Kernel::get().kill_all();
+}
+
+extern "C" int rlk_read_file(const char* path, unsigned char** out, size_t* len) {
+    if (!path || !out || !len) return -lx::einval;
+    *out = nullptr;
+    *len = 0;
+    int err = 0;
+    auto src = Kernel::get().open_source(NormalizePath(path), err, nullptr);
+    if (!src) return -err;
+    const uint64_t size = src->size();
+    if (size > (256ull << 20)) return -lx::efbig;
+    auto* buf = static_cast<unsigned char*>(malloc(size ? (size_t)size : 1));
+    if (!buf) return -lx::enomem;
+    uint64_t done = 0;
+    while (done < size) {
+        int64_t n = src->pread(buf + done, (size_t)std::min<uint64_t>(size - done, 1u << 20), done);
+        if (n <= 0) break;
+        done += (uint64_t)n;
+    }
+    *out = buf;
+    *len = (size_t)done;
+    return 0;
+}
+
+extern "C" int rlk_write_file(const char* path, const unsigned char* data, size_t len) {
+    if (!path || (len && !data)) return -lx::einval;
+    Overlay& ov = Kernel::get().overlay();
+    Lookup l;
+    int e = ov.create(NormalizePath(path), 0644, false, l);
+    if (e) return -e;
+    std::shared_ptr<TmpNode> node = l.upper;
+    if (!node) {
+        e = ov.for_write(l.canon, true, node);
+        if (e) return -e;
+    }
+    std::lock_guard<std::mutex> lk(node->data->mu);
+    node->data->bytes.assign(data, data + len);
+    node->mtime = node->ctime = Overlay::now_sec();
+    return 0;
+}
+
+extern "C" int rlk_list_dir(const char* path, char* out, size_t cap) {
+    if (!path || !out || !cap) return -lx::einval;
+    const std::string full = NormalizePath(path);
+    std::vector<DirEntryInfo> ents;
+    int e = Kernel::get().readdir_path(full, ents);
+    if (e) {
+        snprintf(out, cap, "{\"ok\":false,\"path\":\"%s\",\"errno\":%d,\"error\":\"%s\"}", JsonEscape(full).c_str(), e, ErrnoName(e));
+        return -e;
+    }
+    std::string s = "{\"ok\":true,\"path\":\"" + JsonEscape(full) + "\",\"entries\":[";
+    bool first = true;
+    char buf[512];
+    for (const auto& d : ents) {
+        if (d.name == "." || d.name == "..") continue;
+        lx::stat st {};
+        const std::string child = full == "/" ? "/" + d.name : full + "/" + d.name;
+        const char* type = "other";
+        uint64_t size = 0;
+        uint32_t mode = 0;
+        if (Kernel::get().stat_path(child, false, st) == 0) {
+            size = (uint64_t)st.st_size;
+            mode = st.st_mode & 07777;
+            switch (st.st_mode & lx::s_ifmt) {
+                case lx::s_ifdir: type = "dir"; break;
+                case lx::s_ifreg: type = "file"; break;
+                case lx::s_iflnk: type = "link"; break;
+                case lx::s_ifsock: type = "sock"; break;
+                case lx::s_ififo: type = "fifo"; break;
+                case lx::s_ifchr: type = "chr"; break;
+                default: break;
+            }
+        }
+        snprintf(buf, sizeof buf, "%s{\"name\":\"%s\",\"type\":\"%s\",\"size\":%llu,\"mode\":\"%04o\"}", first ? "" : ",",
+                 JsonEscape(d.name).c_str(), type, (unsigned long long)size, mode);
+        first = false;
+        s += buf;
+    }
+    s += "]}";
+    copy_out(s, out, cap);
+    return 0;
 }

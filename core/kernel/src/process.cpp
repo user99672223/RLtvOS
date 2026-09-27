@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "futex.h"
+#include "locks.h"
 #include "log.h"
 #include "process.h"
 
@@ -404,6 +405,9 @@ void Kernel::reap(GuestProcess& p) {
     // files go now — each exited process would otherwise keep ~72 MB of the
     // ~6.5 GB address-space budget mapped. A forked child that shares its
     // parent's space only drops its reference.
+    writeback_shared(p, 0, 0, true);          // MAP_SHARED file mappings reach their files
+    LockTable::get().release_pid(p.pid);      // POSIX record locks die with the process
+    set_itimer(p, 0, 0, nullptr, nullptr);
     std::shared_ptr<AddressSpace> mm;
     {
         std::lock_guard<std::mutex> lk(mu);
@@ -706,6 +710,7 @@ int64_t Kernel::do_execve(GuestThread& t, void* frame_, const std::string& path,
         return rc;
     }
     if (p.live_threads() > 1) Log("kernel: pid %d execve with %zu live threads (not stopped yet)", p.pid, p.live_threads());
+    writeback_shared(p, 0, 0, true);  // the old image's MAP_SHARED files, while it is still mapped
     // Point of no return: swap the image in.
     std::shared_ptr<AddressSpace> old;
     {

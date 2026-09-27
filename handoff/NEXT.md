@@ -17,16 +17,31 @@
   procmask/sigaltstack/kill/tgkill/tkill/rt_sigsuspend/pause, x86-64
   rt_sigframe + rt_sigreturn, SA_RESTART/EINTR, default actions), interruptible
   sleeps, process reaping. Host-tested: waiter/queue, pipes, futex, loader.
-- Next: request 004 = C3 on build-23 (allocator fix + C3 kernel): pipes/fork
+- Open request: 004 = C3 on build-23 (allocator fix + C3 kernel): pipes/fork
   steps, `/opt/rl/refs/c3.sh`, `threads-test`, signal exits, plus the VA
-  regression check (≥ 6 guests, `va --probe2` must not shrink). Meanwhile C4
-  kernel work (tmpfs/overlay, AF_UNIX sockets, poll/select/epoll, record locks)
-  is in progress on this side.
+  regression check (≥ 6 guests, `va --probe2` must not shrink).
+- Landed for C4 (build-24+; host-tested, not yet on the TV): the writable
+  overlay (`overlay.h`: tmpfs upper layer, whiteouts, copy-up, opaque
+  /tmp /var/tmp /run /dev/shm; O_CREAT/O_TRUNC/O_APPEND, mkdir/unlink/rename/
+  link/symlink/mknod/chmod/chown/utimens/truncate, memfd_create, sendfile),
+  record locks (`locks.h`: POSIX/OFD/flock with real conflicts), AF_UNIX
+  sockets (`socket.h`: stream/dgram/seqpacket, socketpair, fs + abstract
+  names, SCM_RIGHTS, SO_PEERCRED/PASSCRED), poll/ppoll/select/pselect6/epoll/
+  eventfd (`poll.h`), setitimer/alarm (`timers.cpp`), `/guest-file` +
+  `/guest-ls` debug routes (`tv.py guest-file|guest-put|guest-ls`) to pull
+  files the guest wrote (Xvfb log, xwd dumps). Guest scripts source `_lib.sh`
+  relative to `$0`.
+- Next: result 004 → fix what C3 shows, then request 005 = C4
+  (`/opt/rl/refs/c4.sh`: Xvfb :0 + xdpyinfo + xeyes + xdotool; the xwd dump
+  comes back through `tv.py guest-file /tmp/c4.xwd`). Draft in the repo
+  session's scratchpad.
 - Known gaps: signals reach a thread running JIT code only at its next
   syscall (async delivery = FEX SRA spill, later); a guest fault kills the
   process instead of raising SIGSEGV to a guest handler; exit_group does not
   stop sibling threads that never syscall; no SMC tracking; one lock around
-  every rlvfs call; no sockets/poll/select (C4).
+  every rlvfs call; MAP_SHARED files are write-back copies (no cross-process
+  sharing yet); FIFO opens do not block for the other end; EPOLLET reports
+  rising edges only; no AF_INET; itimer VIRTUAL/PROF never fire.
 - Facts: guest executables must be PIE (4 GB hard page zero); VA budget
   6.25–6.5 GB; `/status.guest`, `/run exec|ps|guest-out|killall`; `tv.py exec|ps`.
 - CI: `macos-15`, Xcode 16.4, tvOS 18.5 SDK, deployment target 18.0; jobs

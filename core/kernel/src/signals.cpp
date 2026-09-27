@@ -167,7 +167,7 @@ void Kernel::deliver_signals(GuestThread& t, void* frame_, int64_t ret) {
             exit_thread(t, frame, 128 + sig, true, sig);
             return;
         }
-        if (interrupted && (act.flags & lx::sa_restart)) restart();
+        if (interrupted && (act.flags & lx::sa_restart) && !t.no_handler_restart) restart();
 
         // ---- build the frame on the guest stack ----
         const uint64_t bit = lx::sigbit(sig);

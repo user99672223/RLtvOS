@@ -6,6 +6,7 @@
 #include <cstring>
 
 #include "linux_abi.h"
+#include "poll.h"
 
 namespace rlk {
 
@@ -157,6 +158,20 @@ int64_t PipeFile::ioctl(unsigned req, uint64_t arg) {
         return 0;
     }
     return -lx::enotty;
+}
+
+unsigned PipeFile::poll(PollTable* pt) {
+    if (pt) pt->add(write_end_ ? pipe_->wq : pipe_->rq);
+    std::lock_guard<std::mutex> lk(pipe_->mu);
+    unsigned m = 0;
+    if (write_end_) {
+        if (pipe_->readers == 0) m |= lx::pollerr;
+        if (pipe_->space() > 0) m |= lx::pollout;
+    } else {
+        if (pipe_->count > 0) m |= lx::pollin;
+        if (pipe_->writers == 0) m |= lx::pollhup | (pipe_->count > 0 ? 0u : lx::pollin);
+    }
+    return m;
 }
 
 bool PipeFile::readable() {

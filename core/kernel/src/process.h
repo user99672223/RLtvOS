@@ -11,11 +11,14 @@
 
 #include <pthread.h>
 
+#include <condition_variable>
+
 #include "elf_loader.h"
 #include "fds.h"
 #include "linux_abi.h"
 #include "log.h"
 #include "mm.h"
+#include "overlay.h"
 #include "waitq.h"
 
 namespace FEXCore::Context {
@@ -66,6 +69,7 @@ struct GuestThread {
     Waiter waiter;                  // blocking syscalls sleep here; signals notify it
     uint64_t syscall_nr = 0;        // number of the syscall in progress (restart)
     bool restartable = false;       // the syscall returned -EINTR and may be restarted after a handler
+    bool no_handler_restart = false;  // poll/select/epoll: restart only when no handler runs
     bool no_retval = false;         // execve / rt_sigreturn: leave RAX and RIP alone
     bool vfork_done = false;        // set by our forked child when it execs or exits
     bool in_vfork_wait = false;     // not interruptible while waiting for the child
@@ -74,6 +78,14 @@ struct GuestThread {
 };
 
 enum class ProcState { Running, Zombie, Dead };
+
+// A MAP_SHARED|PROT_WRITE mapping of an upper (tmpfs) file: a private copy
+// whose bytes go back into the file on munmap/msync/exit.
+struct SharedMap {
+    uint64_t start = 0, len = 0;
+    std::shared_ptr<TmpNode> node;
+    uint64_t off = 0;
+};
 
 struct GuestProcess {
     int pid = 0, ppid = 0, pgid = 0, sid = 0;
@@ -100,6 +112,10 @@ struct GuestProcess {
     bool dry_run = false;
     WaitQueue child_wq;             // wait4() sleepers
     GuestThread* vfork_parent = nullptr;  // forked child: the suspended parent thread to release
+    std::mutex maps_mu;
+    std::vector<SharedMap> shared_maps;
+    int64_t itimer_deadline_ns = 0;  // ITIMER_REAL (Kernel::timer_mu_)
+    int64_t itimer_interval_ns = 0;
 
     void append_output(int fd, std::string_view data);
     size_t live_threads() const;
@@ -138,14 +154,27 @@ public:
     int64_t do_wait4(GuestThread& t, int pid, int32_t* status_out, int options);
     void release_vfork_parent(GuestProcess& p);
 
-    // ---- guest filesystem (rlkernel.cpp, over rlvfs) ----
-    // Absolute canonical guest path in; -errno out.
+    // ---- guest filesystem (rlkernel.cpp: the overlay over rlvfs + /proc + /dev) ----
+    // Absolute normalized guest path in; positive errno out.
     std::unique_ptr<FileSource> open_source(const std::string& path, int& err, lx::stat* st);
     int stat_path(const std::string& path, bool follow, lx::stat& st);
     int readlink_path(const std::string& path, std::string& target);
     int readdir_path(const std::string& path, std::vector<DirEntryInfo>& out);
     // Resolves a (dirfd, path) pair to an absolute normalized guest path.
     std::string resolve_path(GuestProcess& p, int dirfd, std::string_view path);
+    // The writable layer (created on first use with the boot directories).
+    Overlay& overlay();
+
+    // ---- shared file mappings (syscalls.cpp / process.cpp) ----
+    void add_shared_map(GuestProcess& p, uint64_t start, uint64_t len, std::shared_ptr<TmpNode> node, uint64_t off);
+    // Copies the mapped bytes intersecting [addr, addr+len) back into their
+    // files; drop: forget those mappings too (munmap, exit, execve).
+    void writeback_shared(GuestProcess& p, uint64_t addr, uint64_t len, bool drop);
+
+    // ---- interval timers (timers.cpp) ----
+    // ITIMER_REAL: value 0 disarms. Old values (remaining time, interval) out.
+    void set_itimer(GuestProcess& p, int64_t value_ns, int64_t interval_ns, int64_t* old_value_ns, int64_t* old_interval_ns);
+    void get_itimer(GuestProcess& p, int64_t* value_ns, int64_t* interval_ns);
 
     // ---- FEX ----
     bool ensure_fex(std::string& err);
@@ -188,6 +217,10 @@ public:
 private:
     Kernel() = default;
     void* vfs_ = nullptr;
+    std::mutex timer_mu_;
+    std::condition_variable timer_cv_;
+    bool timer_thread_started_ = false;
+    void timer_thread_main();
     bool create_fex_thread(GuestThread& t, std::string& err, const void* initial_state);
     void destroy_fex_thread(GuestThread& t);
     bool start_host_thread(GuestThread& t, std::string& err);

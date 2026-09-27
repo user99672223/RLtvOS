@@ -97,36 +97,78 @@ needs it (`MEASURE` from the C5 trace). Timeouts: absolute/relative per
 flags, `CLOCK_MONOTONIC`/`REALTIME`.
 
 `nanosleep`/`clock_nanosleep`, `poll`/`ppoll`/`select`/`pselect6`,
-`epoll_*`: implemented over `kqueue`/`poll` on host fds for file-like
-objects and over our own wait queues for guest-only objects (eventfd,
-pipes between guests are host pipes — fine; unix sockets are host unix
-sockets in a private directory — fine; so nearly everything is a host fd
-and `poll(2)` on the host works). `epoll` → per-instance `kqueue`.
+`epoll_*` (as built, C4): every guest fd is a kernel object (pipe, unix
+socket, eventfd, epoll instance, file), none is a host fd, so polling is
+our own: `OpenFile::poll(PollTable*)` returns the readiness bits and
+registers the caller's `Waiter` on the wait queues that change them
+(`poll.h`); `DoPoll` registers, checks, sleeps, repeats — the Linux
+poll_table pattern. `epoll` is an interest list scanned the same way
+(level-triggered; `EPOLLET` reports on the rising edge only;
+`EPOLLONESHOT` disarms). A signal interrupts any of them with `EINTR`
+(never restarted after a handler, like Linux; restarted transparently
+when the signal is ignored). Interval timers: one kernel thread posts
+`SIGALRM` at the deadline (`timers.cpp`); it is delivered at the next
+syscall boundary like every guest signal.
 
 ## 4. Files and namespace
 
-`OpenFile` kinds: `VfsFile` (read-only manifest file through the block
-cache; `pread` served from the cache), `OverlayFile` (host fd in the
-overlay dir), `HostFd` (pipes, sockets, eventfd emulation via pipe or
-kqueue EVFILT_USER, `/dev/null` etc.), `Synthetic` (procfs/sysfs/devfs text
-generated on open, seekable), `Dir` (readdir cursor over merged
-VFS + overlay + synthetic entries).
+`OpenFile` kinds (as built): `RegularFile` (read-only lower file: rlvfs
+through the block cache, or a generated /proc text), `TmpFile` (a file of
+the upper layer: read/write/pwrite/ftruncate, `O_APPEND`), `DirFile`
+(snapshot listing of the merged directory), `PipeFile` (pipes and FIFOs),
+`SocketFile` (AF_UNIX), `EventFdFile`, `EpollFile`, `ConsoleFile`
+(stdio → log + capture), `DevNullFile` (null/zero/full/urandom),
+`PathFile` (`O_PATH`).
 
-Path resolution: guest absolute path → mount table:
-`/` rootfs (RO), `/prefix` prefix (RO base + RW overlay), `/game` (RO),
-`/home/user` (RO base + RW overlay), `/tmp` `/run` `/var/tmp` (RW overlay
-only, wiped at boot), `/proc` `/sys` `/dev` synthetic, `/dev/shm` RW overlay.
-Overlay: `Caches/overlay/<mount>/<path>`; whiteouts as `.wh.<name>` files;
-copy-up on first write (`O_WRONLY|O_RDWR|O_TRUNC|O_APPEND`, `truncate`,
-`chmod`, `rename`, `unlink`). Directory listings merge base + overlay
-minus whiteouts. `rename` across mounts → EXDEV. `fcntl` locks: per guest
-process lock table keyed by (inode id, range) with POSIX semantics
-(Xvfb's `/tmp/.X0-lock` uses `O_EXCL` + `link`, wineserver uses `fcntl`
-locks on the config dir and `flock`-like `F_SETLK`).
+Namespace (`overlay.h`): one tree. The **lower** layer is read-only:
+rlvfs (rootfs + prefix + game from the laptop), the synthetic `/proc`, and
+the `/dev` fallback nodes. The **upper** layer is an in-memory tmpfs
+(`TmpNode`s) consulted first at every component: a name found there wins
+(or is a *whiteout* → ENOENT), otherwise the lookup falls through to the
+lower tree at the same path; directory listings merge both minus
+whiteouts; symlinks of either layer are followed component by component,
+so `/var/run → /run` lands in the upper `/run`. Every mutation happens in
+the upper layer: `O_CREAT`, `mkdir`, `symlink`, `mknod` (FIFO, socket)
+create upper nodes (the parent chain is materialized from the lower
+directory's metadata); writing a lower file (`O_WRONLY|O_RDWR|O_TRUNC`,
+`truncate`, `link`, `rename`, `chmod`) copies it up first; `unlink`/`rmdir`
+of a lower name leaves a whiteout; a `mkdir` where a lower directory was
+removed is *opaque* (the lower contents stay hidden). `rename` of a
+directory that is merged with a lower one → EXDEV (like overlayfs without
+redirects). `/tmp`, `/var/tmp`, `/run` (+`lock`, `user/1000`), `/dev/shm`,
+`/dev/pts` are opaque upper directories created at boot. Nothing persists:
+the upper layer lives as long as the app (Caches are purgeable anyway;
+persistence is a later decision, DECISIONS 2026-09-27). `memfd_create` is
+an upper file without a name. `MAP_SHARED|PROT_WRITE` of an upper file is a
+private copy written back on `munmap`/`msync`/exit/execve (`SharedMap`);
+true sharing (Wine's server↔client shared memory) will use host shared
+memory + `vm_remap` when C5's trace needs it.
 
-Inodes: 64-bit hash of the canonical manifest path (stable across runs) for
-base files; overlay files use the host inode | 1<<60; synthetic ids are
-small constants.
+Inodes: rlvfs = hash of the canonical path (`st_dev` 0x801); upper nodes =
+a counter from 0x200000 on `st_dev` 0x14 (so a copied-up file changes
+inode, like overlayfs); pipes/sockets/anon inodes have their own ranges.
+
+Record locks (`locks.h`): all guest processes share one host process, so
+POSIX locks (`F_SETLK/F_SETLKW/F_GETLK`, owned by the pid, dropped when it
+closes *any* descriptor of the file), OFD locks (`F_OFD_*`, owned by the
+description) and `flock` (per description, whole file) are one table keyed
+by `(st_dev, st_ino)` with the real conflict/split/merge semantics;
+`F_SETLKW` sleeps on a wait queue woken by every unlock. wineserver's
+`lock` file and Wine's `F_GETLK` probe of it (C5) need exactly this.
+
+Unix sockets (`socket.h`): in-process objects, not host sockets. Stream,
+dgram and seqpacket; `socketpair`; names in the filesystem (an upper Sock
+node holding a weak reference to the listener; `connect` to a name whose
+socket is gone → ECONNREFUSED, like Linux) and in the abstract namespace
+(libxcb tries `@/tmp/.X11-unix/X0` first, then the path). A connection is
+two `UnixSocket`s pointing at each other, each with a receive queue of
+messages carrying bytes, `SCM_RIGHTS` files (installed into the receiver's
+fd table by `recvmsg`, one set per call, `MSG_CMSG_CLOEXEC`) and the
+sender's credentials (`SO_PASSCRED` → `SCM_CREDENTIALS`, `SO_PEERCRED` =
+the peer process's pid/1000/1000). `rcvbuf` flow control, `SHUT_*`,
+`POLLHUP|POLLRDHUP` on peer close, `EPIPE` + `SIGPIPE` unless
+`MSG_NOSIGNAL`. `AF_INET`/`AF_NETLINK` → EAFNOSUPPORT (no network: Xvfb
+runs `-nolisten tcp`; glibc's `getifaddrs` tolerates the netlink failure).
 
 `/proc`: `self` → pid; `<pid>/{maps,exe,status,stat,cmdline,cwd,fd/,
 fdinfo/,mem,auxv,comm,task/}`, `cpuinfo`, `meminfo`, `stat`, `uptime`,

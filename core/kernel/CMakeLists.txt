@@ -15,6 +15,10 @@ add_library(rlkernel_base STATIC
   src/fds.cpp
   src/pipe.cpp
   src/futex.cpp
+  src/overlay.cpp
+  src/poll.cpp
+  src/socket.cpp
+  src/locks.cpp
 )
 find_package(Threads REQUIRED)
 target_link_libraries(rlkernel_base PUBLIC Threads::Threads)
@@ -27,6 +31,9 @@ if(TARGET FEXCore)
     src/process.cpp
     src/signals.cpp
     src/syscalls.cpp
+    src/syscalls_fs.cpp
+    src/syscalls_io.cpp
+    src/timers.cpp
     src/rlkernel.cpp
   )
   target_include_directories(rlkernel
