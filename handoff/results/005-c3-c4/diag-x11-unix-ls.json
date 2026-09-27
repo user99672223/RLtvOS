@@ -1,0 +1,12 @@
+{
+  "entries": [
+    {
+      "mode": "0777",
+      "name": "X1",
+      "size": 0,
+      "type": "sock"
+    }
+  ],
+  "ok": true,
+  "path": "/tmp/.X11-unix"
+}

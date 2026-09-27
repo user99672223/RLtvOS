@@ -124,3 +124,19 @@ step0-env1…6.json/-stdout.txt, step1a/1b/1c.json/-stdout.txt, hang-log.txt (+ 
 hang-ps.json, hang-jthreadsinfo-1164.jsonl, hang-pc9-code.jsonl, hang-fex-status.json,
 hang-killall.json, hang-ps-after-killall.json, launch.json, relaunch-1/2.json, jit.json,
 jit-2.json, vfs-mount.json, vfs-mount-2.json.
+
+## Addendum (05:50–05:56 CEST; the user said to continue)
+- **Step 1c evidence**: `tv.py launch` (without `--fresh`) woke the TV and brought instance 1182
+  back, still hung (hang1c-ps.json).
+  - pid 4 (sh) and pid 5 (its fork child, still `/usr/bin/sh`, 6 syscalls, last line
+    `openat("/dev/null") = 0`) were `running`.
+  - `jThreadsInfo` (hang1c-jthreadsinfo-1182.jsonl): `guest 4/4` is in `__psynch_cvwait` (the
+    vfork wait). **`guest 5/5` is stopped on EXC_BAD_ACCESS / EXC_ARM_DA_ALIGN, address
+    0x116a77f5c** (the snapshotted guest stack), at JIT pc 0x1063b7788.
+  - The code there (hang1c-pc5-code.jsonl) is `d940014a ldapur x10, [x10]`, still unpatched,
+    with the `nop` slot after it.
+  - This is the same `cow_fault` loop as 1a, for a load this time. hang1c-log.txt is the log.
+- **Step 2 attempt on build-23**: `tv.py exec --wait 120 -- /opt/rl/refs/c3.sh` returned
+  "app not reachable" after 20 s. The TV was on, the app was gone, and there was no crash report
+  at the next launch. Not investigated: REPO had already fixed the loop in build-25 and replaced
+  steps 2–5 with request 005.

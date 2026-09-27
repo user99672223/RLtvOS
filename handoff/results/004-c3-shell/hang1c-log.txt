@@ -1,0 +1,420 @@
+1 0.0 host: RLtvOS build-23 pid 1182 tvOS 27.0 crash-handler rc=0
+2 0.4 host: sysinfo {"cs_debugged":0,"hw_machine":"AppleTV14,1","hw_memsize":4167958528,"hw_model":"J255AP","hw_pagesize":16384,"kern_osversion":"24J361","ncpu":5,"pid":1182,"ptraced":0,"sigaltstack":"ok"}
+3 0.5 host: jit arena init rc=0 {"base":"0x103894000","size":16777216,"size_mb":16,"prot":"rwx","rwx_errno":0,"page":16384,"pages":1024}
+4 1.1 host: config {"jit_in_place":0}
+5 1.2 host: jit26 start rc=0 pool=128 MB wait=60 s flags=0
+6 1.2 host: rlfex bound to the jit26 pool; kernel log bound
+7 1.3 jit26: stage waiting-for-debugger
+8 1.3 host: jit map probe {"ok":false,"stage":"mapped-only","method":"rwx-mmap","rwx_errno":0,"ptraced":0,"cs_debugged":0,"reason":"not executed: on tvOS 26+ a page runs only after a debugger wrote to it; use tv.py jit (authorizes the arena, then runs jittest --trust)"}
+9 1.7 host: va {"max_contiguous_gb":6,"contig_errno":12,"total_1gb_steps":7,"step_limit_gb":1024,"stop_errno":12,"lowest":"0x118800000","highest":"0x7180000000"}
+10 1.7 host: rlcore 0.1 (clang 17.0, libc++ 190102, Sep 27 2026)
+11 6.6 rlcore: selftest ok
+12 6.7 host: rlcore selftest {"ok":true,"threads":4,"counter":400000,"tls_values":4,"exceptions":true,"alloc64mb":true,"ms":4.90,"version":"0.1 (clang 17.0, libc++ 190102, Sep 27 2026)","hardware_concurrency":5}
+13 6.8 host: mem {"available":2194192928,"available_mb":2092.5,"compressed":0,"external":19660800,"internal":5324800,"kr":0,"limit_estimate":2199912448,"peak_phys_footprint":5719520,"phys_footprint":5719520,"phys_footprint_mb":5.5,"resident_size":25985024,"virtual_size":474682146816}
+14 11.0 host: metal device Apple A15 GPU screen 1920x1080@1.0
+15 19.5 host: debug server listening on 0.0.0.0:7777
+16 2739.9 jit26: ptraced=1 after 2.7 s (asked 60 s); pool 128 MB flags=0
+17 2739.9 jit26: stage preparing
+18 7150.3 jit26: prepared 128 MB at 0x106250000 by debugger in 4.41 s
+19 7150.4 jit26: stage remapping
+20 7165.1 jit26: RW alias at 0x10e250000 (cur=5 max=7) delta=134217728
+21 7165.1 jit26: stage testing
+22 7166.6 jit26: attached self-test ok: 42 43
+23 7166.7 jit26: stage detaching
+24 7282.1 jit26: detach serviced (ptraced now 0)
+25 7588.1 jit26: stage testing
+26 7589.8 jit26: detached self-test ok: 44 45 (ptraced=0)
+27 7589.8 jit26: stage ready
+28 8562.1 run: jittest cwd=/
+29 8564.2 jit26: self-test ok: 42 43 (ptraced=0)
+30 8666.2 run: vfs-mount http://192.168.1.133:8090 cwd=/
+31 9206.2 vfs: mount http://192.168.1.133:8090 → {"ok":true,"url":"http://192.168.1.133:8090","entries":70388,"files":55645,"bytes":48188630115,"manifest_gz_bytes":2990383,"roots":["rootfs","prefix","home","game"],"cache_dir":"/var/mobile/Containers/Data/Application/A33067A9-E98C-4B2B-8D03-35AD9E55CCE3/Library/Caches/vfs-blocks","ms":538.9}
+32 9206.2 kernel: guest filesystem attached
+33 767087.2 run: exec /usr/bin/sh -c x=$(echo hi); echo got:$x; (echo sub; exit 3); echo rc=$? cwd=/
+34 767092.0 kernel: pid 1 exec /usr/bin/sh (run) {"entry":"0x10108d2c0","rsp":"0x116a77d50","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x116250000","entry":"0x116254760","range":"0x116250000-0x116273000","phdr":"0x116250040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x101070000","entry":"0x10108d2c0","range":"0x101070000-0x1010a8000"},"stack":"0x116278000-0x116a78000","brk":"0x11c000000-0x120000000","auxv":"0x116a77db8","
+35 767092.0 fex: exec alloc #1 16 KB rw=0x10e250000 rx=0x106250000
+36 767092.0 fex: exec free 16 KB rw=0x10e250000
+37 767092.9 fex: exec alloc #2 16 KB rw=0x10e250000 rx=0x106250000
+38 767093.0 kernel: FEX context ready (hwcap=0x278bfbff hwcap2=0x2)
+39 767093.2 fex: exec alloc #3 16384 KB rw=0x10e254000 rx=0x106254000
+40 767093.3 kernel: pid 1 tid 1 start rip=0x10108d2c0 rsp=0x116a77d50
+41 767093.4 host: guest exec /usr/bin/sh -c x=$(echo hi); echo got:$x; (echo sub; exit 3); echo rc=$? → {"ok":true,"pid":1,"dry_run":false,"layout":{"entry":"0x10108d2c0","rsp":"0x116a77d50","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x116250000","entry":"0x116254760","range":"0x116250000-0x116273000","phdr":"0x116250040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x10
+42 767096.5 [1] brk(0x0) = 0x11c000000
+43 767107.6 run: ps cwd=/
+44 767127.0 [1] access("/etc/ld.so.preload", 4) = -1 ENOENT
+45 767130.2 [1] openat(-100, "/etc/ld.so.cache", 0x80000, 00) = 3
+46 767130.3 [1] fstat(3, 0x116a76e30) = 0
+47 767131.2 [1] mmap(0x0, 32187, 0x1, 0x2, 3, 0x0) = 0x1010c0000
+48 767131.2 [1] close(3) = 0
+49 767132.2 [1] openat(-100, "/lib/x86_64-linux-gnu/libc.so.6", 0x80000, 00) = 3
+50 767132.8 [1] read(3, 0x116a76fa8, 832) = 832
+51 767132.9 [1] pread64(3, 0x116a76b60, 840, 64) = 840
+52 767134.6 [1] fstat(3, 0x116a76e30) = 0
+53 767134.6 [1] mmap(0x0, 8192, 0x3, 0x22, -1, 0x0) = 0x117738000
+54 767134.7 [1] pread64(3, 0x116a76a40, 840, 64) = 840
+55 767138.5 [1] mmap(0x0, 2047568, 0x1, 0x802, 3, 0x0) = 0x11773c000
+56 767139.2 [1] mmap(0x117764000, 1454080, 0x5, 0x812, 3, 0x28000) = 0x117764000
+57 767139.5 [1] mmap(0x1178c7000, 352256, 0x1, 0x812, 3, 0x18b000) = 0x1178c7000
+58 767139.5 [1] mmap(0x11791d000, 24576, 0x3, 0x812, 3, 0x1e0000) = 0x11791d000
+59 767139.5 [1] mmap(0x117923000, 52816, 0x3, 0x32, -1, 0x0) = 0x117923000
+60 767139.5 [1] close(3) = 0
+61 767142.6 [1] mmap(0x0, 12288, 0x3, 0x22, -1, 0x0) = 0x117930000
+62 767142.7 [1] arch_prctl(0x1002, 0x117930740) = 0
+63 767143.1 [1] set_tid_address(0x117930a10) = 1
+64 767143.1 [1] set_robust_list(0x117930a20, 24) = 0
+65 767143.2 [1] rseq(0x117930680, 0x20, 0x0) = -1 ENOSYS
+66 767151.4 [1] mprotect(0x11791d000, 16384, 0x1) = 0
+67 767152.6 [1] mprotect(0x11626e000, 8192, 0x1) = 0
+68 767153.4 [1] mprotect(0x1010a4000, 8192, 0x1) = 0
+69 767153.6 [1] prlimit_64(0, 3, 0x0, 0x116a77980) = 0
+70 767153.9 [1] munmap(0x1010c0000, 32187) = 0
+71 767155.8 [1] getuid() = 1000
+72 767155.8 [1] getgid() = 1000
+73 767155.9 [1] getpid() = 1
+74 767156.3 [1] rt_sigaction(17, 0x116a77880, 0x0, 8) = 0
+75 767156.4 [1] geteuid() = 1000
+76 767157.4 [1] getrandom(0x117928218, 8, 0x1) = 8
+77 767160.0 [1] brk(0x0) = 0x11c000000
+78 767160.0 [1] brk(0x11c021000) = 0x11c021000
+79 767160.4 [1] getppid() = 0
+80 767162.7 [1] getcwd(0x11c0003f0, 4096) = 2
+81 767165.4 [1] geteuid() = 1000
+82 767165.5 [1] getegid() = 1000
+83 767165.6 [1] rt_sigaction(2, 0x0, 0x116a77a30, 8) = 0
+84 767165.6 [1] rt_sigaction(2, 0x116a77990, 0x0, 8) = 0
+85 767165.6 [1] rt_sigaction(3, 0x0, 0x116a77a30, 8) = 0
+86 767165.6 [1] rt_sigaction(3, 0x116a77990, 0x0, 8) = 0
+87 767165.6 [1] rt_sigaction(15, 0x0, 0x116a77a40, 8) = 0
+88 767165.6 [1] rt_sigaction(15, 0x116a779a0, 0x0, 8) = 0
+89 767172.6 [1] pipe2(0x116a777c0, 0x0) = 0
+90 767173.2 [1] rt_sigprocmask(0, 0x1178ec6f8, 0x116a77650, 8) = 0
+91 767173.6 kernel: pid 1 fork -> child pid 2 (snapshot)
+92 767173.6 kernel: pid 2 tid 2 start rip=0x117818f82 rsp=0x116a77650
+93 767173.6 [2] set_robust_list(0x117930a20, 24) = 0
+94 767173.8 [2] rt_sigprocmask(2, 0x116a77650, 0x0, 8) = 0
+95 767174.4 [2] close(3) = 0
+96 767174.4 [2] dup2(4, 1) = 1
+97 767174.4 [2] close(4) = 0
+98 767176.2 [2] write(1, "hi\n", 3) = 3
+99 767176.7 [2] exit_group(0) = 0
+100 767176.7 kernel: pid 2 tid 2 exited code=0 after 7 syscalls, 3.4 ms
+101 767177.0 [1] clone(0x1200011, 0x0, 0x0, 0x117930a10, 0x0) = 2
+102 767177.0 [1] rt_sigprocmask(2, 0x116a77650, 0x0, 8) = 0
+103 767177.0 [1] --- signal 17 delivered: handler=0x116263ce0 frame=0x116a771f8 rip=0x11777cd77
+104 767177.1 [1] rt_sigreturn() = 0
+105 767177.4 [1] close(4) = 0
+106 767177.4 [1] read(3, 0x116a77860, 128) = 3
+107 767177.5 [1] read(3, 0x116a77860, 128) = 0
+108 767177.5 [1] close(3) = 0
+109 767177.7 [1] wait4(-1, 0x116a7769c, 0x0, 0x0) = 2
+110 767177.7 [1] wait4(-1, 0x116a7769c, 0x1, 0x0) = -1 ECHILD
+111 767178.6 guest[1] stdout: got:hi
+112 767178.6 [1] write(1, "got:hi\n", 7) = 7
+113 767178.6 [1] rt_sigprocmask(0, 0x1178ec6f8, 0x116a77910, 8) = 0
+114 767178.9 kernel: pid 1 fork -> child pid 3 (snapshot)
+115 767178.9 kernel: pid 3 tid 3 start rip=0x117818f82 rsp=0x116a77910
+116 767178.9 [3] set_robust_list(0x117930a20, 24) = 0
+117 767178.9 [3] rt_sigprocmask(2, 0x116a77910, 0x0, 8) = 0
+118 767179.0 guest[1] stdout: sub
+119 767179.0 [3] write(1, "sub\n", 4) = 4
+120 767179.1 [3] exit_group(3) = 0
+121 767179.1 kernel: pid 3 tid 3 exited code=3 after 4 syscalls, 0.5 ms
+122 767179.3 [1] clone(0x1200011, 0x0, 0x0, 0x117930a10, 0x0) = 3
+123 767179.3 [1] rt_sigprocmask(2, 0x116a77910, 0x0, 8) = 0
+124 767179.3 [1] --- signal 17 delivered: handler=0x116263ce0 frame=0x116a774b8 rip=0x11777cd77
+125 767179.3 [1] rt_sigreturn() = 0
+126 767179.3 [1] wait4(-1, 0x116a7792c, 0x0, 0x0) = 3
+127 767179.3 [1] wait4(-1, 0x116a7792c, 0x1, 0x0) = -1 ECHILD
+128 767179.5 guest[1] stdout: rc=3
+129 767179.5 [1] write(1, "rc=3\n", 5) = 5
+130 767179.6 [1] exit_group(0) = 0
+131 767179.6 kernel: pid 1 tid 1 exited code=0 after 66 syscalls, 92.2 ms
+132 767620.9 run: ps cwd=/
+133 767637.4 run: guest-out 1 cwd=/
+134 783955.7 run: exec /usr/bin/sh -c sleep 1 & echo bg=$!; wait; echo waited cwd=/
+135 783956.5 kernel: pid 4 exec /usr/bin/sh (run) {"entry":"0x10108d2c0","rsp":"0x116a77d60","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x116250000","entry":"0x116254760","range":"0x116250000-0x116273000","phdr":"0x116250040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x101070000","entry":"0x10108d2c0","range":"0x101070000-0x1010a8000"},"stack":"0x116278000-0x116a78000","brk":"0x11c000000-0x120000000","auxv":"0x116a77dc8","
+136 783956.6 kernel: pid 4 tid 4 start rip=0x10108d2c0 rsp=0x116a77d60
+137 783956.7 host: guest exec /usr/bin/sh -c sleep 1 & echo bg=$!; wait; echo waited → {"ok":true,"pid":4,"dry_run":false,"layout":{"entry":"0x10108d2c0","rsp":"0x116a77d60","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x116250000","entry":"0x116254760","range":"0x116250000-0x116273000","phdr":"0x116250040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x10
+138 783958.7 [4] brk(0x0) = 0x11c000000
+139 783968.6 run: ps cwd=/
+140 783988.7 [4] access("/etc/ld.so.preload", 4) = -1 ENOENT
+141 783992.4 [4] openat(-100, "/etc/ld.so.cache", 0x80000, 00) = 3
+142 783992.5 [4] fstat(3, 0x116a76e40) = 0
+143 783992.6 [4] mmap(0x0, 32187, 0x1, 0x2, 3, 0x0) = 0x116f20000
+144 783992.7 [4] close(3) = 0
+145 783993.8 [4] openat(-100, "/lib/x86_64-linux-gnu/libc.so.6", 0x80000, 00) = 3
+146 783993.8 [4] read(3, 0x116a76fb8, 832) = 832
+147 783993.8 [4] pread64(3, 0x116a76b70, 840, 64) = 840
+148 783995.8 [4] fstat(3, 0x116a76e40) = 0
+149 783995.8 [4] mmap(0x0, 8192, 0x3, 0x22, -1, 0x0) = 0x116f28000
+150 783996.0 [4] pread64(3, 0x116a76a50, 840, 64) = 840
+151 783996.9 [4] mmap(0x0, 2047568, 0x1, 0x802, 3, 0x0) = 0x116f2c000
+152 783997.7 [4] mmap(0x116f54000, 1454080, 0x5, 0x812, 3, 0x28000) = 0x116f54000
+153 783997.9 [4] mmap(0x1170b7000, 352256, 0x1, 0x812, 3, 0x18b000) = 0x1170b7000
+154 783998.0 [4] mmap(0x11710d000, 24576, 0x3, 0x812, 3, 0x1e0000) = 0x11710d000
+155 783998.0 [4] mmap(0x117113000, 52816, 0x3, 0x32, -1, 0x0) = 0x117113000
+156 783998.0 [4] close(3) = 0
+157 784001.6 [4] mmap(0x0, 12288, 0x3, 0x22, -1, 0x0) = 0x117120000
+158 784001.6 [4] arch_prctl(0x1002, 0x117120740) = 0
+159 784002.2 [4] set_tid_address(0x117120a10) = 4
+160 784002.2 [4] set_robust_list(0x117120a20, 24) = 0
+161 784002.3 [4] rseq(0x117120680, 0x20, 0x0) = -1 ENOSYS
+162 784012.0 [4] mprotect(0x11710d000, 16384, 0x1) = 0
+163 784013.3 [4] mprotect(0x11626e000, 8192, 0x1) = 0
+164 784014.3 [4] mprotect(0x1010a4000, 8192, 0x1) = 0
+165 784014.4 [4] prlimit_64(0, 3, 0x0, 0x116a77990) = 0
+166 784014.7 [4] munmap(0x116f20000, 32187) = 0
+167 784015.9 [4] getuid() = 1000
+168 784015.9 [4] getgid() = 1000
+169 784015.9 [4] getpid() = 4
+170 784016.4 [4] rt_sigaction(17, 0x116a77890, 0x0, 8) = 0
+171 784016.6 [4] geteuid() = 1000
+172 784017.7 [4] getrandom(0x117118218, 8, 0x1) = 8
+173 784020.5 [4] brk(0x0) = 0x11c000000
+174 784020.6 [4] brk(0x11c021000) = 0x11c021000
+175 784021.0 [4] getppid() = 0
+176 784023.7 [4] getcwd(0x11c0003f0, 4096) = 2
+177 784026.8 [4] geteuid() = 1000
+178 784026.9 [4] getegid() = 1000
+179 784027.0 [4] rt_sigaction(2, 0x0, 0x116a77a40, 8) = 0
+180 784027.0 [4] rt_sigaction(2, 0x116a779a0, 0x0, 8) = 0
+181 784027.0 [4] rt_sigaction(3, 0x0, 0x116a77a40, 8) = 0
+182 784027.0 [4] rt_sigaction(3, 0x116a779a0, 0x0, 8) = 0
+183 784027.0 [4] rt_sigaction(15, 0x0, 0x116a77a50, 8) = 0
+184 784027.0 [4] rt_sigaction(15, 0x116a779b0, 0x0, 8) = 0
+185 784033.3 [4] rt_sigprocmask(0, 0x1170dc6f8, 0x116a778d0, 8) = 0
+186 784033.7 kernel: pid 4 fork -> child pid 5 (snapshot)
+187 784033.7 kernel: pid 5 tid 5 start rip=0x117008f82 rsp=0x116a778d0
+188 784033.8 [5] set_robust_list(0x117120a20, 24) = 0
+189 784034.0 [5] rt_sigprocmask(2, 0x116a778d0, 0x0, 8) = 0
+190 784034.6 [5] rt_sigaction(2, 0x116a77720, 0x116a777c0, 8) = 0
+191 784034.6 [5] rt_sigaction(3, 0x116a77720, 0x116a777c0, 8) = 0
+192 784034.7 [5] close(0) = 0
+193 784034.8 [5] openat(-100, "/dev/null", 0x0, 00) = 0
+194 784480.0 run: ps cwd=/
+195 784991.9 run: ps cwd=/
+196 785505.0 run: ps cwd=/
+197 786020.6 run: ps cwd=/
+198 786535.7 run: ps cwd=/
+199 787048.7 run: ps cwd=/
+200 787563.8 run: ps cwd=/
+201 788077.1 run: ps cwd=/
+202 788588.2 run: ps cwd=/
+203 789097.6 run: ps cwd=/
+204 789611.1 run: ps cwd=/
+205 790123.0 run: ps cwd=/
+206 790636.4 run: ps cwd=/
+207 791147.6 run: ps cwd=/
+208 791689.1 run: ps cwd=/
+209 792205.6 run: ps cwd=/
+210 792718.7 run: ps cwd=/
+211 793230.2 run: ps cwd=/
+212 793742.2 run: ps cwd=/
+213 794254.7 run: ps cwd=/
+214 794765.9 run: ps cwd=/
+215 795276.1 run: ps cwd=/
+216 795788.0 run: ps cwd=/
+217 796298.2 run: ps cwd=/
+218 796813.0 run: ps cwd=/
+219 797323.4 run: ps cwd=/
+220 797836.2 run: ps cwd=/
+221 798346.5 run: ps cwd=/
+222 798856.9 run: ps cwd=/
+223 799368.6 run: ps cwd=/
+224 799880.9 run: ps cwd=/
+225 800397.4 run: ps cwd=/
+226 800909.7 run: ps cwd=/
+227 801421.3 run: ps cwd=/
+228 801931.9 run: ps cwd=/
+229 802443.1 run: ps cwd=/
+230 802956.9 run: ps cwd=/
+231 803467.9 run: ps cwd=/
+232 803978.4 run: ps cwd=/
+233 804491.2 run: ps cwd=/
+234 805006.0 run: ps cwd=/
+235 806543.1 run: ps cwd=/
+236 807055.8 run: ps cwd=/
+237 807567.0 run: ps cwd=/
+238 808079.5 run: ps cwd=/
+239 808595.4 run: ps cwd=/
+240 809124.9 run: ps cwd=/
+241 809640.7 run: ps cwd=/
+242 810150.6 run: ps cwd=/
+243 810660.7 run: ps cwd=/
+244 811173.1 run: ps cwd=/
+245 811684.1 run: ps cwd=/
+246 812196.0 run: ps cwd=/
+247 812708.0 run: ps cwd=/
+248 813218.9 run: ps cwd=/
+249 813730.8 run: ps cwd=/
+250 814241.8 run: ps cwd=/
+251 814752.7 run: ps cwd=/
+252 815265.5 run: ps cwd=/
+253 815778.5 run: ps cwd=/
+254 816291.8 run: ps cwd=/
+255 816803.8 run: ps cwd=/
+256 817316.1 run: ps cwd=/
+257 817829.3 run: ps cwd=/
+258 818339.9 run: ps cwd=/
+259 818849.3 run: ps cwd=/
+260 819360.6 run: ps cwd=/
+261 819874.3 run: ps cwd=/
+262 820386.9 run: ps cwd=/
+263 820897.5 run: ps cwd=/
+264 821408.1 run: ps cwd=/
+265 821921.5 run: ps cwd=/
+266 822433.9 run: ps cwd=/
+267 822944.8 run: ps cwd=/
+268 823455.4 run: ps cwd=/
+269 823968.0 run: ps cwd=/
+270 824480.7 run: ps cwd=/
+271 824993.2 run: ps cwd=/
+272 825504.5 run: ps cwd=/
+273 826015.3 run: ps cwd=/
+274 826528.7 run: ps cwd=/
+275 827039.1 run: ps cwd=/
+276 827549.6 run: ps cwd=/
+277 828062.2 run: ps cwd=/
+278 828575.3 run: ps cwd=/
+279 829086.7 run: ps cwd=/
+280 829598.9 run: ps cwd=/
+281 830131.0 run: ps cwd=/
+282 830642.6 run: ps cwd=/
+283 831153.1 run: ps cwd=/
+284 831664.1 run: ps cwd=/
+285 832180.9 run: ps cwd=/
+286 832695.4 run: ps cwd=/
+287 833205.8 run: ps cwd=/
+288 833715.8 run: ps cwd=/
+289 834228.0 run: ps cwd=/
+290 834741.0 run: ps cwd=/
+291 835253.7 run: ps cwd=/
+292 835765.1 run: ps cwd=/
+293 836275.0 run: ps cwd=/
+294 836786.6 run: ps cwd=/
+295 837297.7 run: ps cwd=/
+296 837810.2 run: ps cwd=/
+297 838320.5 run: ps cwd=/
+298 838841.5 run: ps cwd=/
+299 839376.1 run: ps cwd=/
+300 839891.4 run: ps cwd=/
+301 840404.3 run: ps cwd=/
+302 840918.6 run: ps cwd=/
+303 841430.2 run: ps cwd=/
+304 841940.2 run: ps cwd=/
+305 842452.1 run: ps cwd=/
+306 842965.1 run: ps cwd=/
+307 843477.4 run: ps cwd=/
+308 843991.0 run: ps cwd=/
+309 844503.5 run: ps cwd=/
+310 845018.4 run: ps cwd=/
+311 845529.9 run: ps cwd=/
+312 846044.6 run: ps cwd=/
+313 846557.8 run: ps cwd=/
+314 847072.5 run: ps cwd=/
+315 847583.6 run: ps cwd=/
+316 848094.5 run: ps cwd=/
+317 848607.4 run: ps cwd=/
+318 849117.3 run: ps cwd=/
+319 849645.3 run: ps cwd=/
+320 850158.7 run: ps cwd=/
+321 850671.8 run: ps cwd=/
+322 851186.3 run: ps cwd=/
+323 851700.8 run: ps cwd=/
+324 852215.2 run: ps cwd=/
+325 852733.2 run: ps cwd=/
+326 853251.7 run: ps cwd=/
+327 853761.1 run: ps cwd=/
+328 854271.9 run: ps cwd=/
+329 854783.7 run: ps cwd=/
+330 855294.7 run: ps cwd=/
+331 855807.2 run: ps cwd=/
+332 856317.1 run: ps cwd=/
+333 856828.6 run: ps cwd=/
+334 857339.9 run: ps cwd=/
+335 857852.2 run: ps cwd=/
+336 858363.8 run: ps cwd=/
+337 858885.9 run: ps cwd=/
+338 859406.9 run: ps cwd=/
+339 859920.1 run: ps cwd=/
+340 860431.3 run: ps cwd=/
+341 860944.5 run: ps cwd=/
+342 861461.2 run: ps cwd=/
+343 861972.3 run: ps cwd=/
+344 862482.2 run: ps cwd=/
+345 862996.7 run: ps cwd=/
+346 863508.6 run: ps cwd=/
+347 864018.5 run: ps cwd=/
+348 864532.5 run: ps cwd=/
+349 865046.2 run: ps cwd=/
+350 865557.4 run: ps cwd=/
+351 866069.6 run: ps cwd=/
+352 866581.5 run: ps cwd=/
+353 867094.3 run: ps cwd=/
+354 867608.3 run: ps cwd=/
+355 868122.5 run: ps cwd=/
+356 868636.3 run: ps cwd=/
+357 869150.0 run: ps cwd=/
+358 869661.1 run: ps cwd=/
+359 870172.8 run: ps cwd=/
+360 870683.8 run: ps cwd=/
+361 871197.5 run: ps cwd=/
+362 871733.9 run: ps cwd=/
+363 872246.4 run: ps cwd=/
+364 872757.1 run: ps cwd=/
+365 873270.1 run: ps cwd=/
+366 873781.3 run: ps cwd=/
+367 874294.2 run: ps cwd=/
+368 874806.2 run: ps cwd=/
+369 875317.4 run: ps cwd=/
+370 875827.7 run: ps cwd=/
+371 876348.3 run: ps cwd=/
+372 876859.2 run: ps cwd=/
+373 877371.3 run: ps cwd=/
+374 877883.1 run: ps cwd=/
+375 878393.1 run: ps cwd=/
+376 878903.6 run: ps cwd=/
+377 879429.5 run: ps cwd=/
+378 879941.9 run: ps cwd=/
+379 880453.7 run: ps cwd=/
+380 880965.5 run: ps cwd=/
+381 881477.1 run: ps cwd=/
+382 882002.7 run: ps cwd=/
+383 882516.1 run: ps cwd=/
+384 883035.9 run: ps cwd=/
+385 883549.0 run: ps cwd=/
+386 884062.5 run: ps cwd=/
+387 884574.7 run: ps cwd=/
+388 885085.7 run: ps cwd=/
+389 885597.0 run: ps cwd=/
+390 886108.0 run: ps cwd=/
+391 886618.7 run: ps cwd=/
+392 887132.8 run: ps cwd=/
+393 887646.4 run: ps cwd=/
+394 888164.8 run: ps cwd=/
+395 888681.8 run: ps cwd=/
+396 889196.6 run: ps cwd=/
+397 889710.2 run: ps cwd=/
+398 890222.7 run: ps cwd=/
+399 890736.2 run: ps cwd=/
+400 891253.4 run: ps cwd=/
+401 891768.7 run: ps cwd=/
+402 892281.8 run: ps cwd=/
+403 892793.5 run: ps cwd=/
+404 893310.9 run: ps cwd=/
+405 893825.1 run: ps cwd=/
+406 894335.8 run: ps cwd=/
+407 894847.7 run: ps cwd=/
+408 895359.9 run: ps cwd=/
+409 895874.3 run: ps cwd=/
+410 896385.4 run: ps cwd=/
+411 896898.4 run: ps cwd=/
+412 897410.2 run: ps cwd=/
+413 897923.3 run: ps cwd=/
+414 898435.5 run: ps cwd=/
+415 898946.7 run: ps cwd=/
+416 899456.9 run: ps cwd=/
+417 899971.1 run: ps cwd=/
+418 900028.2 host: did enter background
+419 2680653.8 httpd: listener lost (errno=9); re-created on port 7777
+420 2680871.9 run: ps cwd=/

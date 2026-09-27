@@ -1,0 +1,33 @@
+{
+  "http": 200,
+  "ok": true,
+  "reply": {
+    "dry_run": false,
+    "layout": {
+      "auxv": "0x11ad03db8",
+      "auxv_entries": 20,
+      "brk": "0x116500000-0x11a500000",
+      "entry": "0x1160d12c0",
+      "interp": {
+        "base": "0x1160b4000",
+        "entry": "0x1160d12c0",
+        "range": "0x1160b4000-0x1160ec000"
+      },
+      "main": {
+        "base": "0x1162bc000",
+        "dyn": true,
+        "entry": "0x1162fba00",
+        "interp": "/lib64/ld-linux-x86-64.so.2",
+        "path": "/usr/bin/Xvfb",
+        "phdr": "0x1162bc040",
+        "phnum": 14,
+        "range": "0x1162bc000-0x116500000"
+      },
+      "rsp": "0x11ad03d20",
+      "stack": "0x11a504000-0x11ad04000"
+    },
+    "ok": true,
+    "pid": 52,
+    "rc": 52
+  }
+}

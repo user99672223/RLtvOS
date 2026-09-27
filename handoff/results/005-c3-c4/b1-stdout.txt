@@ -1,0 +1,22 @@
+hi
+/dev/shm:
+total 8
+drwxrwxrwt 2 root root 4096 Sep 27 03:57 .
+drwxr-xr-x 2 root root 4096 Sep 27 03:57 ..
+
+/run:
+total 16
+drwxr-xr-x 2 root root 4096 Sep 27 03:57 .
+drwxr-xr-x 2 root root 4096 Sep 27 03:57 ..
+drwxrwxrwt 2 root root 4096 Sep 27 03:57 lock
+drwxr-xr-x 2 root root 4096 Sep 27 03:57 user
+
+/tmp:
+total 13
+drwxrwxrwt 3 root root 4096 Sep 27 03:59 .
+drwxr-xr-x 2 root root 4096 Sep 27 03:57 ..
+drwxrwxrwt 2 user user 4096 Sep 27 03:59 .X11-unix
+-rw-r--r-- 1 user user    3 Sep 27 03:59 t
+x
+Filesystem     1K-blocks     Used Available Use% Mounted on
+tmpfs           50331648 33554432  16777216  67% /tmp

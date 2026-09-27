@@ -1,0 +1,823 @@
+1 0.0 host: RLtvOS build-25 pid 1225 tvOS 27.0 crash-handler rc=0
+2 0.4 host: sysinfo {"cs_debugged":0,"hw_machine":"AppleTV14,1","hw_memsize":4167958528,"hw_model":"J255AP","hw_pagesize":16384,"kern_osversion":"24J361","ncpu":5,"pid":1225,"ptraced":0,"sigaltstack":"ok"}
+3 0.6 host: jit arena init rc=0 {"base":"0x103674000","size":16777216,"size_mb":16,"prot":"rwx","rwx_errno":0,"page":16384,"pages":1024}
+4 1.1 host: config {"jit_in_place":0}
+5 1.1 host: jit26 start rc=0 pool=128 MB wait=60 s flags=0
+6 1.2 jit26: stage waiting-for-debugger
+7 1.3 host: rlfex bound to the jit26 pool; kernel log bound
+8 1.4 host: jit map probe {"ok":false,"stage":"mapped-only","method":"rwx-mmap","rwx_errno":0,"ptraced":0,"cs_debugged":0,"reason":"not executed: on tvOS 26+ a page runs only after a debugger wrote to it; use tv.py jit (authorizes the arena, then runs jittest --trust)"}
+9 1.6 host: va {"max_contiguous_gb":6,"contig_errno":12,"total_1gb_steps":7,"step_limit_gb":1024,"stop_errno":12,"lowest":"0x126800000","highest":"0x7180000000"}
+10 1.9 host: rlcore 0.1 (clang 17.0, libc++ 190102, Sep 27 2026)
+11 3.9 rlcore: selftest ok
+12 3.9 host: rlcore selftest {"ok":true,"threads":4,"counter":400000,"tls_values":4,"exceptions":true,"alloc64mb":true,"ms":2.01,"version":"0.1 (clang 17.0, libc++ 190102, Sep 27 2026)","hardware_concurrency":5}
+13 4.0 host: mem {"available":2194160184,"available_mb":2092.5,"compressed":0,"external":19185664,"internal":5357568,"kr":0,"limit_estimate":2199912448,"peak_phys_footprint":5752264,"phys_footprint":5752264,"phys_footprint_mb":5.5,"resident_size":25411584,"virtual_size":474679689216}
+14 10.5 host: metal device Apple A15 GPU screen 1920x1080@1.0
+15 20.4 host: debug server listening on 0.0.0.0:7777
+16 991.5 host: did become active
+17 12021.6 jit26: ptraced=1 after 12.0 s (asked 60 s); pool 128 MB flags=0
+18 12021.7 jit26: stage preparing
+19 16285.1 jit26: prepared 128 MB at 0x1060b4000 by debugger in 4.26 s
+20 16285.2 jit26: stage remapping
+21 16295.6 jit26: RW alias at 0x10e0b4000 (cur=5 max=7) delta=134217728
+22 16295.6 jit26: stage testing
+23 16297.0 jit26: attached self-test ok: 42 43
+24 16297.1 jit26: stage detaching
+25 16462.0 jit26: detach serviced (ptraced now 1)
+26 16765.9 jit26: stage testing
+27 16767.0 jit26: detached self-test ok: 44 45 (ptraced=0)
+28 16767.0 jit26: stage ready
+29 17494.9 run: jittest cwd=/
+30 17496.1 jit26: self-test ok: 42 43 (ptraced=0)
+31 17584.9 run: vfs-mount http://192.168.1.133:8090 cwd=/
+32 17945.9 vfs: mount http://192.168.1.133:8090 → {"ok":true,"url":"http://192.168.1.133:8090","entries":70388,"files":55645,"bytes":48188630157,"manifest_gz_bytes":2990358,"roots":["rootfs","prefix","home","game"],"cache_dir":"/var/mobile/Containers/Data/Application/D5E55F78-3EFA-41D8-8EF7-39E2052B9485/Library/Caches/vfs-blocks","ms":360.6}
+33 17946.0 kernel: guest filesystem attached
+34 25375.9 run: exec /usr/bin/sh -c echo one | tr o 0 cwd=/
+35 25382.1 kernel: pid 1 exec /usr/bin/sh (run) {"entry":"0x1160d12c0","rsp":"0x11a8efd80","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x105858000","entry":"0x10585c760","range":"0x105858000-0x10587b000","phdr":"0x105858040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x1160b4000","entry":"0x1160d12c0","range":"0x1160b4000-0x1160ec000"},"stack":"0x11a0f0000-0x11a8f0000","brk":"0x1160ec000-0x11a0ec000","auxv":"0x11a8efde8","
+36 25382.5 fex: exec alloc #1 16 KB rw=0x10e0b4000 rx=0x1060b4000
+37 25382.5 fex: exec free 16 KB rw=0x10e0b4000
+38 25384.6 fex: exec alloc #2 16 KB rw=0x10e0b4000 rx=0x1060b4000
+39 25385.1 kernel: FEX context ready (hwcap=0x278bfbff hwcap2=0x2)
+40 25385.8 fex: exec alloc #3 16384 KB rw=0x10e0b8000 rx=0x1060b8000
+41 25385.9 kernel: pid 1 tid 1 start rip=0x1160d12c0 rsp=0x11a8efd80
+42 25386.0 host: guest exec /usr/bin/sh -c echo one | tr o 0 → {"ok":true,"pid":1,"dry_run":false,"layout":{"entry":"0x1160d12c0","rsp":"0x11a8efd80","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x105858000","entry":"0x10585c760","range":"0x105858000-0x10587b000","phdr":"0x105858040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x11
+43 25390.6 [1] brk(0x0) = 0x1160ec000
+44 25395.9 run: ps cwd=/
+45 25419.9 [1] access("/etc/ld.so.preload", 4) = -1 ENOENT
+46 25423.1 [1] openat(-100, "/etc/ld.so.cache", 0x80000, 00) = 3
+47 25423.1 [1] fstat(3, 0x11a8eee60) = 0
+48 25424.3 [1] mmap(0x0, 32187, 0x1, 0x2, 3, 0x0) = 0x11c5bc000
+49 25424.4 [1] close(3) = 0
+50 25425.3 [1] openat(-100, "/lib/x86_64-linux-gnu/libc.so.6", 0x80000, 00) = 3
+51 25425.9 [1] read(3, 0x11a8eefd8, 832) = 832
+52 25425.9 [1] pread64(3, 0x11a8eeb90, 840, 64) = 840
+53 25427.4 [1] fstat(3, 0x11a8eee60) = 0
+54 25427.4 [1] mmap(0x0, 8192, 0x3, 0x22, -1, 0x0) = 0x105888000
+55 25427.5 [1] pread64(3, 0x11a8eea70, 840, 64) = 840
+56 25432.0 [1] mmap(0x0, 2047568, 0x1, 0x802, 3, 0x0) = 0x11c5c4000
+57 25432.8 [1] mmap(0x11c5ec000, 1454080, 0x5, 0x812, 3, 0x28000) = 0x11c5ec000
+58 25432.9 [1] mmap(0x11c74f000, 352256, 0x1, 0x812, 3, 0x18b000) = 0x11c74f000
+59 25433.0 [1] mmap(0x11c7a5000, 24576, 0x3, 0x812, 3, 0x1e0000) = 0x11c7a5000
+60 25433.0 [1] mmap(0x11c7ab000, 52816, 0x3, 0x32, -1, 0x0) = 0x11c7ab000
+61 25433.0 [1] close(3) = 0
+62 25435.8 [1] mmap(0x0, 12288, 0x3, 0x22, -1, 0x0) = 0x11c7b8000
+63 25435.8 [1] arch_prctl(0x1002, 0x11c7b8740) = 0
+64 25436.2 [1] set_tid_address(0x11c7b8a10) = 1
+65 25436.3 [1] set_robust_list(0x11c7b8a20, 24) = 0
+66 25436.3 [1] rseq(0x11c7b8680, 0x20, 0x0) = -1 ENOSYS
+67 25444.2 [1] mprotect(0x11c7a5000, 16384, 0x1) = 0
+68 25445.3 [1] mprotect(0x105876000, 8192, 0x1) = 0
+69 25446.1 [1] mprotect(0x1160e8000, 8192, 0x1) = 0
+70 25446.2 [1] prlimit_64(0, 3, 0x0, 0x11a8ef9b0) = 0
+71 25446.5 [1] munmap(0x11c5bc000, 32187) = 0
+72 25448.2 [1] getuid() = 1000
+73 25448.2 [1] getgid() = 1000
+74 25448.2 [1] getpid() = 1
+75 25448.6 [1] rt_sigaction(17, 0x11a8ef8b0, 0x0, 8) = 0
+76 25448.8 [1] geteuid() = 1000
+77 25449.7 [1] getrandom(0x11c7b0218, 8, 0x1) = 8
+78 25452.2 [1] brk(0x0) = 0x1160ec000
+79 25452.2 [1] brk(0x11610d000) = 0x11610d000
+80 25452.6 [1] getppid() = 0
+81 25454.9 [1] getcwd(0x1160ec3f0, 4096) = 2
+82 25457.6 [1] geteuid() = 1000
+83 25457.6 [1] getegid() = 1000
+84 25457.7 [1] rt_sigaction(2, 0x0, 0x11a8efa60, 8) = 0
+85 25457.7 [1] rt_sigaction(2, 0x11a8ef9c0, 0x0, 8) = 0
+86 25457.7 [1] rt_sigaction(3, 0x0, 0x11a8efa60, 8) = 0
+87 25457.7 [1] rt_sigaction(3, 0x11a8ef9c0, 0x0, 8) = 0
+88 25457.7 [1] rt_sigaction(15, 0x0, 0x11a8efa70, 8) = 0
+89 25457.7 [1] rt_sigaction(15, 0x11a8ef9d0, 0x0, 8) = 0
+90 25462.6 [1] pipe2(0x11a8efb20, 0x0) = 0
+91 25463.0 [1] rt_sigprocmask(0, 0x11c7746f8, 0x11a8ef990, 8) = 0
+92 25463.3 kernel: pid 1 fork -> child pid 2 (snapshot)
+93 25463.3 kernel: pid 2 tid 2 start rip=0x11c6a0f82 rsp=0x11a8ef990
+94 25463.4 [2] set_robust_list(0x11c7b8a20, 24) = 0
+95 25463.6 fex[error]: Unhandled JIT SIGBUS: PC: 0x1061675f8 Instruction: 0xf81f8d14
+96 25463.6 kernel: pid 2 tid 2 FAULT signal=10 code=1 pc=0x1061675f8 (in JIT code) addr=0x11a8ef988 (last block-exit guest rip=0x11c6a0fbc, unaligned fixups so far=10) -> killed by signal 7
+97 25463.8 [1] clone(0x1200011, 0x0, 0x0, 0x11c7b8a10, 0x0) = 2
+98 25463.9 [1] rt_sigprocmask(2, 0x11a8ef990, 0x0, 8) = 0
+99 25463.9 [1] --- signal 17 delivered: handler=0x10586bce0 frame=0x11a8ef538 rip=0x11c604d77
+100 25464.1 [1] rt_sigreturn() = 0
+101 25464.6 [1] close(4) = 0
+102 25464.9 [1] newfstatat(-100, "/usr/local/sbin/tr", 0x11a8efa20, 0x0) = -1 ENOENT
+103 25464.9 [1] newfstatat(-100, "/usr/local/bin/tr", 0x11a8efa20, 0x0) = -1 ENOENT
+104 25464.9 [1] newfstatat(-100, "/usr/sbin/tr", 0x11a8efa20, 0x0) = -1 ENOENT
+105 25464.9 [1] newfstatat(-100, "/usr/bin/tr", 0x11a8efa20, 0x0) = 0
+106 25464.9 [1] rt_sigprocmask(0, 0x11c7746f8, 0x11a8ef990, 8) = 0
+107 25465.1 kernel: pid 1 fork -> child pid 3 (snapshot)
+108 25465.1 kernel: pid 3 tid 3 start rip=0x11c6a0f82 rsp=0x11a8ef990
+109 25465.1 [3] set_robust_list(0x11c7b8a20, 24) = 0
+110 25465.1 fex[error]: Unhandled JIT SIGBUS: PC: 0x1061675f8 Instruction: 0xf81f8d14
+111 25465.1 kernel: pid 3 tid 3 FAULT signal=10 code=1 pc=0x1061675f8 (in JIT code) addr=0x11a8ef988 (last block-exit guest rip=0x11c6a0fbc, unaligned fixups so far=13) -> killed by signal 7
+112 25465.3 [1] clone(0x1200011, 0x0, 0x0, 0x11c7b8a10, 0x0) = 3
+113 25465.3 [1] rt_sigprocmask(2, 0x11a8ef990, 0x0, 8) = 0
+114 25465.3 [1] --- signal 17 delivered: handler=0x10586bce0 frame=0x11a8ef538 rip=0x11c604d77
+115 25465.3 [1] rt_sigreturn() = 0
+116 25465.3 [1] close(3) = 0
+117 25465.3 [1] close(-1) = -1 EBADF
+118 25465.7 [1] wait4(-1, 0x11a8ef9ac, 0x0, 0x0) = 2
+119 25466.7 guest[1] stderr: Bus error
+120 25466.7 [1] write(2, "Bus error\n", 10) = 10
+121 25466.7 [1] wait4(-1, 0x11a8ef9ac, 0x0, 0x0) = 3
+122 25466.7 guest[1] stderr: Bus error
+123 25466.7 [1] write(2, "Bus error\n", 10) = 10
+124 25466.7 [1] wait4(-1, 0x11a8ef9ac, 0x1, 0x0) = -1 ECHILD
+125 25467.2 [1] exit_group(135) = 0
+126 25467.2 kernel: pid 1 tid 1 exited code=135 after 68 syscalls, 89.8 ms
+127 25905.9 run: ps cwd=/
+128 25917.2 run: guest-out 1 cwd=/
+129 26050.7 run: exec /usr/bin/sh -c sleep 1 & echo bg=$!; wait; echo waited cwd=/
+130 26051.6 kernel: pid 4 exec /usr/bin/sh (run) {"entry":"0x1160d12c0","rsp":"0x11a8efd60","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x105858000","entry":"0x10585c760","range":"0x105858000-0x10587b000","phdr":"0x105858040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x1160b4000","entry":"0x1160d12c0","range":"0x1160b4000-0x1160ec000"},"stack":"0x11a0f0000-0x11a8f0000","brk":"0x1160ec000-0x11a0ec000","auxv":"0x11a8efdc8","
+131 26051.7 kernel: pid 4 tid 4 start rip=0x1160d12c0 rsp=0x11a8efd60
+132 26051.7 host: guest exec /usr/bin/sh -c sleep 1 & echo bg=$!; wait; echo waited → {"ok":true,"pid":4,"dry_run":false,"layout":{"entry":"0x1160d12c0","rsp":"0x11a8efd60","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x105858000","entry":"0x10585c760","range":"0x105858000-0x10587b000","phdr":"0x105858040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x11
+133 26054.2 [4] brk(0x0) = 0x1160ec000
+134 26062.0 run: ps cwd=/
+135 26082.6 [4] access("/etc/ld.so.preload", 4) = -1 ENOENT
+136 26086.5 [4] openat(-100, "/etc/ld.so.cache", 0x80000, 00) = 3
+137 26086.6 [4] fstat(3, 0x11a8eee40) = 0
+138 26086.7 [4] mmap(0x0, 32187, 0x1, 0x2, 3, 0x0) = 0x11c5c4000
+139 26086.8 [4] close(3) = 0
+140 26087.9 [4] openat(-100, "/lib/x86_64-linux-gnu/libc.so.6", 0x80000, 00) = 3
+141 26087.9 [4] read(3, 0x11a8eefb8, 832) = 832
+142 26088.0 [4] pread64(3, 0x11a8eeb70, 840, 64) = 840
+143 26090.0 [4] fstat(3, 0x11a8eee40) = 0
+144 26090.0 [4] mmap(0x0, 8192, 0x3, 0x22, -1, 0x0) = 0x105888000
+145 26090.2 [4] pread64(3, 0x11a8eea50, 840, 64) = 840
+146 26091.0 [4] mmap(0x0, 2047568, 0x1, 0x802, 3, 0x0) = 0x11c7c0000
+147 26091.8 [4] mmap(0x11c7e8000, 1454080, 0x5, 0x812, 3, 0x28000) = 0x11c7e8000
+148 26092.0 [4] mmap(0x11c94b000, 352256, 0x1, 0x812, 3, 0x18b000) = 0x11c94b000
+149 26092.0 [4] mmap(0x11c9a1000, 24576, 0x3, 0x812, 3, 0x1e0000) = 0x11c9a1000
+150 26092.1 [4] mmap(0x11c9a7000, 52816, 0x3, 0x32, -1, 0x0) = 0x11c9a7000
+151 26092.1 [4] close(3) = 0
+152 26095.7 [4] mmap(0x0, 12288, 0x3, 0x22, -1, 0x0) = 0x11c5cc000
+153 26095.7 [4] arch_prctl(0x1002, 0x11c5cc740) = 0
+154 26096.3 [4] set_tid_address(0x11c5cca10) = 4
+155 26096.3 [4] set_robust_list(0x11c5cca20, 24) = 0
+156 26096.4 [4] rseq(0x11c5cc680, 0x20, 0x0) = -1 ENOSYS
+157 26106.4 [4] mprotect(0x11c9a1000, 16384, 0x1) = 0
+158 26107.7 [4] mprotect(0x105876000, 8192, 0x1) = 0
+159 26108.6 [4] mprotect(0x1160e8000, 8192, 0x1) = 0
+160 26108.8 [4] prlimit_64(0, 3, 0x0, 0x11a8ef990) = 0
+161 26109.1 [4] munmap(0x11c5c4000, 32187) = 0
+162 26110.3 [4] getuid() = 1000
+163 26110.3 [4] getgid() = 1000
+164 26110.4 [4] getpid() = 4
+165 26110.8 [4] rt_sigaction(17, 0x11a8ef890, 0x0, 8) = 0
+166 26111.0 [4] geteuid() = 1000
+167 26112.1 [4] getrandom(0x11c9ac218, 8, 0x1) = 8
+168 26115.0 [4] brk(0x0) = 0x1160ec000
+169 26115.0 [4] brk(0x11610d000) = 0x11610d000
+170 26115.5 [4] getppid() = 0
+171 26118.2 [4] getcwd(0x1160ec3f0, 4096) = 2
+172 26121.2 [4] geteuid() = 1000
+173 26121.2 [4] getegid() = 1000
+174 26121.4 [4] rt_sigaction(2, 0x0, 0x11a8efa40, 8) = 0
+175 26121.4 [4] rt_sigaction(2, 0x11a8ef9a0, 0x0, 8) = 0
+176 26121.4 [4] rt_sigaction(3, 0x0, 0x11a8efa40, 8) = 0
+177 26121.4 [4] rt_sigaction(3, 0x11a8ef9a0, 0x0, 8) = 0
+178 26121.4 [4] rt_sigaction(15, 0x0, 0x11a8efa50, 8) = 0
+179 26121.4 [4] rt_sigaction(15, 0x11a8ef9b0, 0x0, 8) = 0
+180 26127.6 [4] rt_sigprocmask(0, 0x11c9706f8, 0x11a8ef8d0, 8) = 0
+181 26128.0 kernel: pid 4 fork -> child pid 5 (snapshot)
+182 26128.0 kernel: pid 5 tid 5 start rip=0x11c89cf82 rsp=0x11a8ef8d0
+183 26128.1 [5] set_robust_list(0x11c5cca20, 24) = 0
+184 26128.1 fex[error]: Unhandled JIT SIGBUS: PC: 0x1062259d8 Instruction: 0xf81f8d14
+185 26128.1 kernel: pid 5 tid 5 FAULT signal=10 code=1 pc=0x1062259d8 (in JIT code) addr=0x11a8ef8c8 (last block-exit guest rip=0x11c89cfbc, unaligned fixups so far=23) -> killed by signal 7
+186 26128.3 [4] clone(0x1200011, 0x0, 0x0, 0x11c5cca10, 0x0) = 5
+187 26128.4 [4] rt_sigprocmask(2, 0x11a8ef8d0, 0x0, 8) = 0
+188 26128.4 [4] --- signal 17 delivered: handler=0x10586bce0 frame=0x11a8ef478 rip=0x11c800d77
+189 26128.6 [4] rt_sigreturn() = 0
+190 26133.5 guest[4] stdout: bg=5
+191 26133.6 [4] write(1, "bg=5\n", 5) = 5
+192 26133.9 [4] wait4(-1, 0x11a8ef82c, 0x1, 0x0) = 5
+193 26133.9 [4] wait4(-1, 0x11a8ef82c, 0x1, 0x0) = -1 ECHILD
+194 26134.3 guest[4] stdout: waited
+195 26134.3 [4] write(1, "waited\n", 7) = 7
+196 26134.4 [4] exit_group(0) = 0
+197 26134.4 kernel: pid 4 tid 4 exited code=0 after 55 syscalls, 83.6 ms
+198 26576.3 run: ps cwd=/
+199 26589.2 run: guest-out 4 cwd=/
+200 106900.9 run: exec /opt/rl/refs/c3.sh cwd=/
+201 106913.5 kernel: pid 6 exec /bin/sh (run) {"entry":"0x1160d12c0","rsp":"0x11a8efd90","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x105858000","entry":"0x10585c760","range":"0x105858000-0x10587b000","phdr":"0x105858040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x1160b4000","entry":"0x1160d12c0","range":"0x1160b4000-0x1160ec000"},"stack":"0x11a0f0000-0x11a8f0000","brk":"0x1160ec000-0x11a0ec000","auxv":"0x11a8efdf0","auxv
+202 106913.6 kernel: pid 6 tid 6 start rip=0x1160d12c0 rsp=0x11a8efd90
+203 106913.6 host: guest exec /opt/rl/refs/c3.sh → {"ok":true,"pid":6,"dry_run":false,"layout":{"entry":"0x1160d12c0","rsp":"0x11a8efd90","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x105858000","entry":"0x10585c760","range":"0x105858000-0x10587b000","phdr":"0x105858040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x11
+204 106915.9 [6] brk(0x0) = 0x1160ec000
+205 106925.2 run: ps cwd=/
+206 106944.8 [6] access("/etc/ld.so.preload", 4) = -1 ENOENT
+207 106948.5 [6] openat(-100, "/etc/ld.so.cache", 0x80000, 00) = 3
+208 106948.6 [6] fstat(3, 0x11a8eee70) = 0
+209 106948.7 [6] mmap(0x0, 32187, 0x1, 0x2, 3, 0x0) = 0x11c5cc000
+210 106948.8 [6] close(3) = 0
+211 106949.9 [6] openat(-100, "/lib/x86_64-linux-gnu/libc.so.6", 0x80000, 00) = 3
+212 106949.9 [6] read(3, 0x11a8eefe8, 832) = 832
+213 106950.0 [6] pread64(3, 0x11a8eeba0, 840, 64) = 840
+214 106951.9 [6] fstat(3, 0x11a8eee70) = 0
+215 106951.9 [6] mmap(0x0, 8192, 0x3, 0x22, -1, 0x0) = 0x105888000
+216 106952.0 [6] pread64(3, 0x11a8eea80, 840, 64) = 840
+217 106952.9 [6] mmap(0x0, 2047568, 0x1, 0x802, 3, 0x0) = 0x11c7c0000
+218 106953.6 [6] mmap(0x11c7e8000, 1454080, 0x5, 0x812, 3, 0x28000) = 0x11c7e8000
+219 106953.9 [6] mmap(0x11c94b000, 352256, 0x1, 0x812, 3, 0x18b000) = 0x11c94b000
+220 106953.9 [6] mmap(0x11c9a1000, 24576, 0x3, 0x812, 3, 0x1e0000) = 0x11c9a1000
+221 106953.9 [6] mmap(0x11c9a7000, 52816, 0x3, 0x32, -1, 0x0) = 0x11c9a7000
+222 106953.9 [6] close(3) = 0
+223 106957.5 [6] mmap(0x0, 12288, 0x3, 0x22, -1, 0x0) = 0x11c5d4000
+224 106957.5 [6] arch_prctl(0x1002, 0x11c5d4740) = 0
+225 106958.1 [6] set_tid_address(0x11c5d4a10) = 6
+226 106958.1 [6] set_robust_list(0x11c5d4a20, 24) = 0
+227 106958.2 [6] rseq(0x11c5d4680, 0x20, 0x0) = -1 ENOSYS
+228 106968.0 [6] mprotect(0x11c9a1000, 16384, 0x1) = 0
+229 106969.2 [6] mprotect(0x105876000, 8192, 0x1) = 0
+230 106970.1 [6] mprotect(0x1160e8000, 8192, 0x1) = 0
+231 106970.3 [6] prlimit_64(0, 3, 0x0, 0x11a8ef9c0) = 0
+232 106970.6 [6] munmap(0x11c5cc000, 32187) = 0
+233 106971.8 [6] getuid() = 1000
+234 106971.8 [6] getgid() = 1000
+235 106971.8 [6] getpid() = 6
+236 106972.3 [6] rt_sigaction(17, 0x11a8ef8c0, 0x0, 8) = 0
+237 106972.4 [6] geteuid() = 1000
+238 106973.6 [6] getrandom(0x11c9ac218, 8, 0x1) = 8
+239 106976.4 [6] brk(0x0) = 0x1160ec000
+240 106976.4 [6] brk(0x11610d000) = 0x11610d000
+241 106976.9 [6] getppid() = 0
+242 106979.6 [6] getcwd(0x1160ec3f0, 4096) = 2
+243 106983.0 [6] openat(-100, "/opt/rl/refs/c3.sh", 0x0, 00) = 3
+244 106983.4 [6] fcntl(3, 0, 0xa) = 10
+245 106983.5 [6] close(3) = 0
+246 106983.5 [6] fcntl(10, 2, 0x1) = 0
+247 106983.5 [6] geteuid() = 1000
+248 106983.5 [6] getegid() = 1000
+249 106983.7 [6] rt_sigaction(2, 0x0, 0x11a8efa70, 8) = 0
+250 106983.7 [6] rt_sigaction(2, 0x11a8ef9d0, 0x0, 8) = 0
+251 106983.7 [6] rt_sigaction(3, 0x0, 0x11a8efa70, 8) = 0
+252 106983.7 [6] rt_sigaction(3, 0x11a8ef9d0, 0x0, 8) = 0
+253 106983.7 [6] rt_sigaction(15, 0x0, 0x11a8efa80, 8) = 0
+254 106983.7 [6] rt_sigaction(15, 0x11a8ef9e0, 0x0, 8) = 0
+255 106984.8 [6] read(10, 0x1058785a0, 8192) = 600
+256 106996.9 kernel: pid 6 execve /bin/busybox {"entry":"0x11c6012c0","rsp":"0x122bcbbd0","main":{"path":"/usr/bin/busybox","dyn":true,"base":"0x11c61c000","entry":"0x11c62a670","range":"0x11c61c000-0x11c6e6000","phdr":"0x11c61c040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x11c5e4000","entry":"0x11c6012c0","range":"0x11c5e4000-0x11c61c000"},"stack":"0x1223cc000-0x122bcc000","brk":"0x11e3c8000-0x1223c8000","auxv":"0x122bcbc48","
+257 106996.9 [6] execve("/bin/busybox", 0x1160ecb38, 0x1160ecb60) = 0
+258 106997.6 [6] brk(0x0) = 0x11e3c8000
+259 107009.4 [6] access("/etc/ld.so.preload", 4) = -1 ENOENT
+260 107010.7 [6] openat(-100, "/etc/ld.so.cache", 0x80000, 00) = 3
+261 107010.7 [6] fstat(3, 0x122bcacb0) = 0
+262 107010.8 [6] mmap(0x0, 32187, 0x1, 0x2, 3, 0x0) = 0x105858000
+263 107010.8 [6] close(3) = 0
+264 107011.2 [6] openat(-100, "/lib/x86_64-linux-gnu/libresolv.so.2", 0x80000, 00) = 3
+265 107011.6 [6] read(3, 0x122bcae28, 832) = 832
+266 107012.3 [6] fstat(3, 0x122bcacb0) = 0
+267 107012.3 [6] mmap(0x0, 8192, 0x3, 0x22, -1, 0x0) = 0x105860000
+268 107012.7 [6] mmap(0x0, 71816, 0x1, 0x802, 3, 0x0) = 0x105864000
+269 107012.7 [6] mmap(0x105867000, 36864, 0x5, 0x812, 3, 0x3000) = 0x105867000
+270 107012.7 [6] mmap(0x105870000, 8192, 0x1, 0x812, 3, 0xc000) = 0x105870000
+271 107012.7 [6] mmap(0x105872000, 8192, 0x3, 0x812, 3, 0xe000) = 0x105872000
+272 107012.7 [6] mmap(0x105874000, 6280, 0x3, 0x32, -1, 0x0) = 0x105874000
+273 107012.7 [6] close(3) = 0
+274 107012.8 [6] openat(-100, "/lib/x86_64-linux-gnu/libc.so.6", 0x80000, 00) = 3
+275 107012.8 [6] read(3, 0x122bcae08, 832) = 832
+276 107012.9 [6] pread64(3, 0x122bca9c0, 840, 64) = 840
+277 107012.9 [6] fstat(3, 0x122bcac90) = 0
+278 107012.9 [6] pread64(3, 0x122bca8a0, 840, 64) = 840
+279 107013.2 [6] mmap(0x0, 2047568, 0x1, 0x802, 3, 0x0) = 0x1160b4000
+280 107013.5 [6] mmap(0x1160dc000, 1454080, 0x5, 0x812, 3, 0x28000) = 0x1160dc000
+281 107013.6 [6] mmap(0x11623f000, 352256, 0x1, 0x812, 3, 0x18b000) = 0x11623f000
+282 107013.6 [6] mmap(0x116295000, 24576, 0x3, 0x812, 3, 0x1e0000) = 0x116295000
+283 107013.6 [6] mmap(0x11629b000, 52816, 0x3, 0x32, -1, 0x0) = 0x11629b000
+284 107013.6 [6] close(3) = 0
+285 107015.2 [6] mmap(0x0, 12288, 0x3, 0x22, -1, 0x0) = 0x105878000
+286 107015.3 [6] arch_prctl(0x1002, 0x105878740) = 0
+287 107015.5 [6] set_tid_address(0x105878a10) = 6
+288 107015.5 [6] set_robust_list(0x105878a20, 24) = 0
+289 107015.5 [6] rseq(0x105878680, 0x20, 0x0) = -1 ENOSYS
+290 107020.3 [6] mprotect(0x116295000, 16384, 0x1) = 0
+291 107020.9 [6] mprotect(0x105872000, 4096, 0x1) = 0
+292 107021.2 [6] mprotect(0x11c6e1000, 16384, 0x1) = 0
+293 107021.7 [6] mprotect(0x11c618000, 8192, 0x1) = 0
+294 107021.8 [6] prlimit_64(0, 3, 0x0, 0x122bcb800) = 0
+295 107022.0 [6] munmap(0x105858000, 32187) = 0
+296 107022.6 [6] getrandom(0x1162a0218, 8, 0x1) = 8
+297 107023.0 [6] getuid() = 1000
+298 107023.1 [6] newfstatat(-100, "/etc/busybox.conf", 0x122bcb8e8, 0x0) = -1 ENOENT
+299 107023.8 [6] getgid() = 1000
+300 107023.9 [6] setgid(1000, 476862706, 2) = 0
+301 107024.0 [6] setuid(1000, 476862706, 0) = 0
+302 107026.0 [6] brk(0x0) = 0x11e3c8000
+303 107026.0 [6] brk(0x11e3e9000) = 0x11e3e9000
+304 107026.0 [6] getpid() = 6
+305 107026.3 [6] rt_sigaction(17, 0x122bcb460, 0x0, 8) = 0
+306 107026.9 [6] getppid() = 0
+307 107027.2 [6] uname(0x122bcb710) = 0
+308 107027.3 [6] newfstatat(-100, "/", 0x122bcb680, 0x0) = 0
+309 107027.3 [6] newfstatat(-100, ".", 0x122bcb710, 0x0) = 0
+310 107027.7 [6] rt_sigaction(2, 0x0, 0x122bcb720, 8) = 0
+311 107027.7 [6] rt_sigaction(2, 0x122bcb680, 0x0, 8) = 0
+312 107027.7 [6] rt_sigaction(3, 0x0, 0x122bcb720, 8) = 0
+313 107027.7 [6] rt_sigaction(3, 0x122bcb680, 0x0, 8) = 0
+314 107027.7 [6] rt_sigaction(15, 0x0, 0x122bcb720, 8) = 0
+315 107033.4 guest[6] stdout: C3 start pid=6
+316 107033.4 [6] write(1, "C3 start pid=6\n", 15) = 15
+317 107034.9 [6] rt_sigprocmask(0, 0x1162646f8, 0x122bcb4b0, 8) = 0
+318 107035.2 kernel: pid 6 fork -> child pid 7 (snapshot)
+319 107035.2 kernel: pid 7 tid 7 start rip=0x116190f82 rsp=0x122bcb4b0
+320 107035.2 [7] set_robust_list(0x105878a20, 24) = 0
+321 107035.3 fex[error]: Unhandled JIT SIGBUS: PC: 0x1063b7d38 Instruction: 0xf81f8d14
+322 107035.3 kernel: pid 7 tid 7 FAULT signal=10 code=1 pc=0x1063b7d38 (in JIT code) addr=0x122bcb4a8 (last block-exit guest rip=0x116190fbc, unaligned fixups so far=54) -> killed by signal 7
+323 107035.4 [6] clone(0x1200011, 0x0, 0x0, 0x105878a10, 0x0) = 7
+324 107035.5 [6] rt_sigprocmask(2, 0x122bcb4b0, 0x0, 8) = 0
+325 107035.6 [6] --- signal 17 delivered: handler=0x11c6639fc frame=0x122bcb038 rip=0x1160f4d77
+326 107035.6 [6] rt_sigreturn() = 0
+327 107035.8 [6] wait4(-1, 0x122bcb45c, 0x1, 0x0) = 7
+328 107035.8 [6] wait4(-1, 0x122bcb45c, 0x1, 0x0) = -1 ECHILD
+329 107036.0 [6] pipe2(0x122bcb610, 0x0) = 0
+330 107036.0 [6] rt_sigprocmask(0, 0x1162646f8, 0x122bcb480, 8) = 0
+331 107036.2 kernel: pid 6 fork -> child pid 8 (snapshot)
+332 107036.2 kernel: pid 8 tid 8 start rip=0x116190f82 rsp=0x122bcb480
+333 107036.2 [8] set_robust_list(0x105878a20, 24) = 0
+334 107036.2 fex[error]: Unhandled JIT SIGBUS: PC: 0x1063b7d38 Instruction: 0xf81f8d14
+335 107036.2 kernel: pid 8 tid 8 FAULT signal=10 code=1 pc=0x1063b7d38 (in JIT code) addr=0x122bcb478 (last block-exit guest rip=0x116190fbc, unaligned fixups so far=54) -> killed by signal 7
+336 107036.4 [6] clone(0x1200011, 0x0, 0x0, 0x105878a10, 0x0) = 8
+337 107036.4 [6] rt_sigprocmask(2, 0x122bcb480, 0x0, 8) = 0
+338 107036.4 [6] --- signal 17 delivered: handler=0x11c6639fc frame=0x122bcaff8 rip=0x1160f4d77
+339 107036.4 [6] rt_sigreturn() = 0
+340 107036.5 [6] close(4) = 0
+341 107036.5 [6] newfstatat(-100, "/usr/local/sbin/tr", 0x122bcb518, 0x0) = -1 ENOENT
+342 107036.5 [6] newfstatat(-100, "/usr/local/bin/tr", 0x122bcb518, 0x0) = -1 ENOENT
+343 107036.5 [6] newfstatat(-100, "/usr/sbin/tr", 0x122bcb518, 0x0) = -1 ENOENT
+344 107036.5 [6] newfstatat(-100, "/usr/bin/tr", 0x122bcb518, 0x0) = 0
+345 107036.5 [6] pipe2(0x122bcb610, 0x0) = 0
+346 107036.5 [6] rt_sigprocmask(0, 0x1162646f8, 0x122bcb480, 8) = 0
+347 107036.7 kernel: pid 6 fork -> child pid 9 (snapshot)
+348 107036.8 kernel: pid 9 tid 9 start rip=0x116190f82 rsp=0x122bcb480
+349 107036.8 [9] set_robust_list(0x105878a20, 24) = 0
+350 107036.8 fex[error]: Unhandled JIT SIGBUS: PC: 0x1063b7d38 Instruction: 0xf81f8d14
+351 107036.8 kernel: pid 9 tid 9 FAULT signal=10 code=1 pc=0x1063b7d38 (in JIT code) addr=0x122bcb478 (last block-exit guest rip=0x116190fbc, unaligned fixups so far=55) -> killed by signal 7
+352 107036.9 [6] clone(0x1200011, 0x0, 0x0, 0x105878a10, 0x0) = 9
+353 107037.0 [6] rt_sigprocmask(2, 0x122bcb480, 0x0, 8) = 0
+354 107037.0 [6] --- signal 17 delivered: handler=0x11c6639fc frame=0x122bcaff8 rip=0x1160f4d77
+355 107037.0 [6] rt_sigreturn() = 0
+356 107037.0 [6] close(3) = 0
+357 107037.0 [6] close(5) = 0
+358 107037.0 [6] newfstatat(-100, "/usr/local/sbin/wc", 0x122bcb518, 0x0) = -1 ENOENT
+359 107037.0 [6] newfstatat(-100, "/usr/local/bin/wc", 0x122bcb518, 0x0) = -1 ENOENT
+360 107037.0 [6] newfstatat(-100, "/usr/sbin/wc", 0x122bcb518, 0x0) = -1 ENOENT
+361 107037.0 [6] newfstatat(-100, "/usr/bin/wc", 0x122bcb518, 0x0) = 0
+362 107037.0 [6] rt_sigprocmask(0, 0x1162646f8, 0x122bcb480, 8) = 0
+363 107037.2 kernel: pid 6 fork -> child pid 10 (snapshot)
+364 107037.2 kernel: pid 10 tid 10 start rip=0x116190f82 rsp=0x122bcb480
+365 107037.2 [10] set_robust_list(0x105878a20, 24) = 0
+366 107037.2 fex[error]: Unhandled JIT SIGBUS: PC: 0x1063b7d38 Instruction: 0xf81f8d14
+367 107037.2 kernel: pid 10 tid 10 FAULT signal=10 code=1 pc=0x1063b7d38 (in JIT code) addr=0x122bcb478 (last block-exit guest rip=0x116190fbc, unaligned fixups so far=55) -> killed by signal 7
+368 107037.4 [6] clone(0x1200011, 0x0, 0x0, 0x105878a10, 0x0) = 10
+369 107037.4 [6] rt_sigprocmask(2, 0x122bcb480, 0x0, 8) = 0
+370 107037.4 [6] --- signal 17 delivered: handler=0x11c6639fc frame=0x122bcaff8 rip=0x1160f4d77
+371 107037.4 [6] rt_sigreturn() = 0
+372 107037.4 [6] close(4) = 0
+373 107037.4 [6] wait4(-1, 0x122bcb4cc, 0x0, 0x0) = 8
+374 107038.6 guest[6] stderr: Bus error
+375 107038.6 [6] write(2, "Bus error\n", 10) = 10
+376 107038.6 [6] wait4(-1, 0x122bcb4cc, 0x0, 0x0) = 9
+377 107038.6 guest[6] stderr: Bus error
+378 107038.6 [6] write(2, "Bus error\n", 10) = 10
+379 107038.6 [6] wait4(-1, 0x122bcb4cc, 0x0, 0x0) = 10
+380 107038.6 guest[6] stderr: Bus error
+381 107038.6 [6] write(2, "Bus error\n", 10) = 10
+382 107038.6 [6] wait4(-1, 0x122bcb4cc, 0x1, 0x0) = -1 ECHILD
+383 107038.6 [6] pipe2(0x122bcb610, 0x0) = 0
+384 107038.6 [6] rt_sigprocmask(0, 0x1162646f8, 0x122bcb480, 8) = 0
+385 107038.8 kernel: pid 6 fork -> child pid 11 (snapshot)
+386 107038.8 kernel: pid 11 tid 11 start rip=0x116190f82 rsp=0x122bcb480
+387 107038.8 [11] set_robust_list(0x105878a20, 24) = 0
+388 107038.9 fex[error]: Unhandled JIT SIGBUS: PC: 0x1063b7d38 Instruction: 0xf81f8d14
+389 107038.9 kernel: pid 11 tid 11 FAULT signal=10 code=1 pc=0x1063b7d38 (in JIT code) addr=0x122bcb478 (last block-exit guest rip=0x116190fbc, unaligned fixups so far=55) -> killed by signal 7
+390 107039.0 [6] clone(0x1200011, 0x0, 0x0, 0x105878a10, 0x0) = 11
+391 107039.0 [6] rt_sigprocmask(2, 0x122bcb480, 0x0, 8) = 0
+392 107039.0 [6] --- signal 17 delivered: handler=0x11c6639fc frame=0x122bcaff8 rip=0x1160f4d77
+393 107039.0 [6] rt_sigreturn() = 0
+394 107039.0 [6] close(4) = 0
+395 107039.1 [6] newfstatat(-100, "/usr/local/sbin/sort", 0x122bcb518, 0x0) = -1 ENOENT
+396 107039.1 [6] newfstatat(-100, "/usr/local/bin/sort", 0x122bcb518, 0x0) = -1 ENOENT
+397 107039.1 [6] newfstatat(-100, "/usr/sbin/sort", 0x122bcb518, 0x0) = -1 ENOENT
+398 107039.1 [6] newfstatat(-100, "/usr/bin/sort", 0x122bcb518, 0x0) = 0
+399 107039.1 [6] pipe2(0x122bcb610, 0x0) = 0
+400 107039.1 [6] rt_sigprocmask(0, 0x1162646f8, 0x122bcb480, 8) = 0
+401 107039.3 kernel: pid 6 fork -> child pid 12 (snapshot)
+402 107039.3 kernel: pid 12 tid 12 start rip=0x116190f82 rsp=0x122bcb480
+403 107039.3 [12] set_robust_list(0x105878a20, 24) = 0
+404 107039.3 fex[error]: Unhandled JIT SIGBUS: PC: 0x1063b7d38 Instruction: 0xf81f8d14
+405 107039.3 kernel: pid 12 tid 12 FAULT signal=10 code=1 pc=0x1063b7d38 (in JIT code) addr=0x122bcb478 (last block-exit guest rip=0x116190fbc, unaligned fixups so far=55) -> killed by signal 7
+406 107039.5 [6] clone(0x1200011, 0x0, 0x0, 0x105878a10, 0x0) = 12
+407 107039.5 [6] rt_sigprocmask(2, 0x122bcb480, 0x0, 8) = 0
+408 107039.5 [6] --- signal 17 delivered: handler=0x11c6639fc frame=0x122bcaff8 rip=0x1160f4d77
+409 107039.5 [6] rt_sigreturn() = 0
+410 107039.5 [6] close(3) = 0
+411 107039.5 [6] close(5) = 0
+412 107039.5 [6] newfstatat(-100, "/usr/local/sbin/head", 0x122bcb518, 0x0) = -1 ENOENT
+413 107039.5 [6] newfstatat(-100, "/usr/local/bin/head", 0x122bcb518, 0x0) = -1 ENOENT
+414 107039.5 [6] newfstatat(-100, "/usr/sbin/head", 0x122bcb518, 0x0) = -1 ENOENT
+415 107039.5 [6] newfstatat(-100, "/usr/bin/head", 0x122bcb518, 0x0) = 0
+416 107039.5 [6] rt_sigprocmask(0, 0x1162646f8, 0x122bcb480, 8) = 0
+417 107039.7 kernel: pid 6 fork -> child pid 13 (snapshot)
+418 107039.7 kernel: pid 13 tid 13 start rip=0x116190f82 rsp=0x122bcb480
+419 107039.7 [13] set_robust_list(0x105878a20, 24) = 0
+420 107039.7 fex[error]: Unhandled JIT SIGBUS: PC: 0x1063b7d38 Instruction: 0xf81f8d14
+421 107039.7 kernel: pid 13 tid 13 FAULT signal=10 code=1 pc=0x1063b7d38 (in JIT code) addr=0x122bcb478 (last block-exit guest rip=0x116190fbc, unaligned fixups so far=55) -> killed by signal 7
+422 107039.9 [6] clone(0x1200011, 0x0, 0x0, 0x105878a10, 0x0) = 13
+423 107039.9 [6] rt_sigprocmask(2, 0x122bcb480, 0x0, 8) = 0
+424 107039.9 [6] --- signal 17 delivered: handler=0x11c6639fc frame=0x122bcaff8 rip=0x1160f4d77
+425 107039.9 [6] rt_sigreturn() = 0
+426 107039.9 [6] close(4) = 0
+427 107039.9 [6] wait4(-1, 0x122bcb4cc, 0x0, 0x0) = 11
+428 107039.9 guest[6] stderr: Bus error
+429 107039.9 [6] write(2, "Bus error\n", 10) = 10
+430 107039.9 [6] wait4(-1, 0x122bcb4cc, 0x0, 0x0) = 12
+431 107039.9 guest[6] stderr: Bus error
+432 107039.9 [6] write(2, "Bus error\n", 10) = 10
+433 107039.9 [6] wait4(-1, 0x122bcb4cc, 0x0, 0x0) = 13
+434 107039.9 guest[6] stderr: Bus error
+435 107039.9 [6] write(2, "Bus error\n", 10) = 10
+436 107039.9 [6] wait4(-1, 0x122bcb4cc, 0x1, 0x0) = -1 ECHILD
+437 107041.0 [6] rt_sigaction(15, 0x122bcb1f0, 0x0, 8) = 0
+438 107041.2 [6] getpid() = 6
+439 107041.3 [6] kill(6, 15) = 0
+440 107041.3 [6] --- signal 15 delivered: handler=0x11c6639fc frame=0x122bcaf38 rip=0x1160f3f87
+441 107041.3 [6] rt_sigreturn() = 0
+442 107041.4 guest[6] stdout: got-TERM
+443 107041.4 [6] write(1, "got-TERM\n", 9) = 9
+444 107041.4 guest[6] stdout: after self-kill
+445 107041.4 [6] write(1, "after self-kill\n", 16) = 16
+446 107041.6 [6] pipe2(0x122bcb420, 0x0) = 0
+447 107041.7 [6] rt_sigprocmask(0, 0x1162646f8, 0x122bcb250, 8) = 0
+448 107041.9 kernel: pid 6 fork -> child pid 14 (snapshot)
+449 107041.9 kernel: pid 14 tid 14 start rip=0x116190f82 rsp=0x122bcb250
+450 107041.9 [14] set_robust_list(0x105878a20, 24) = 0
+451 107041.9 fex[error]: Unhandled JIT SIGBUS: PC: 0x1063b7d38 Instruction: 0xf81f8d14
+452 107041.9 kernel: pid 14 tid 14 FAULT signal=10 code=1 pc=0x1063b7d38 (in JIT code) addr=0x122bcb248 (last block-exit guest rip=0x116190fbc, unaligned fixups so far=57) -> killed by signal 7
+453 107042.1 [6] clone(0x1200011, 0x0, 0x0, 0x105878a10, 0x0) = 14
+454 107042.1 [6] rt_sigprocmask(2, 0x122bcb250, 0x0, 8) = 0
+455 107042.1 [6] --- signal 17 delivered: handler=0x11c6639fc frame=0x122bcadf8 rip=0x1160f4d77
+456 107042.1 [6] rt_sigreturn() = 0
+457 107042.1 [6] close(4) = 0
+458 107042.1 [6] read(3, 0x122bcb428, 128) = 0
+459 107042.1 [6] close(3) = 0
+460 107042.1 [6] wait4(-1, 0x122bcb29c, 0x0, 0x0) = 14
+461 107042.1 guest[6] stderr: Bus error
+462 107042.1 [6] write(2, "Bus error\n", 10) = 10
+463 107042.1 [6] wait4(-1, 0x122bcb29c, 0x1, 0x0) = -1 ECHILD
+464 107042.1 guest[6] stdout: false exit status: 
+465 107042.1 [6] write(1, "false exit status: \n", 20) = 20
+466 107042.3 [6] newfstatat(-100, "/usr/local/sbin/cat", 0x122bcb3e8, 0x0) = -1 ENOENT
+467 107042.3 [6] newfstatat(-100, "/usr/local/bin/cat", 0x122bcb3e8, 0x0) = -1 ENOENT
+468 107042.3 [6] newfstatat(-100, "/usr/sbin/cat", 0x122bcb3e8, 0x0) = -1 ENOENT
+469 107042.3 [6] newfstatat(-100, "/usr/bin/cat", 0x122bcb3e8, 0x0) = 0
+470 107042.3 [6] pipe2(0x122bcb4e0, 0x0) = 0
+471 107042.3 [6] rt_sigprocmask(0, 0x1162646f8, 0x122bcb350, 8) = 0
+472 107042.5 kernel: pid 6 fork -> child pid 15 (snapshot)
+473 107042.5 kernel: pid 15 tid 15 start rip=0x116190f82 rsp=0x122bcb350
+474 107042.5 [15] set_robust_list(0x105878a20, 24) = 0
+475 107042.5 fex[error]: Unhandled JIT SIGBUS: PC: 0x1063b7d38 Instruction: 0xf81f8d14
+476 107042.5 kernel: pid 15 tid 15 FAULT signal=10 code=1 pc=0x1063b7d38 (in JIT code) addr=0x122bcb348 (last block-exit guest rip=0x116190fbc, unaligned fixups so far=57) -> killed by signal 7
+477 107042.7 [6] clone(0x1200011, 0x0, 0x0, 0x105878a10, 0x0) = 15
+478 107042.7 [6] rt_sigprocmask(2, 0x122bcb350, 0x0, 8) = 0
+479 107042.7 [6] --- signal 17 delivered: handler=0x11c6639fc frame=0x122bcaef8 rip=0x1160f4d77
+480 107042.7 [6] rt_sigreturn() = 0
+481 107042.7 [6] close(4) = 0
+482 107042.7 [6] rt_sigprocmask(0, 0x1162646f8, 0x122bcb350, 8) = 0
+483 107042.9 kernel: pid 6 fork -> child pid 16 (snapshot)
+484 107042.9 kernel: pid 16 tid 16 start rip=0x116190f82 rsp=0x122bcb350
+485 107042.9 [16] set_robust_list(0x105878a20, 24) = 0
+486 107042.9 fex[error]: Unhandled JIT SIGBUS: PC: 0x1063b7d38 Instruction: 0xf81f8d14
+487 107042.9 kernel: pid 16 tid 16 FAULT signal=10 code=1 pc=0x1063b7d38 (in JIT code) addr=0x122bcb348 (last block-exit guest rip=0x116190fbc, unaligned fixups so far=57) -> killed by signal 7
+488 107043.1 [6] clone(0x1200011, 0x0, 0x0, 0x105878a10, 0x0) = 16
+489 107043.1 [6] rt_sigprocmask(2, 0x122bcb350, 0x0, 8) = 0
+490 107043.1 [6] --- signal 17 delivered: handler=0x11c6639fc frame=0x122bcaef8 rip=0x1160f4d77
+491 107043.1 [6] rt_sigreturn() = 0
+492 107043.1 [6] close(3) = 0
+493 107043.1 [6] wait4(-1, 0x122bcb39c, 0x0, 0x0) = 15
+494 107043.1 guest[6] stderr: Bus error
+495 107043.1 [6] write(2, "Bus error\n", 10) = 10
+496 107043.1 [6] wait4(-1, 0x122bcb39c, 0x0, 0x0) = 16
+497 107043.1 guest[6] stderr: Bus error
+498 107043.1 [6] write(2, "Bus error\n", 10) = 10
+499 107043.1 [6] wait4(-1, 0x122bcb39c, 0x1, 0x0) = -1 ECHILD
+500 107043.1 guest[6] stdout: no /proc/self/status
+501 107043.1 [6] write(1, "no /proc/self/status\n", 21) = 21
+502 107043.1 [6] rt_sigprocmask(0, 0x1162646f8, 0x122bcb410, 8) = 0
+503 107043.4 kernel: pid 6 fork -> child pid 17 (snapshot)
+504 107043.4 kernel: pid 17 tid 17 start rip=0x116190f82 rsp=0x122bcb410
+505 107043.4 [17] set_robust_list(0x105878a20, 24) = 0
+506 107043.4 fex[error]: Unhandled JIT SIGBUS: PC: 0x1063b7d38 Instruction: 0xf81f8d14
+507 107043.4 kernel: pid 17 tid 17 FAULT signal=10 code=1 pc=0x1063b7d38 (in JIT code) addr=0x122bcb408 (last block-exit guest rip=0x116190fbc, unaligned fixups so far=57) -> killed by signal 7
+508 107043.5 [6] clone(0x1200011, 0x0, 0x0, 0x105878a10, 0x0) = 17
+509 107043.6 [6] rt_sigprocmask(2, 0x122bcb410, 0x0, 8) = 0
+510 107043.6 [6] --- signal 17 delivered: handler=0x11c6639fc frame=0x122bcafb8 rip=0x1160f4d77
+511 107043.6 [6] rt_sigreturn() = 0
+512 107043.6 [6] wait4(-1, 0x122bcb45c, 0x0, 0x0) = 17
+513 107043.6 guest[6] stderr: Bus error
+514 107043.6 [6] write(2, "Bus error\n", 10) = 10
+515 107043.6 [6] wait4(-1, 0x122bcb45c, 0x1, 0x0) = -1 ECHILD
+516 107043.6 guest[6] stdout: threads-test exit=135
+517 107043.6 [6] write(1, "threads-test exit=135\n", 22) = 22
+518 107043.6 guest[6] stdout: C3 done
+519 107043.6 [6] write(1, "C3 done\n", 8) = 8
+520 107043.7 [6] exit_group(0) = 0
+521 107043.7 kernel: pid 6 tid 6 exited code=0 after 231 syscalls, 142.7 ms
+522 107436.5 run: ps cwd=/
+523 107448.1 run: guest-out 6 cwd=/
+524 114588.2 run: exec /opt/rl/bin/threads-test cwd=/
+525 114605.1 kernel: pid 18 exec /opt/rl/bin/threads-test (run) {"entry":"0x1160d12c0","rsp":"0x11aabfd80","main":{"path":"/opt/rl/bin/threads-test","dyn":true,"base":"0x105858000","entry":"0x105859290","range":"0x105858000-0x10585d000","phdr":"0x105858040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x1160b4000","entry":"0x1160d12c0","range":"0x1160b4000-0x1160ec000"},"stack":"0x11a2c0000-0x11aac0000","brk":"0x1162bc000-0x11a2bc00
+526 114605.2 kernel: pid 18 tid 18 start rip=0x1160d12c0 rsp=0x11aabfd80
+527 114605.3 host: guest exec /opt/rl/bin/threads-test → {"ok":true,"pid":18,"dry_run":false,"layout":{"entry":"0x1160d12c0","rsp":"0x11aabfd80","main":{"path":"/opt/rl/bin/threads-test","dyn":true,"base":"0x105858000","entry":"0x105859290","range":"0x105858000-0x10585d000","phdr":"0x105858040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{
+528 114607.2 [18] brk(0x0) = 0x1162bc000
+529 114615.2 run: ps cwd=/
+530 114636.8 [18] access("/etc/ld.so.preload", 4) = -1 ENOENT
+531 114640.3 [18] openat(-100, "/etc/ld.so.cache", 0x80000, 00) = 3
+532 114640.4 [18] fstat(3, 0x11aabee60) = 0
+533 114640.5 [18] mmap(0x0, 32187, 0x1, 0x2, 3, 0x0) = 0x105860000
+534 114640.6 [18] close(3) = 0
+535 114641.7 [18] openat(-100, "/lib/x86_64-linux-gnu/libc.so.6", 0x80000, 00) = 3
+536 114641.7 [18] read(3, 0x11aabefd8, 832) = 832
+537 114641.8 [18] pread64(3, 0x11aabeb90, 840, 64) = 840
+538 114643.8 [18] fstat(3, 0x11aabee60) = 0
+539 114643.8 [18] mmap(0x0, 8192, 0x3, 0x22, -1, 0x0) = 0x105868000
+540 114644.0 [18] pread64(3, 0x11aabea70, 840, 64) = 840
+541 114644.9 [18] mmap(0x0, 2047568, 0x1, 0x802, 3, 0x0) = 0x11aac0000
+542 114645.7 [18] mmap(0x11aae8000, 1454080, 0x5, 0x812, 3, 0x28000) = 0x11aae8000
+543 114645.9 [18] mmap(0x11ac4b000, 352256, 0x1, 0x812, 3, 0x18b000) = 0x11ac4b000
+544 114645.9 [18] mmap(0x11aca1000, 24576, 0x3, 0x812, 3, 0x1e0000) = 0x11aca1000
+545 114646.0 [18] mmap(0x11aca7000, 52816, 0x3, 0x32, -1, 0x0) = 0x11aca7000
+546 114646.0 [18] close(3) = 0
+547 114649.3 [18] mmap(0x0, 12288, 0x3, 0x22, -1, 0x0) = 0x10586c000
+548 114649.3 [18] arch_prctl(0x1002, 0x10586c740) = 0
+549 114649.9 [18] set_tid_address(0x10586ca10) = 18
+550 114649.9 [18] set_robust_list(0x10586ca20, 24) = 0
+551 114650.0 [18] rseq(0x10586c680, 0x20, 0x0) = -1 ENOSYS
+552 114660.2 [18] mprotect(0x11aca1000, 16384, 0x1) = 0
+553 114661.2 [18] mprotect(0x10585b000, 4096, 0x1) = 0
+554 114662.1 [18] mprotect(0x1160e8000, 8192, 0x1) = 0
+555 114662.3 [18] prlimit_64(0, 3, 0x0, 0x11aabf9b0) = 0
+556 114662.7 [18] munmap(0x105860000, 32187) = 0
+557 114664.2 [18] rt_sigaction(10, 0x11aabfa20, 0x0, 8) = 0
+558 114665.1 [18] rt_sigaction(33, 0x11aabf8d0, 0x0, 8) = 0
+559 114665.1 [18] rt_sigprocmask(1, 0x11aabfa98, 0x0, 8) = 0
+560 114666.2 [18] mmap(0x0, 8392704, 0x0, 0x20022, -1, 0x0) = 0x11acb4000
+561 114666.2 [18] mprotect(0x11acb5000, 8388608, 0x3) = 0
+562 114666.7 [18] getrandom(0x11acac218, 8, 0x1) = 8
+563 114669.5 [18] brk(0x0) = 0x1162bc000
+564 114669.5 [18] brk(0x1162dd000) = 0x1162dd000
+565 114670.1 [18] rt_sigprocmask(0, 0x11ac706f8, 0x11aabfa88, 8) = 0
+566 114670.5 [18] clone3(0x11aabf990, 0x58, 0x11ab52620) = -1 ENOSYS
+567 114670.5 [18] clone(0x3d0f00, 0x11b4b3f70, 0x11b4b4990, 0x11b4b4990, 0x11b4b46c0) = 19
+568 114670.6 kernel: pid 18 tid 19 start rip=0x11abd0362 rsp=0x11b4b3f70
+569 114670.6 [18] rt_sigprocmask(2, 0x11aabfa88, 0x0, 8) = 0
+570 114670.8 [18] mmap(0x0, 8392704, 0x0, 0x20022, -1, 0x0) = 0x11f3c8000
+571 114670.9 [18] mprotect(0x11f3c9000, 8388608, 0x3) = 0
+572 114671.0 [18] rt_sigprocmask(0, 0x11ac706f8, 0x11aabfa88, 8) = 0
+573 114671.2 [18] clone(0x3d0f00, 0x11fbc7f70, 0x11fbc8990, 0x11fbc8990, 0x11fbc86c0) = 20
+574 114671.2 [18] rt_sigprocmask(2, 0x11aabfa88, 0x0, 8) = 0
+575 114671.2 [18] mmap(0x0, 8392704, 0x0, 0x20022, -1, 0x0) = 0x11fbcc000
+576 114671.2 kernel: pid 18 tid 20 start rip=0x11abd0362 rsp=0x11fbc7f70
+577 114671.3 [18] mprotect(0x11fbcd000, 8388608, 0x3) = 0
+578 114671.3 [18] rt_sigprocmask(0, 0x11ac706f8, 0x11aabfa88, 8) = 0
+579 114671.6 [18] clone(0x3d0f00, 0x1203cbf70, 0x1203cc990, 0x1203cc990, 0x1203cc6c0) = 21
+580 114671.6 [18] rt_sigprocmask(2, 0x11aabfa88, 0x0, 8) = 0
+581 114671.6 [18] mmap(0x0, 8392704, 0x0, 0x20022, -1, 0x0) = 0x121fd8000
+582 114671.6 kernel: pid 18 tid 21 start rip=0x11abd0362 rsp=0x1203cbf70
+583 114671.7 [18] mprotect(0x121fd9000, 8388608, 0x3) = 0
+584 114671.8 [18] rt_sigprocmask(0, 0x11ac706f8, 0x11aabfa88, 8) = 0
+585 114671.9 [18] clone(0x3d0f00, 0x1227d7f70, 0x1227d8990, 0x1227d8990, 0x1227d86c0) = 22
+586 114671.9 [18] rt_sigprocmask(2, 0x11aabfa88, 0x0, 8) = 0
+587 114672.0 kernel: pid 18 tid 22 start rip=0x11abd0362 rsp=0x1227d7f70
+588 114673.3 [18] set_robust_list(0x11fbc89a0, 24) = 0
+589 114673.3 [18] set_robust_list(0x11b4b49a0, 24) = 0
+590 114673.4 [18] rt_sigprocmask(2, 0x11fbc8fb0, 0x0, 8) = 0
+591 114673.4 [18] rt_sigprocmask(2, 0x11b4b4fb0, 0x0, 8) = 0
+592 114673.8 [18] set_robust_list(0x1203cc9a0, 24) = 0
+593 114673.9 [18] rt_sigprocmask(2, 0x1203ccfb0, 0x0, 8) = 0
+594 114673.9 [18] set_robust_list(0x1227d89a0, 24) = 0
+595 114673.9 [18] rt_sigprocmask(2, 0x1227d8fb0, 0x0, 8) = 0
+596 114674.0 [18] futex(0x10585c100, 129, 1, 0x0, 0x0, 0) = 1
+597 114674.0 [18] futex(0x10585c100, 128, 2, 0x0, 0x0, 0) = 0
+598 114674.1 [18] futex(0x10585c100, 129, 1, 0x0, 0x0, 0) = 1
+599 114674.1 [18] futex(0x10585c100, 128, 2, 0x0, 0x0, 0) = 0
+600 114674.1 [18] futex(0x10585c100, 129, 1, 0x0, 0x0, 0) = 1
+601 114674.1 [18] futex(0x10585c100, 128, 2, 0x0, 0x0, 0) = 0
+602 114674.1 [18] futex(0x10585c100, 129, 1, 0x0, 0x0, 0) = 0
+603 114697.1 [18] clock_nanosleep(0, 0, 0x11aabfb80, 0x0) = 0
+604 114697.3 [18] futex(0x10585c0e0, 129, 2147483647, 0x0, 0x10585c0c0, 92651736) = 4
+605 114697.4 [18] futex(0x10585c0e0, 393, 0, 0x0, 0x0, 4294967295) = 0
+606 114697.4 [18] futex(0x10585c0e0, 393, 0, 0x0, 0x0, 4294967295) = 0
+607 114697.4 [18] futex(0x10585c0e0, 393, 0, 0x0, 0x0, 4294967295) = 0
+608 114697.4 [18] gettid() = 18
+609 114697.5 [18] getpid() = 18
+610 114697.5 [18] tgkill(18, 18, 10) = 0
+611 114697.5 [18] futex(0x10585c0e0, 393, 0, 0x0, 0x0, 4294967295) = 0
+612 114697.9 [18] futex(0x10585c100, 129, 1, 0x0, 0x0, 92651744) = 0
+613 114697.9 [18] --- signal 10 delivered: handler=0x105859380 frame=0x11aabf6f8 rip=0x11abce4f9
+614 114697.9 [18] futex(0x10585c100, 129, 1, 0x0, 0x0, 92651744) = 0
+615 114697.9 [18] futex(0x10585c100, 129, 1, 0x0, 0x0, 92651744) = 0
+616 114697.9 [18] futex(0x10585c100, 129, 1, 0x0, 0x0, 92651744) = 0
+617 114699.4 [18] rt_sigreturn() = 0
+618 114712.7 [18] rt_sigprocmask(0, 0x1227d8fb0, 0x0, 8) = 0
+619 114712.7 [18] rt_sigprocmask(0, 0x11b4b4fb0, 0x0, 8) = 0
+620 114713.0 [18] rt_sigprocmask(0, 0x11fbc8fb0, 0x0, 8) = 0
+621 114713.0 [18] rt_sigprocmask(0, 0x1203ccfb0, 0x0, 8) = 0
+622 114713.6 [18] madvise(0x11acb4000, 8368128, 4) = 0
+623 114713.6 [18] madvise(0x121fd8000, 8368128, 4) = 0
+624 114714.0 [18] madvise(0x11f3c8000, 8368128, 4) = 0
+625 114714.0 [18] madvise(0x11fbcc000, 8368128, 4) = 0
+626 114714.0 [18] exit(0) = 0
+627 114714.0 kernel: pid 18 tid 19 exited code=0 after 9 syscalls, 125.7 ms
+628 114714.0 [18] futex(0x11b4b4990, 265, 19, 0x0, 0x0, 4294967295) = 0
+629 114714.0 [18] exit(0) = 0
+630 114714.0 kernel: pid 18 tid 21 exited code=0 after 9 syscalls, 125.7 ms
+631 114714.1 [18] exit(0) = 0
+632 114714.1 kernel: pid 18 tid 20 exited code=0 after 8 syscalls, 125.8 ms
+633 114714.1 [18] exit(0) = 0
+634 114714.1 kernel: pid 18 tid 22 exited code=0 after 9 syscalls, 125.8 ms
+635 114714.2 [18] gettid() = 18
+636 114716.3 [18] fstat(1, 0x11aabf7e0) = 0
+637 114718.1 guest[18] stdout: threads: counter=400000 (expect 400000) joined=60 (expect 60) usr1=1 tid=18
+638 114718.1 [18] write(1, "threads: counter=400000 (expect 400000) joined=60 (expect 60) us"...", 76) = 76
+639 114718.2 [18] exit_group(0) = 0
+640 114718.2 kernel: pid 18 tid 18 exited code=0 after 66 syscalls, 129.9 ms
+641 115126.9 run: ps cwd=/
+642 115138.7 run: guest-out 18 cwd=/
+643 120660.4 run: exec /usr/bin/sh -c kill -9 $$ cwd=/
+644 120661.3 kernel: pid 23 exec /usr/bin/sh (run) {"entry":"0x1160d12c0","rsp":"0x11aabfd80","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x105858000","entry":"0x10585c760","range":"0x105858000-0x10587b000","phdr":"0x105858040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x1160b4000","entry":"0x1160d12c0","range":"0x1160b4000-0x1160ec000"},"stack":"0x11a2c0000-0x11aac0000","brk":"0x1162bc000-0x11a2bc000","auxv":"0x11aabfde8",
+645 120661.4 kernel: pid 23 tid 23 start rip=0x1160d12c0 rsp=0x11aabfd80
+646 120661.4 host: guest exec /usr/bin/sh -c kill -9 $$ → {"ok":true,"pid":23,"dry_run":false,"layout":{"entry":"0x1160d12c0","rsp":"0x11aabfd80","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x105858000","entry":"0x10585c760","range":"0x105858000-0x10587b000","phdr":"0x105858040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x1
+647 120663.4 [23] brk(0x0) = 0x1162bc000
+648 120672.6 run: ps cwd=/
+649 120694.0 [23] access("/etc/ld.so.preload", 4) = -1 ENOENT
+650 120697.7 [23] openat(-100, "/etc/ld.so.cache", 0x80000, 00) = 3
+651 120697.7 [23] fstat(3, 0x11aabee60) = 0
+652 120697.9 [23] mmap(0x0, 32187, 0x1, 0x2, 3, 0x0) = 0x1161b0000
+653 120697.9 [23] close(3) = 0
+654 120699.0 [23] openat(-100, "/lib/x86_64-linux-gnu/libc.so.6", 0x80000, 00) = 3
+655 120699.1 [23] read(3, 0x11aabefd8, 832) = 832
+656 120699.1 [23] pread64(3, 0x11aabeb90, 840, 64) = 840
+657 120700.9 [23] fstat(3, 0x11aabee60) = 0
+658 120700.9 [23] mmap(0x0, 8192, 0x3, 0x22, -1, 0x0) = 0x105888000
+659 120701.1 [23] pread64(3, 0x11aabea70, 840, 64) = 840
+660 120701.9 [23] mmap(0x0, 2047568, 0x1, 0x802, 3, 0x0) = 0x11aec8000
+661 120702.7 [23] mmap(0x11aef0000, 1454080, 0x5, 0x812, 3, 0x28000) = 0x11aef0000
+662 120702.9 [23] mmap(0x11b053000, 352256, 0x1, 0x812, 3, 0x18b000) = 0x11b053000
+663 120702.9 [23] mmap(0x11b0a9000, 24576, 0x3, 0x812, 3, 0x1e0000) = 0x11b0a9000
+664 120702.9 [23] mmap(0x11b0af000, 52816, 0x3, 0x32, -1, 0x0) = 0x11b0af000
+665 120702.9 [23] close(3) = 0
+666 120706.5 [23] mmap(0x0, 12288, 0x3, 0x22, -1, 0x0) = 0x1161b8000
+667 120706.5 [23] arch_prctl(0x1002, 0x1161b8740) = 0
+668 120707.1 [23] set_tid_address(0x1161b8a10) = 23
+669 120707.1 [23] set_robust_list(0x1161b8a20, 24) = 0
+670 120707.2 [23] rseq(0x1161b8680, 0x20, 0x0) = -1 ENOSYS
+671 120716.8 [23] mprotect(0x11b0a9000, 16384, 0x1) = 0
+672 120718.1 [23] mprotect(0x105876000, 8192, 0x1) = 0
+673 120719.0 [23] mprotect(0x1160e8000, 8192, 0x1) = 0
+674 120719.1 [23] prlimit_64(0, 3, 0x0, 0x11aabf9b0) = 0
+675 120719.5 [23] munmap(0x1161b0000, 32187) = 0
+676 120720.6 [23] getuid() = 1000
+677 120720.6 [23] getgid() = 1000
+678 120720.7 [23] getpid() = 23
+679 120721.2 [23] rt_sigaction(17, 0x11aabf8b0, 0x0, 8) = 0
+680 120721.3 [23] geteuid() = 1000
+681 120722.4 [23] getrandom(0x11b0b4218, 8, 0x1) = 8
+682 120725.2 [23] brk(0x0) = 0x1162bc000
+683 120725.2 [23] brk(0x1162dd000) = 0x1162dd000
+684 120725.7 [23] getppid() = 0
+685 120728.4 [23] getcwd(0x1162bc3f0, 4096) = 2
+686 120731.5 [23] geteuid() = 1000
+687 120731.5 [23] getegid() = 1000
+688 120731.6 [23] rt_sigaction(2, 0x0, 0x11aabfa60, 8) = 0
+689 120731.6 [23] rt_sigaction(2, 0x11aabf9c0, 0x0, 8) = 0
+690 120731.6 [23] rt_sigaction(3, 0x0, 0x11aabfa60, 8) = 0
+691 120731.6 [23] rt_sigaction(3, 0x11aabf9c0, 0x0, 8) = 0
+692 120731.6 [23] rt_sigaction(15, 0x0, 0x11aabfa70, 8) = 0
+693 120731.6 [23] rt_sigaction(15, 0x11aabf9d0, 0x0, 8) = 0
+694 120741.6 [23] kill(23, 9) = 0
+695 120741.6 [23] killed by signal 9 (default action)
+696 120741.6 kernel: pid 23 tid 23 exited code=137 after 47 syscalls, 81.1 ms
+697 121186.2 run: ps cwd=/
+698 121203.7 run: guest-out 23 cwd=/
+699 121327.7 run: exec /usr/bin/sh -c trap "echo caught; exit 5" TERM; kill -TERM $$; echo not-here cwd=/
+700 121328.5 kernel: pid 24 exec /usr/bin/sh (run) {"entry":"0x1160d12c0","rsp":"0x11aabfd50","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x105858000","entry":"0x10585c760","range":"0x105858000-0x10587b000","phdr":"0x105858040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x1160b4000","entry":"0x1160d12c0","range":"0x1160b4000-0x1160ec000"},"stack":"0x11a2c0000-0x11aac0000","brk":"0x1162bc000-0x11a2bc000","auxv":"0x11aabfdb8",
+701 121328.6 kernel: pid 24 tid 24 start rip=0x1160d12c0 rsp=0x11aabfd50
+702 121328.7 host: guest exec /usr/bin/sh -c trap "echo caught; exit 5" TERM; kill -TERM $$; echo not-here → {"ok":true,"pid":24,"dry_run":false,"layout":{"entry":"0x1160d12c0","rsp":"0x11aabfd50","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x105858000","entry":"0x10585c760","range":"0x105858000-0x10587b000","phdr":"0x105858040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x1
+703 121330.6 [24] brk(0x0) = 0x1162bc000
+704 121339.4 run: ps cwd=/
+705 121359.5 [24] access("/etc/ld.so.preload", 4) = -1 ENOENT
+706 121363.3 [24] openat(-100, "/etc/ld.so.cache", 0x80000, 00) = 3
+707 121363.3 [24] fstat(3, 0x11aabee30) = 0
+708 121363.4 [24] mmap(0x0, 32187, 0x1, 0x2, 3, 0x0) = 0x11618c000
+709 121363.5 [24] close(3) = 0
+710 121364.6 [24] openat(-100, "/lib/x86_64-linux-gnu/libc.so.6", 0x80000, 00) = 3
+711 121364.7 [24] read(3, 0x11aabefa8, 832) = 832
+712 121364.7 [24] pread64(3, 0x11aabeb60, 840, 64) = 840
+713 121366.7 [24] fstat(3, 0x11aabee30) = 0
+714 121366.7 [24] mmap(0x0, 8192, 0x3, 0x22, -1, 0x0) = 0x105888000
+715 121366.9 [24] pread64(3, 0x11aabea40, 840, 64) = 840
+716 121367.6 [24] mmap(0x0, 2047568, 0x1, 0x802, 3, 0x0) = 0x11aec8000
+717 121368.4 [24] mmap(0x11aef0000, 1454080, 0x5, 0x812, 3, 0x28000) = 0x11aef0000
+718 121368.6 [24] mmap(0x11b053000, 352256, 0x1, 0x812, 3, 0x18b000) = 0x11b053000
+719 121368.6 [24] mmap(0x11b0a9000, 24576, 0x3, 0x812, 3, 0x1e0000) = 0x11b0a9000
+720 121368.6 [24] mmap(0x11b0af000, 52816, 0x3, 0x32, -1, 0x0) = 0x11b0af000
+721 121368.6 [24] close(3) = 0
+722 121372.2 [24] mmap(0x0, 12288, 0x3, 0x22, -1, 0x0) = 0x116194000
+723 121372.2 [24] arch_prctl(0x1002, 0x116194740) = 0
+724 121372.8 [24] set_tid_address(0x116194a10) = 24
+725 121372.8 [24] set_robust_list(0x116194a20, 24) = 0
+726 121372.9 [24] rseq(0x116194680, 0x20, 0x0) = -1 ENOSYS
+727 121382.8 [24] mprotect(0x11b0a9000, 16384, 0x1) = 0
+728 121384.1 [24] mprotect(0x105876000, 8192, 0x1) = 0
+729 121385.0 [24] mprotect(0x1160e8000, 8192, 0x1) = 0
+730 121385.2 [24] prlimit_64(0, 3, 0x0, 0x11aabf980) = 0
+731 121385.5 [24] munmap(0x11618c000, 32187) = 0
+732 121386.6 [24] getuid() = 1000
+733 121386.7 [24] getgid() = 1000
+734 121386.7 [24] getpid() = 24
+735 121387.2 [24] rt_sigaction(17, 0x11aabf880, 0x0, 8) = 0
+736 121387.3 [24] geteuid() = 1000
+737 121388.5 [24] getrandom(0x11b0b4218, 8, 0x1) = 8
+738 121391.3 [24] brk(0x0) = 0x1162bc000
+739 121391.3 [24] brk(0x1162dd000) = 0x1162dd000
+740 121391.8 [24] getppid() = 0
+741 121394.4 [24] getcwd(0x1162bc3f0, 4096) = 2
+742 121397.6 [24] geteuid() = 1000
+743 121397.6 [24] getegid() = 1000
+744 121397.7 [24] rt_sigaction(2, 0x0, 0x11aabfa30, 8) = 0
+745 121397.7 [24] rt_sigaction(2, 0x11aabf990, 0x0, 8) = 0
+746 121397.8 [24] rt_sigaction(3, 0x0, 0x11aabfa30, 8) = 0
+747 121397.8 [24] rt_sigaction(3, 0x11aabf990, 0x0, 8) = 0
+748 121397.8 [24] rt_sigaction(15, 0x0, 0x11aabfa40, 8) = 0
+749 121397.8 [24] rt_sigaction(15, 0x11aabf9a0, 0x0, 8) = 0
+750 121408.0 [24] rt_sigaction(15, 0x11aabf630, 0x0, 8) = 0
+751 121409.4 [24] kill(24, 15) = 0
+752 121409.4 [24] --- signal 15 delivered: handler=0x10586bce0 frame=0x11aabf3f8 rip=0x11af07f87
+753 121409.5 [24] rt_sigreturn() = 0
+754 121410.0 guest[24] stdout: caught
+755 121410.0 [24] write(1, "caught\n", 7) = 7
+756 121410.5 [24] exit_group(5) = 0
+757 121410.5 kernel: pid 24 tid 24 exited code=5 after 51 syscalls, 82.7 ms
+758 121849.4 run: ps cwd=/
+759 121865.6 run: guest-out 24 cwd=/
+760 129438.3 run: exec /usr/bin/sh -c while :; do :; done cwd=/
+761 129439.2 kernel: pid 25 exec /usr/bin/sh (run) {"entry":"0x1160d12c0","rsp":"0x11aabfd70","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x105858000","entry":"0x10585c760","range":"0x105858000-0x10587b000","phdr":"0x105858040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x1160b4000","entry":"0x1160d12c0","range":"0x1160b4000-0x1160ec000"},"stack":"0x11a2c0000-0x11aac0000","brk":"0x1162bc000-0x11a2bc000","auxv":"0x11aabfdd8",
+762 129439.3 kernel: pid 25 tid 25 start rip=0x1160d12c0 rsp=0x11aabfd70
+763 129439.3 host: guest exec /usr/bin/sh -c while :; do :; done → {"ok":true,"pid":25,"dry_run":false,"layout":{"entry":"0x1160d12c0","rsp":"0x11aabfd70","main":{"path":"/usr/bin/dash","dyn":true,"base":"0x105858000","entry":"0x10585c760","range":"0x105858000-0x10587b000","phdr":"0x105858040","phnum":14,"interp":"/lib64/ld-linux-x86-64.so.2"},"interp":{"base":"0x1
+764 129441.3 [25] brk(0x0) = 0x1162bc000
+765 129449.9 run: ps cwd=/
+766 129471.8 [25] access("/etc/ld.so.preload", 4) = -1 ENOENT
+767 129475.6 [25] openat(-100, "/etc/ld.so.cache", 0x80000, 00) = 3
+768 129475.6 [25] fstat(3, 0x11aabee50) = 0
+769 129475.8 [25] mmap(0x0, 32187, 0x1, 0x2, 3, 0x0) = 0x11618c000
+770 129475.8 [25] close(3) = 0
+771 129476.9 [25] openat(-100, "/lib/x86_64-linux-gnu/libc.so.6", 0x80000, 00) = 3
+772 129477.0 [25] read(3, 0x11aabefc8, 832) = 832
+773 129477.0 [25] pread64(3, 0x11aabeb80, 840, 64) = 840
+774 129478.9 [25] fstat(3, 0x11aabee50) = 0
+775 129478.9 [25] mmap(0x0, 8192, 0x3, 0x22, -1, 0x0) = 0x105888000
+776 129479.0 [25] pread64(3, 0x11aabea60, 840, 64) = 840
+777 129479.8 [25] mmap(0x0, 2047568, 0x1, 0x802, 3, 0x0) = 0x11aec8000
+778 129480.6 [25] mmap(0x11aef0000, 1454080, 0x5, 0x812, 3, 0x28000) = 0x11aef0000
+779 129480.8 [25] mmap(0x11b053000, 352256, 0x1, 0x812, 3, 0x18b000) = 0x11b053000
+780 129480.8 [25] mmap(0x11b0a9000, 24576, 0x3, 0x812, 3, 0x1e0000) = 0x11b0a9000
+781 129480.9 [25] mmap(0x11b0af000, 52816, 0x3, 0x32, -1, 0x0) = 0x11b0af000
+782 129480.9 [25] close(3) = 0
+783 129484.4 [25] mmap(0x0, 12288, 0x3, 0x22, -1, 0x0) = 0x116194000
+784 129484.5 [25] arch_prctl(0x1002, 0x116194740) = 0
+785 129485.0 [25] set_tid_address(0x116194a10) = 25
+786 129485.1 [25] set_robust_list(0x116194a20, 24) = 0
+787 129485.1 [25] rseq(0x116194680, 0x20, 0x0) = -1 ENOSYS
+788 129494.8 [25] mprotect(0x11b0a9000, 16384, 0x1) = 0
+789 129496.1 [25] mprotect(0x105876000, 8192, 0x1) = 0
+790 129497.0 [25] mprotect(0x1160e8000, 8192, 0x1) = 0
+791 129497.2 [25] prlimit_64(0, 3, 0x0, 0x11aabf9a0) = 0
+792 129497.5 [25] munmap(0x11618c000, 32187) = 0
+793 129498.7 [25] getuid() = 1000
+794 129498.7 [25] getgid() = 1000
+795 129498.7 [25] getpid() = 25
+796 129499.2 [25] rt_sigaction(17, 0x11aabf8a0, 0x0, 8) = 0
+797 129499.4 [25] geteuid() = 1000
+798 129500.5 [25] getrandom(0x11b0b4218, 8, 0x1) = 8
+799 129503.3 [25] brk(0x0) = 0x1162bc000
+800 129503.3 [25] brk(0x1162dd000) = 0x1162dd000
+801 129503.8 [25] getppid() = 0
+802 129506.4 [25] getcwd(0x1162bc3f0, 4096) = 2
+803 129509.4 [25] geteuid() = 1000
+804 129509.4 [25] getegid() = 1000
+805 129509.5 [25] rt_sigaction(2, 0x0, 0x11aabfa50, 8) = 0
+806 129509.5 [25] rt_sigaction(2, 0x11aabf9b0, 0x0, 8) = 0
+807 129509.5 [25] rt_sigaction(3, 0x0, 0x11aabfa50, 8) = 0
+808 129509.5 [25] rt_sigaction(3, 0x11aabf9b0, 0x0, 8) = 0
+809 129509.5 [25] rt_sigaction(15, 0x0, 0x11aabfa60, 8) = 0
+810 129509.5 [25] rt_sigaction(15, 0x11aabf9c0, 0x0, 8) = 0
+811 129963.7 run: ps cwd=/
+812 130478.9 run: ps cwd=/
+813 130996.1 run: ps cwd=/
+814 131510.8 run: ps cwd=/
+815 132022.9 run: ps cwd=/
+816 132538.6 run: ps cwd=/
+817 133051.3 run: ps cwd=/
+818 133563.5 run: ps cwd=/
+819 134078.2 run: ps cwd=/
+820 134592.1 run: guest-out 25 cwd=/
+821 134711.6 run: killall cwd=/
+822 134711.7 kernel: pid 25 tid 25 kicked out of JIT code (guest rip=0x10585f9f0) -> exit code=0
+823 137825.4 run: ps cwd=/

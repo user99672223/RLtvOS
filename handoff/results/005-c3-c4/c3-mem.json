@@ -1,0 +1,17 @@
+{
+  "mem": {
+    "available": 1992275936,
+    "available_mb": 1900,
+    "compressed": 0,
+    "external": 27951104,
+    "internal": 189710336,
+    "kr": 0,
+    "limit_estimate": 2199912448,
+    "peak_phys_footprint": 209422128,
+    "phys_footprint": 207636512,
+    "phys_footprint_mb": 198,
+    "resident_size": 223002624,
+    "virtual_size": 479056773120
+  },
+  "ok": true
+}

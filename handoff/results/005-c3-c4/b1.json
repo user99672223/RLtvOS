@@ -1,0 +1,52 @@
+{
+  "exited": true,
+  "http": 200,
+  "ok": true,
+  "output": "hi\n/dev/shm:\ntotal 8\ndrwxrwxrwt 2 root root 4096 Sep 27 03:57 .\ndrwxr-xr-x 2 root root 4096 Sep 27 03:57 ..\n\n/run:\ntotal 16\ndrwxr-xr-x 2 root root 4096 Sep 27 03:57 .\ndrwxr-xr-x 2 root root 4096 Sep 27 03:57 ..\ndrwxrwxrwt 2 root root 4096 Sep 27 03:57 lock\ndrwxr-xr-x 2 root root 4096 Sep 27 03:57 user\n\n/tmp:\ntotal 13\ndrwxrwxrwt 3 root root 4096 Sep 27 03:59 .\ndrwxr-xr-x 2 root root 4096 Sep 27 03:57 ..\ndrwxrwxrwt 2 user user 4096 Sep 27 03:59 .X11-unix\n-rw-r--r-- 1 user user    3 Sep 27 03:59 t\nx\nFilesystem     1K-blocks     Used Available Use% Mounted on\ntmpfs           50331648 33554432  16777216  67% /tmp\n",
+  "process": {
+    "dry_run": false,
+    "exe": "/usr/bin/sh",
+    "exit_code": 0,
+    "fds": 0,
+    "live_threads": 0,
+    "mapped_bytes": 0,
+    "ms": 527.6,
+    "pid": 26,
+    "ppid": 0,
+    "reaped": true,
+    "state": "exited",
+    "syscalls": 137,
+    "term_signal": 0,
+    "threads": 1,
+    "vmas": 0
+  },
+  "reply": {
+    "dry_run": false,
+    "layout": {
+      "auxv": "0x11aabfd48",
+      "auxv_entries": 20,
+      "brk": "0x1162bc000-0x11a2bc000",
+      "entry": "0x1160d12c0",
+      "interp": {
+        "base": "0x1160b4000",
+        "entry": "0x1160d12c0",
+        "range": "0x1160b4000-0x1160ec000"
+      },
+      "main": {
+        "base": "0x105858000",
+        "dyn": true,
+        "entry": "0x10585c760",
+        "interp": "/lib64/ld-linux-x86-64.so.2",
+        "path": "/usr/bin/dash",
+        "phdr": "0x105858040",
+        "phnum": 14,
+        "range": "0x105858000-0x10587b000"
+      },
+      "rsp": "0x11aabfce0",
+      "stack": "0x11a2c0000-0x11aac0000"
+    },
+    "ok": true,
+    "pid": 26,
+    "rc": 26
+  }
+}

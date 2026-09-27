@@ -1,0 +1,12 @@
+{
+  "entries": [
+    {
+      "mode": "1777",
+      "name": ".X11-unix",
+      "size": 4096,
+      "type": "dir"
+    }
+  ],
+  "ok": true,
+  "path": "/tmp"
+}

@@ -1,0 +1,2 @@
+Bus error
+/opt/rl/refs/c4.sh: 4: .: cannot open /_lib.sh: No such file

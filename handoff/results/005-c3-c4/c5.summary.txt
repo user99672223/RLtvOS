@@ -1,0 +1,276 @@
+trace: /home/user/local_RLtvOS/refs/c5.trace.gz  lines=437522 processes=134 time=22:55:58.214343..22:56:21.792014
+unique syscalls: 104   ENOSYS: none
+execve: 5:/usr/bin/sh; 6:/usr/bin/mkdir; 8:/usr/bin/sleep; 7:/usr/bin/Xvfb; 9:/bin/sh; 10:/usr/bin/xkbcomp; 12:/usr/bin/date; 13:/usr/bin/mkdir; 15:/usr/bin/sleep; 14:/opt/wine-stable/bin/wineserver; 17:/usr/bin/date; 19:/opt/wine-stable/bin/wine; 21:/usr/bin/date; 23:/usr/bin/sleep; 22:/opt/wine-stable/bin/wine; 22:/opt/wine-stable/lib/wine/i386-unix/wine-preloader; 22:/opt/wine-stable/lib/wine/i386-unix/wine; 22:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 25:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 27:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 29:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 32:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 41:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 47:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 48:/usr/bin/xdotool; 49:/usr/bin/sleep; 55:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 71:/usr/bin/xdotool; 72:/usr/bin/sleep; 74:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 76:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 77:/usr/bin/xdotool; 78:/usr/bin/sleep; 84:/opt/wine-stable/lib/wine/x86_64-unix/wine-preloader; 93:/usr/bin/xdotool; 94:/usr/bin/sleep; 95:/usr/bin/xdotool; 96:/usr/bin/sleep; 97:/usr/bin/xdotool; 98:/usr/bin/sleep
+exits: 6=0, 10=0, 9=0, 8=0, 12=0, 11=0, 13=0, 15=0, 17=0, 16=0, 18=0, 19=0, 21=0, 20=0, 24=0, 26=0, 27=53, 28=0, 31=0, 39=0, 40=0, 46=0, 23=0, 48=1, 54=0, 62=0, 49=0, 71=1, 25=0, 73=0, 75=0, 72=0, 77=1, 83=0, 78=0, 93=1, 94=0, 95=1, 96=0, 97=1
+signals: SIGCHLDx78, SIGINTx1, SIGCONTx1, SIGQUITx13, SIGTERMx1
+
+syscall counts:
+     62465  read
+     56106  rt_sigprocmask
+     26259  write
+     21717  epoll_pwait2
+     19428  writev
+     17126  clock_nanosleep
+     10434  mmap
+      7461  mprotect
+      6783  close
+      5930  newfstatat
+      5668  recvmsg
+      4935  fstat
+      4769  readlink
+      2504  openat
+      2291  pread64
+      1784  setitimer
+      1736  fcntl
+      1604  access
+      1427  munmap
+      1188  getxattr
+      1008  epoll_wait
+       801  sendmsg
+       781  uname
+       779  getdents64
+       684  futex
+       545  ioctl
+       397  fstatfs
+       362  brk
+       342  recvfrom
+       253  epoll_ctl
+       206  lseek
+       198  rt_sigaction
+       181  pipe2
+       162  prlimit64
+       159  fchdir
+       155  set_robust_list
+       144  arch_prctl
+       140  wait4
+       120  rseq
+        92  getrandom
+        91  exit_group
+        81  execve
+        77  set_tid_address
+        76  faccessat2
+        68  rt_sigreturn
+        67  getpid
+        61  prctl
+        56  sigaltstack
+        55  vfork
+        55  gettid
+        53  sched_setaffinity
+        50  shutdown
+        45  setsockopt
+        43  clone3
+        38  connect
+        37  getsockopt
+        35  clone
+        35  exit
+        34  umask
+        33  getuid
+        27  getpeername
+        25  sysinfo
+        24  fadvise64
+        18  getcwd
+        16  kill
+        15  chdir
+        13  tgkill
+        12  mkdir
+        12  unlink
+        12  socketpair
+        12  fgetxattr
+         9  geteuid
+         9  bind
+         9  setsid
+         7  statfs
+         6  getgid
+         6  getrusage
+         5  getegid
+         5  ftruncate
+         5  getsockname
+         4  pwrite64
+         4  statx
+         3  getppid
+         3  listen
+         3  sched_getaffinity
+         3  sched_yield
+         3  rename
+         2  chmod
+         2  setpriority
+         2  getresuid
+         2  getresgid
+         1  setresuid
+         1  getpgrp
+         1  setpgid
+         1  fchmod
+         1  link
+         1  setgid
+         1  setuid
+         1  sendto
+         1  shmget
+         1  shmat
+         1  shmdt
+         1  shmctl
+         1  poll
+
+errors (syscall errno count):
+      4121  readlink EINVAL
+      2928  recvmsg EAGAIN
+      2504  openat ENOENT
+      1227  newfstatat ENOENT
+      1188  getxattr ENODATA
+       346  ioctl ENOTTY
+       221  access ENOENT
+       221  mmap ENOMEM
+        60  close EBADF
+        28  recvfrom EAGAIN
+        26  readlink ENOENT
+        18  futex EAGAIN
+        15  pread64 EISDIR
+        13  kill ESRCH
+        12  prctl EINVAL
+        12  munmap EINVAL
+        12  fgetxattr ENODATA
+        10  fstat EBADF
+        10  pread64 EBADF
+         8  mkdir EEXIST
+         7  read ERESTARTSYS
+         6  statfs ENOENT
+         6  wait4 ECHILD
+         5  connect ENOENT
+         4  execve ENOENT
+         4  setsockopt EPERM
+         4  futex ETIMEDOUT
+         3  unlink ENOENT
+         2  access EROFS
+         2  connect ENETUNREACH
+         2  connect EADDRNOTAVAIL
+         2  rt_sigreturn EINTR
+         2  futex ERESTARTSYS
+         2  epoll_ctl EBADF
+         1  setresuid EINVAL
+         1  read EAGAIN
+         1  setpriority EACCES
+         1  lseek ESPIPE
+         1  epoll_pwait2 EINTR
+         1  recvfrom ERESTARTSYS
+         1  epoll_wait EINTR
+
+paths (top):
+     726  openat     ENOENT   /home/user/.Xdefaults
+     726  openat     ENOENT   /home/user/.Xdefaults-laptop
+     647  newfstatat ok       /
+     531  newfstatat ok       /prefix/dosdevices/z:
+     418  newfstatat ok       /etc/localtime
+     334  readlink   EINVAL   /opt
+     334  readlink   EINVAL   /opt/wine-stable
+     320  readlink   EINVAL   /opt/wine-stable/lib
+     320  readlink   EINVAL   /opt/wine-stable/lib/wine
+     302  readlink   EINVAL   /prefix
+     301  readlink   EINVAL   /prefix/dosdevices
+     284  readlink   ok       /prefix/dosdevices/c:
+     283  readlink   EINVAL   /prefix/drive_c
+     274  readlink   EINVAL   /prefix/drive_c/windows
+     273  readlink   EINVAL   /opt/wine-stable/lib/wine/x86_64-windows
+     230  readlink   EINVAL   /prefix/drive_c/windows/system32
+     144  newfstatat ok       /prefix/dosdevices/c:/windows/system32/tzres.dll
+     136  newfstatat ok       /prefix/dosdevices/c:/windows
+      80  newfstatat ok       /usr/share/fonts
+      80  newfstatat ok       /usr/share/fonts/truetype
+      80  newfstatat ok       /usr/share/fonts/truetype/dejavu
+      77  access     ENOENT   /etc/ld.so.preload
+      72  newfstatat ENOENT   /prefix/dosdevices/c:/windows/fonts
+      64  newfstatat ok       /usr/share
+      64  newfstatat ok       /usr
+      48  readlink   EINVAL   /prefix/drive_c/windows/system32/tzres.dll
+      46  openat     ENOENT   /usr/lib/locale/locale-archive
+      46  openat     ENOENT   /usr/share/locale/locale.alias
+      46  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_IDENTIFICATION
+      46  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_MEASUREMENT
+      46  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_TELEPHONE
+      46  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_ADDRESS
+      46  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_NAME
+      46  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_PAPER
+      46  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_MESSAGES
+      46  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_MONETARY
+      46  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_COLLATE
+      46  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_TIME
+      46  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_NUMERIC
+      46  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_CTYPE
+      39  newfstatat ok       /opt
+      38  newfstatat ok       /prefix/dosdevices/c:/windows/syswow64
+      32  newfstatat ENOENT   /home/user/.local/share/fonts
+      32  newfstatat ENOENT   /usr/share/gnome/fonts
+      32  newfstatat ENOENT   /home/user/.local/share/flatpak/exports/share/fonts
+      32  newfstatat ENOENT   /var/lib/flatpak/exports/share/fonts
+      32  newfstatat ENOENT   /home/user/.fonts
+      29  readlink   EINVAL   /opt/wine-stable/lib/wine/x86_64-unix
+      29  newfstatat ok       /prefix/dosdevices/c:/windows/system32
+      28  readlink   EINVAL   /opt/wine-stable/share
+      28  readlink   EINVAL   /opt/wine-stable/share/wine
+      28  newfstatat ok       /prefix/dosdevices/z:/opt/wine-stable/share/wine/fonts/tahoma.ttf
+      27  access     ENOENT   /run/user/1000/.mutter-Xwaylandauth.QVIFW3
+      26  newfstatat ok       /prefix
+      26  newfstatat ok       /opt/wine-stable/lib/wine
+      26  newfstatat ok       /opt/wine-stable/lib
+      26  newfstatat ok       /opt/wine-stable
+      25  newfstatat ok       /prefix/dosdevices/z:/opt/wine-stable/share/wine/fonts/vgasys.fon
+      24  readlink   EINVAL   /opt/wine-stable/lib/wine/x86_64-windows/tzres.dll
+      24  access     ok       /etc/fonts/conf.d
+      24  newfstatat ok       /prefix/dosdevices/z:/opt/wine-stable/share/wine/fonts
+      22  newfstatat ok       .
+      22  newfstatat ok       /prefix/dosdevices/c:/windows/
+      22  faccessat2 ok       /prefix/drive_c/windows/
+      21  newfstatat ok       /home/user
+      20  newfstatat ENOENT   search
+      19  readlink   EINVAL   /opt/wine-stable/share/wine/nls
+      19  readlink   ok       /prefix/dosdevices/z:
+      18  faccessat2 ok       /opt/wine-stable/lib/wine/
+      18  newfstatat ok       windows
+      18  newfstatat ok       system32
+      18  newfstatat ok       /prefix/dosdevices/z:/opt/wine-stable/share/wine/fonts/tahomabd.ttf
+      17  readlink   EINVAL   /proc
+      17  readlink   ok       /proc/self
+      16  readlink   EINVAL   /opt/wine-stable/lib/wine/x86_64-unix/ntdll.so
+      16  newfstatat ENOENT   /prefix/dosdevices/a:
+      16  newfstatat ENOENT   /prefix/dosdevices/b:
+      16  newfstatat ok       /prefix/dosdevices/c:
+      16  newfstatat ENOENT   /prefix/dosdevices/d:
+      16  newfstatat ENOENT   /prefix/dosdevices/e:
+      16  newfstatat ENOENT   /prefix/dosdevices/f:
+      16  newfstatat ENOENT   /prefix/dosdevices/g:
+      16  newfstatat ENOENT   /prefix/dosdevices/h:
+      16  newfstatat ENOENT   /prefix/dosdevices/i:
+      16  newfstatat ENOENT   /prefix/dosdevices/j:
+      16  newfstatat ENOENT   /prefix/dosdevices/k:
+      16  newfstatat ENOENT   /prefix/dosdevices/l:
+      16  newfstatat ENOENT   /prefix/dosdevices/m:
+      16  newfstatat ENOENT   /prefix/dosdevices/n:
+      16  newfstatat ENOENT   /prefix/dosdevices/o:
+      16  newfstatat ENOENT   /prefix/dosdevices/p:
+      16  newfstatat ENOENT   /prefix/dosdevices/q:
+      16  newfstatat ENOENT   /prefix/dosdevices/r:
+      16  newfstatat ENOENT   /prefix/dosdevices/s:
+      16  newfstatat ENOENT   /prefix/dosdevices/t:
+      16  newfstatat ENOENT   /prefix/dosdevices/u:
+      16  newfstatat ENOENT   /prefix/dosdevices/v:
+      16  newfstatat ENOENT   /prefix/dosdevices/w:
+      16  newfstatat ENOENT   /prefix/dosdevices/x:
+      16  newfstatat ENOENT   /prefix/dosdevices/y:
+      16  newfstatat ENOENT   /prefix/dosdevices/pipe
+      16  access     ok       /etc/fonts/fonts.conf
+      16  access     ok       /etc/fonts/conf.d/10-hinting-slight.conf
+      16  access     ok       /etc/fonts/conf.d/10-scale-bitmap-fonts.conf
+      16  access     ok       /etc/fonts/conf.d/10-sub-pixel-none.conf
+      16  access     ok       /etc/fonts/conf.d/10-yes-antialias.conf
+      16  access     ok       /etc/fonts/conf.d/11-lcdfilter-default.conf
+      16  access     ok       /etc/fonts/conf.d/20-unhint-small-dejavu-lgc-sans-mono.conf
+      16  access     ok       /etc/fonts/conf.d/20-unhint-small-dejavu-lgc-sans.conf
+      16  access     ok       /etc/fonts/conf.d/20-unhint-small-dejavu-lgc-serif.conf
+      16  access     ok       /etc/fonts/conf.d/20-unhint-small-dejavu-sans-mono.conf
+      16  access     ok       /etc/fonts/conf.d/20-unhint-small-dejavu-sans.conf
+      16  access     ok       /etc/fonts/conf.d/20-unhint-small-dejavu-serif.conf
+      16  access     ok       /etc/fonts/conf.d/20-unhint-small-vera.conf
+      16  access     ok       /etc/fonts/conf.d/30-metric-aliases.conf
+      16  access     ok       /etc/fonts/conf.d/40-nonlatin.conf
+      16  access     ok       /etc/fonts/conf.d/45-generic.conf
+      16  access     ok       /etc/fonts/conf.d/45-latin.conf
+      16  access     ok       /etc/fonts/conf.d/48-spacing.conf
+      16  access     ok       /etc/fonts/conf.d/49-sansserif.conf

@@ -64,14 +64,17 @@
 
 ## laptop
 
-- **Request 004 (build-23): PARTIAL, paused** (2026-09-27 04:49–05:25 CEST).
-  - Passed: step 0 (address space holds at 7.25 GB across 6 guests, `allocator: system`) and
-    1b.
-  - 1a and 1c hang: the forked child loops forever on an unaligned `stlurh` into a CoW page;
-    `cow_fault()` claims every fault on a tracked page, so FEX's unaligned fix-up never runs.
-  - Steps 2–5 are not run: the TV went to standby twice during hangs, so LAPTOP asked the user
-    before waking it again.
-  - Details: results/004-c3-shell/verdict.md.
+- **Request 005 (build-25): Part A PARTIAL, Part B PARTIAL** (2026-09-27 05:57–06:20 CEST).
+  - Every *fork* child dies on its first stack write: the CoW write-protect fault arrives as
+    SIGBUS si_code 1 and is misrouted to FEX's unaligned fix-up. vfork children are fine.
+  - Passed: threads-test, signal exits, kick, B1 (writable layer + guest-file routes).
+  - Xvfb (top-level): sockets and epoll OK; it dies at keyboard init because the xkbcomp fork
+    dies.
+  - Each thread that ends by FAULT or kick leaks a 272 MB FEX lookup cache (address space
+    7.5 → 0.75 GB).
+  - Details: results/005-c3-c4/verdict.md.
+- Request 004 (build-23): PARTIAL (VA budget and 1b PASS; the fork hang, fixed in build-25);
+  addendum with the 1c evidence.
 - Request 003 (build-20): PARTIAL (C2 PASS; 4th-guest death, fixed in build-23).
 - Request 002 (build-18): PARTIAL, C1 PASS; C2's SIGBUS was fixed in build-20.
 - The TV is in standby. `tv.py launch` wakes it itself since build-20. If a debugger session

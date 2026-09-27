@@ -1,0 +1,107 @@
+{
+  "arena": {
+    "base": "0x105834000",
+    "page": 16384,
+    "pages": 1024,
+    "prot": "rwx",
+    "rwx_errno": 0,
+    "size": 16777216,
+    "size_mb": 16
+  },
+  "authorize_seconds": 6.0,
+  "authorized": true,
+  "backend": "cmd",
+  "build": "build-23",
+  "cmd": "~/local_RLtvOS/laptop/jit.sh --pid 1221",
+  "err": "",
+  "jit": {
+    "allocator": {
+      "free": 134217728,
+      "largest_free": 134217728,
+      "segments": 1,
+      "size": 134217728,
+      "used": 0
+    },
+    "attached_test": true,
+    "cs_debugged": 1,
+    "detach_serviced": true,
+    "detached": true,
+    "detached_test": null,
+    "error": "",
+    "in_place": {
+      "errno": 0,
+      "prepared": false,
+      "tried": false
+    },
+    "ok": true,
+    "pool": "0x1082f4000",
+    "prepare_s": 4.28,
+    "prepared_by": "debugger",
+    "protect_kr": 0,
+    "ptraced": 0,
+    "ptraced_at_prepare": 1,
+    "remap_kr": 0,
+    "remap_s": 0.008,
+    "rw_alias": "0x1102f4000",
+    "size": 134217728,
+    "size_mb": 128,
+    "stage": "detaching",
+    "unserviced_traps": 0,
+    "wait_s": 60,
+    "waited_s": 2.6
+  },
+  "jittest": {
+    "executed": true,
+    "jit": {
+      "allocator": {
+        "free": 134217728,
+        "largest_free": 134217728,
+        "segments": 1,
+        "size": 134217728,
+        "used": 0
+      },
+      "attached_test": true,
+      "cs_debugged": 1,
+      "detach_serviced": true,
+      "detached": true,
+      "detached_test": true,
+      "error": "",
+      "in_place": {
+        "errno": 0,
+        "prepared": false,
+        "tried": false
+      },
+      "ok": true,
+      "pool": "0x1082f4000",
+      "prepare_s": 4.28,
+      "prepared_by": "debugger",
+      "protect_kr": 0,
+      "ptraced": 0,
+      "ptraced_at_prepare": 1,
+      "remap_kr": 0,
+      "remap_s": 0.008,
+      "rw_alias": "0x1102f4000",
+      "size": 134217728,
+      "size_mb": 128,
+      "stage": "ready",
+      "unserviced_traps": 0,
+      "wait_s": 60,
+      "waited_s": 2.6
+    },
+    "ok": true,
+    "test": {
+      "detached": true,
+      "ok": true,
+      "pool": "0x1082f4000",
+      "ptraced": 0,
+      "result1": 42,
+      "result2": 43,
+      "rw_alias": "0x1102f4000"
+    }
+  },
+  "launches_app": false,
+  "ok": true,
+  "out": "{\"ok\":true,\"event\":\"prepared\",\"helper_pid\":78660,\"log\":\"~/rltvos/out/jit/jit-20260927-055514.log\",\"last\":{\"event\":\"prepared\",\"t\":5.502,\"addr\":\"0x1082f4000\",\"len\":134217728,\"pages\":8192,\"allocated_by\":\"debugger\",\"ms\":4108,\"regions\":1}}\n",
+  "pid": 1221,
+  "rc": 0
+}

@@ -1,0 +1,17 @@
+C3 start pid=6
+Bus error
+Bus error
+Bus error
+Bus error
+Bus error
+Bus error
+got-TERM
+after self-kill
+Bus error
+false exit status: 
+Bus error
+Bus error
+no /proc/self/status
+Bus error
+threads-test exit=135
+C3 done

@@ -1,0 +1,52 @@
+{
+  "exited": true,
+  "http": 200,
+  "ok": true,
+  "output": "threads: counter=400000 (expect 400000) joined=60 (expect 60) usr1=1 tid=18\n",
+  "process": {
+    "dry_run": false,
+    "exe": "/opt/rl/bin/threads-test",
+    "exit_code": 0,
+    "fds": 0,
+    "live_threads": 0,
+    "mapped_bytes": 0,
+    "ms": 129.9,
+    "pid": 18,
+    "ppid": 0,
+    "reaped": true,
+    "state": "exited",
+    "syscalls": 101,
+    "term_signal": 0,
+    "threads": 5,
+    "vmas": 0
+  },
+  "reply": {
+    "dry_run": false,
+    "layout": {
+      "auxv": "0x11aabfdd8",
+      "auxv_entries": 20,
+      "brk": "0x1162bc000-0x11a2bc000",
+      "entry": "0x1160d12c0",
+      "interp": {
+        "base": "0x1160b4000",
+        "entry": "0x1160d12c0",
+        "range": "0x1160b4000-0x1160ec000"
+      },
+      "main": {
+        "base": "0x105858000",
+        "dyn": true,
+        "entry": "0x105859290",
+        "interp": "/lib64/ld-linux-x86-64.so.2",
+        "path": "/opt/rl/bin/threads-test",
+        "phdr": "0x105858040",
+        "phnum": 14,
+        "range": "0x105858000-0x10585d000"
+      },
+      "rsp": "0x11aabfd80",
+      "stack": "0x11a2c0000-0x11aac0000"
+    },
+    "ok": true,
+    "pid": 18,
+    "rc": 18
+  }
+}

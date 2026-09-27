@@ -1,0 +1,123 @@
+trace: /home/user/local_RLtvOS/refs/c3.trace.gz  lines=2162 processes=17 time=01:48:26.802693..01:48:27.859976
+unique syscalls: 49   ENOSYS: none
+execve: 5:/usr/bin/sh; 5:/bin/busybox; 9:/usr/bin/sleep; 8:/usr/bin/tr; 10:/usr/bin/wc; 12:/usr/bin/sort; 13:/usr/bin/head; 15:/usr/bin/cat; 16:/usr/bin/head; 17:/opt/rl/bin/threads-test
+exits: 7=0, 8=0, 10=0, 11=0, 12=0, 13=0, 9=0, 6=0, 14=0, 15=0, 16=0, 21=0, 20=0, 19=0, 18=0, 17=0, 5=0
+signals: SIGCHLDx12, SIGTERMx1, SIGUSR1x1
+
+syscall counts:
+       182  mmap
+       171  close
+       132  fstat
+        98  openat
+        55  rt_sigprocmask
+        54  rt_sigaction
+        41  newfstatat
+        35  mprotect
+        30  brk
+        26  set_robust_list
+        24  read
+        20  pread64
+        20  wait4
+        20  futex
+        17  write
+        14  rseq
+        14  rt_sigreturn
+        13  prlimit64
+        13  exit_group
+        12  munmap
+        12  clone
+        10  execve
+        10  access
+        10  arch_prctl
+        10  set_tid_address
+        10  getrandom
+         6  pipe2
+         4  getpid
+         4  fadvise64
+         4  clone3
+         4  madvise
+         4  exit
+         3  lseek
+         2  getuid
+         2  getgid
+         2  geteuid
+         2  getppid
+         2  sysinfo
+         2  clock_nanosleep
+         2  gettid
+         1  fcntl
+         1  getegid
+         1  setgid
+         1  setuid
+         1  uname
+         1  sched_getaffinity
+         1  kill
+         1  rt_sigsuspend
+         1  tgkill
+
+errors (syscall errno count):
+        98  openat ENOENT
+        31  newfstatat ENOENT
+        10  access ENOENT
+         5  wait4 ECHILD
+         3  fadvise64 ESPIPE
+         3  lseek ESPIPE
+         2  futex EAGAIN
+         1  rt_sigsuspend ERESTARTNOHAND
+         1  rt_sigreturn EINTR
+
+paths (top):
+      10  access     ENOENT   /etc/ld.so.preload
+       7  openat     ENOENT   /usr/lib/locale/locale-archive
+       7  openat     ENOENT   /usr/share/locale/locale.alias
+       7  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_IDENTIFICATION
+       7  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_MEASUREMENT
+       7  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_TELEPHONE
+       7  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_ADDRESS
+       7  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_NAME
+       7  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_PAPER
+       7  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_MESSAGES
+       7  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_MONETARY
+       7  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_COLLATE
+       7  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_TIME
+       7  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_NUMERIC
+       7  openat     ENOENT   /usr/lib/locale/C.UTF-8/LC_CTYPE
+       2  newfstatat ok       /home/user
+       2  newfstatat ok       .
+       1  newfstatat ENOENT   /etc/busybox.conf
+       1  newfstatat ENOENT   /opt/wine-stable/bin/sleep
+       1  newfstatat ENOENT   /opt/rl/bin/sleep
+       1  newfstatat ENOENT   /opt/wine-stable/bin/tr
+       1  newfstatat ENOENT   /usr/local/sbin/sleep
+       1  newfstatat ENOENT   /opt/rl/bin/tr
+       1  newfstatat ENOENT   /usr/local/bin/sleep
+       1  newfstatat ENOENT   /usr/local/sbin/tr
+       1  newfstatat ENOENT   /usr/local/bin/tr
+       1  newfstatat ENOENT   /usr/sbin/sleep
+       1  newfstatat ENOENT   /usr/sbin/tr
+       1  newfstatat ok       /usr/bin/tr
+       1  newfstatat ok       /usr/bin/sleep
+       1  newfstatat ENOENT   /opt/wine-stable/bin/wc
+       1  newfstatat ENOENT   /opt/rl/bin/wc
+       1  newfstatat ENOENT   /usr/local/sbin/wc
+       1  newfstatat ENOENT   /usr/local/bin/wc
+       1  newfstatat ENOENT   /usr/sbin/wc
+       1  newfstatat ok       /usr/bin/wc
+       1  newfstatat ENOENT   /opt/wine-stable/bin/sort
+       1  newfstatat ENOENT   /opt/rl/bin/sort
+       1  newfstatat ENOENT   /usr/local/sbin/sort
+       1  newfstatat ENOENT   /usr/local/bin/sort
+       1  newfstatat ENOENT   /usr/sbin/sort
+       1  newfstatat ok       /usr/bin/sort
+       1  newfstatat ENOENT   /opt/wine-stable/bin/head
+       1  newfstatat ENOENT   /opt/rl/bin/head
+       1  newfstatat ENOENT   /usr/local/sbin/head
+       1  newfstatat ENOENT   /usr/local/bin/head
+       1  newfstatat ENOENT   /usr/sbin/head
+       1  newfstatat ok       /usr/bin/head
+       1  newfstatat ENOENT   /opt/wine-stable/bin/cat
+       1  newfstatat ENOENT   /opt/rl/bin/cat
+       1  newfstatat ENOENT   /usr/local/sbin/cat
+       1  newfstatat ENOENT   /usr/local/bin/cat
+       1  newfstatat ENOENT   /usr/sbin/cat
+       1  newfstatat ok       /usr/bin/cat

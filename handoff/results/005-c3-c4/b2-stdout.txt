@@ -1,0 +1,8 @@
+total 8
+drwxrwxrwt 2 user user 4096 Sep 27 03:59 .
+drwxrwxrwt 3 root root 4096 Sep 27 03:59 ..
+Bus error
+Bus error
+/usr/bin/sh: 1: kill: No such process
+
+rc=0
