@@ -114,6 +114,32 @@ std::string JsonEscape(std::string_view s) {
     return o;
 }
 
+std::string StraceStr(const void* data, size_t len, size_t max) {
+    const unsigned char* p = static_cast<const unsigned char*>(data);
+    std::string o;
+    const size_t n = len < max ? len : max;
+    for (size_t i = 0; i < n; i++) {
+        unsigned char c = p[i];
+        switch (c) {
+            case '\n': o += "\\n"; break;
+            case '\t': o += "\\t"; break;
+            case '\r': o += "\\r"; break;
+            case '"': o += "\\\""; break;
+            case '\\': o += "\\\\"; break;
+            default:
+                if (c < 0x20 || c >= 0x7f) {
+                    char b[6];
+                    snprintf(b, sizeof b, "\\%o", c);
+                    o += b;
+                } else {
+                    o += (char)c;
+                }
+        }
+    }
+    if (len > max) o += "\"...";
+    return o;
+}
+
 const char* ErrnoName(int err) {
     switch (err) {
         case lx::eperm: return "EPERM";

@@ -70,12 +70,14 @@ AddressSpace::AddressSpace() = default;
 AddressSpace::~AddressSpace() {
     std::lock_guard<std::mutex> lk(mu_);
     // Release everything we own, host page by host page (pages shared with
-    // nobody else: all VMAs here are ours).
+    // nobody else: all VMAs here are ours). Translations of the freed ranges
+    // are dropped too: the next process may be loaded at the same addresses.
     while (!vmas_.empty()) {
         auto it = vmas_.begin();
         uint64_t s = it->second.start, e = it->second.end;
         vmas_.erase(it);
         release_uncovered_host_pages(s, e);
+        invalidate(s, e);
     }
 }
 

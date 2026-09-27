@@ -267,17 +267,20 @@ void Kernel::thread_main(GuestThread* t) {
     struct Ctx {
         FEXCore::Core::InternalThreadState* th;
     } ctx {thread};
-    const int rc = rlfex_run_guarded([](void* p) { g_ctx->ExecuteThread(static_cast<Ctx*>(p)->th); }, &ctx, &fault);
+    const int rc = rlfex_run_guarded([](void* p) { g_ctx->ExecuteThread(static_cast<Ctx*>(p)->th); }, &ctx, thread, &fault);
     if (rc != 0) {
-        Log("kernel: pid %d tid %d FAULT signal=%d pc=0x%llx addr=0x%llx (guest rip=0x%llx)", t->proc->pid, t->tid,
-            fault.signal, (unsigned long long)fault.pc, (unsigned long long)fault.addr,
-            (unsigned long long)thread->CurrentFrame->State.rip);
+        Log("kernel: pid %d tid %d FAULT signal=%d code=%d pc=0x%llx%s addr=0x%llx (last block-exit guest rip=0x%llx, "
+            "unaligned fixups so far=%llu)",
+            t->proc->pid, t->tid, fault.signal, fault.code, (unsigned long long)fault.pc, fault.in_jit ? " (in JIT code)" : "",
+            (unsigned long long)fault.addr, (unsigned long long)thread->CurrentFrame->State.rip,
+            (unsigned long long)fault.unaligned_fixups);
         t->exit_code = 128 + fault.signal;
         t->proc->exit_code = t->exit_code;
         t->proc->end_ms = NowMs();
         t->proc->state = (int)ProcState::Zombie;
         t->exited = true;
         // The FEX thread object is left alone: its state is unknown after a longjmp.
+        reap(*t->proc);
         return;
     }
     if (!t->exited) {
@@ -291,6 +294,21 @@ void Kernel::thread_main(GuestThread* t) {
     Log("kernel: pid %d tid %d exited code=%d after %llu syscalls, %.1f ms", t->proc->pid, t->tid, t->exit_code,
         (unsigned long long)t->syscalls, t->proc->end_ms - t->proc->start_ms);
     destroy_fex_thread(*t);
+    reap(*t->proc);
+}
+
+void Kernel::reap(GuestProcess& p) {
+    // The table entry stays (ps, exit codes, /proc/<pid>); the memory and the
+    // files go now — each exited process would otherwise keep ~72 MB of the
+    // ~6.5 GB address-space budget mapped.
+    std::shared_ptr<AddressSpace> mm;
+    {
+        std::lock_guard<std::mutex> lk(mu);
+        mm = std::move(p.mm);
+        p.mm.reset();
+        p.fds.clear();
+    }
+    mm.reset();  // unmaps + invalidates translations outside the kernel lock
 }
 
 // ------------------------------------------------------------------ spawn
@@ -389,6 +407,7 @@ int Kernel::spawn(const std::vector<std::string>& argv, const std::vector<std::s
         snprintf(head, sizeof head, "{\"ok\":true,\"pid\":%d,\"dry_run\":true,\"vmas\":%zu,\"mapped_bytes\":%llu,", pid,
                  praw->mm->vma_count(), (unsigned long long)praw->mm->mapped_bytes());
         reply = std::string(head) + "\"layout\":" + layout + ",\"maps\":\"" + JsonEscape(praw->mm->maps_text()) + "\"}";
+        reap(*praw);
         return pid;
     }
 

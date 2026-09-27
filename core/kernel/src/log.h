@@ -19,6 +19,10 @@ std::string JsonEscape(std::string_view s);
 // Errno name for the strace-style log ("ENOENT"); "E<num>" if unknown.
 const char* ErrnoName(int err);
 
+// strace-style rendering of a guest buffer: printable ASCII as is, \n \t \r
+// \" \\ escaped, other bytes as \NNN octal, cut at `max` bytes with "...".
+std::string StraceStr(const void* data, size_t len, size_t max = 64);
+
 // Kernel-quality random bytes (arc4random_buf on Darwin, getentropy elsewhere).
 void FillRandom(void* buf, size_t len);
 

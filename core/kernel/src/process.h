@@ -108,6 +108,7 @@ public:
     void handle_syscall(GuestThread& t, void* cpu_state_frame);  // syscalls.cpp
     void thread_main(GuestThread* t);                            // host thread body
     void exit_thread(GuestThread& t, void* frame, int code, bool whole_group);
+    void reap(GuestProcess& p);   // frees memory + files of an exited process
 
     // ---- log ----
     void strace(GuestThread& t, const char* name, const char* args, int64_t ret);

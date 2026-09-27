@@ -42,10 +42,17 @@ size_t HostPageSize();
 
 // ---- shared with the fake kernel (core/kernel/src/process.cpp) ---------------
 
+namespace FEXCore::Core {
+struct InternalThreadState;
+}
+
 struct rlfex_fault_info {
   int signal;
-  uint64_t pc;
-  uint64_t addr;
+  int code;                    // siginfo si_code
+  uint64_t pc;                 // host pc
+  uint64_t addr;               // si_addr
+  bool in_jit;                 // pc inside the thread's JIT code buffer
+  uint64_t unaligned_fixups;   // process-wide count of back-patched TSO accesses so far
 };
 
 // Everything FEXCore needs before a Context can be created: log handlers,
@@ -57,7 +64,10 @@ bool rlfex_platform_init(char* err, size_t cap);
 // Valid after rlfex_platform_init returned true.
 const FEXCore::HostFeatures& rlfex_host_features();
 
-// Runs fn(arg) on this thread with the fault guard armed. Returns 0 when fn
+// Runs fn(arg) on this thread with the fault guard armed for FEX thread
+// `thread` (may be null). A SIGBUS inside that thread's JIT code is first
+// offered to FEX's unaligned-access handler (TSO ldapur/stlur crossing 16
+// bytes: the instruction is back-patched and resumed). Returns 0 when fn
 // returned normally, 1 when a fault (SIGSEGV/SIGBUS/SIGILL/SIGTRAP/SIGFPE)
 // was caught: the thread longjmp'd out of fn and *out describes the fault.
-int rlfex_run_guarded(void (*fn)(void*), void* arg, rlfex_fault_info* out);
+int rlfex_run_guarded(void (*fn)(void*), void* arg, FEXCore::Core::InternalThreadState* thread, rlfex_fault_info* out);

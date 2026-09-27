@@ -2,39 +2,32 @@
 
 ## repo
 
-- State (2026-09-27): request 001 **PASS** including JIT (tvOS 27 DDI from
-  Xcode 27 via the `xcode-27` Actions runner; details in results/001-harness
-  and issue 003). FEXCore's JIT executes on the TV (build-15, 3/7 self-tests:
-  the 4 "failures" ran the first test's stale translation — FEX's lookup
-  cache is shared between threads; fixed by invalidating the code range,
-  `InvalidateCodeBuffersCodeRange` + `InvalidateThreadCachedCodeRange`).
-- Landed with the kernel commit: `core/kernel` (Phase C, C1/C2 scope) —
-  `rlkernel_base` (ELF loader over `FileSource`, `AddressSpace` with per-4K
-  shadow protections on 16K host pages + FEX invalidation hook, fd table,
-  strace-format log; unit-tested by `kernel_test` in the host-tests job) and
-  `rlkernel` (guest processes/threads on FEXCore, ~90 syscalls, synthetic
-  /proc + /dev, rlvfs bridge, C API `rlkernel.h`). App: `/run exec [--dry-run]
-  PATH...`, `ps`, `guest-out PID`, `killall`, absolute guest paths run
-  directly, `KERN` console line, `/status.guest`. `tv.py exec|ps`.
-- **Low addresses are impossible** (XNU `mach_loader.c`: arm64 64-bit
-  binaries need a 4 GB hard page zero, else LOAD_BADMACHO). Guest
-  executables must be PIE: `hello-static` is now `-static-pie`, `busybox`
-  (dynamic) replaces `busybox-static`, `laptop/setup/45-elf-audit.sh` lists
-  offenders; the loader refuses ET_EXEC images below 4 GB with ENOEXEC. Wine's
-  0x7ffe0000 page is a C5 item (fault redirect, or one-constant Wine rebuild).
-- Next request 002 (after the build with this commit is released): FEX
-  self-test 7/7, `vaprobe2`, `45-elf-audit.sh`, rebuild `hello-static` as PIE
-  (+ manifest rebuild), then **C1** `tv.py exec -- /opt/rl/bin/hello-static`
-  and **C2** `tv.py exec -- /opt/rl/bin/hello-dyn` on the TV (dry-run first),
-  screenshot with the KERN line, log with the strace lines, mem.
-- Known gaps to close as the traces demand: exited processes are never
-  reaped (their memory stays mapped), no SMC tracking (mprotect(+W) drops
-  translations instead), one lock around every rlvfs call, no signal
-  delivery yet (C3), no fork/execve/pipes yet (C3).
+- State (2026-09-27, after result 002): **C1 PASS on the TV** (build-18: the
+  first x86-64 Linux program — PIE static hello — ran through VFS, loader,
+  syscall table and FEX with exact output), FEX self-test 7/7, VA budget
+  measured (6.25–6.5 GB, protection/API independent). **C2 FAIL**: SIGBUS in
+  ld.so's `memcmp` — FEX's TSO `ldapur` traps on an unaligned load crossing 16
+  bytes and rlfex's guard reported it instead of back-patching. Fixed in the
+  next build: the guard now calls FEX's `HandleUnalignedAccess` (HalfBarrier)
+  for a SIGBUS inside the thread's JIT code and resumes, like FEX's Linux
+  frontend; exited processes are reaped (memory/fds freed, translations
+  dropped); strace log escapes control characters; `tv.py launch` wakes a
+  sleeping TV first.
+- Next request 003 (once the build with this is released): C2 `hello-dyn`,
+  then `dash -c`, `busybox echo`, `/bin/ls -la /opt/rl/bin` (getdents64,
+  fstat, ioctl, statx fallback), `fex status` (`unaligned_fixups` count).
+- Then C3: vfork/execve/pipe2/dup3/wait4/kill/rt_sig*/sigaltstack and async
+  signals into a JIT'd thread (FEX deferred-signal path) — busybox sh
+  pipeline with a background job; `threads-test` needs clone + futex.
+- Known gaps: no SMC tracking (mprotect(+W) drops translations instead), one
+  lock around every rlvfs call, no signal delivery yet, no fork/execve/pipes.
+- Core facts to keep in mind: guest executables must be PIE (4 GB hard page
+  zero; `45-elf-audit.sh` found only compilers and python3 as ET_EXEC);
+  `/status.guest`, `/run exec|ps|guest-out|killall`; `tv.py exec|ps`.
 - CI: `macos-15`, Xcode 16.4, tvOS 18.5 SDK, deployment target 18.0; jobs
   `host-tests` (vfs_test + kernel_test), `fex-host-check` (FEXCore + rlkernel
   compile on x86-64), `build` (FEX step non-fatal → `FEX linked: true|false`
-  in the release body; `librlfex_all.a` now also carries rlkernel).
+  in the release body; `librlfex_all.a` carries rlfex + rlkernel).
 - Shared branch is `claude/rocket-league-apple-tv-zek0mi` until `main`
   exists (see CLAUDE.md "Shared branch" and DECISIONS.md).
 

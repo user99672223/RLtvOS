@@ -34,7 +34,7 @@ Measured on the TV (request 001, build-11): `/va` reports **max contiguous
 that) although the address range spans 0x1074_00000–0x71_8000_0000.
 `vaprobe2` (build-14) separates granularity / protection / API effects;
 until it says otherwise the budget for *all* guest processes together is
-**≈ 6 GB of virtual address space**, code buffers and JIT pool included.
+**≈ 6.5 GB of virtual address space** (vaprobe2, result 002: 6.25 GB in 256 MB steps, 6.5 GB in 64 MB steps, the same for PROT_NONE, RW, RW+NORESERVE and vm_allocate; RLIMIT_AS unlimited), code buffers and JIT pool included.
 
 Consequences (replaces the per-process slice plan):
 

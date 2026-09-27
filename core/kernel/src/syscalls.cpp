@@ -124,10 +124,10 @@ int64_t sys_read(Sc& c) {
 int64_t sys_write(Sc& c) {
     auto f = fd_get(c, c.fd(0));
     size_t len = (size_t)c.a[2];
-    if (c.fd(0) <= 2 && c.a[1] && len < 200) {
-        c.fmt("%d, \"%.*s\", %zu", c.fd(0), (int)len, reinterpret_cast<const char*>(c.a[1]), len);
+    if (c.a[1]) {
+        c.fmt("%d, \"%s\", %zu", c.fd(0), StraceStr(reinterpret_cast<const void*>(c.a[1]), len).c_str(), len);
     } else {
-        c.fmt("%d, 0x%llx, %zu", c.fd(0), (unsigned long long)c.a[1], len);
+        c.fmt("%d, NULL, %zu", c.fd(0), len);
     }
     if (!f) return -lx::ebadf;
     return f->write(reinterpret_cast<const void*>(c.a[1]), len);

@@ -11,6 +11,7 @@
 #include <FEXCore/HLE/SyscallHandler.h>
 #include <FEXCore/Utils/Allocator.h>
 #include <FEXCore/Utils/AllocatorHooks.h>
+#include <FEXCore/Utils/ArchHelpers/Arm64.h>
 #include <FEXCore/Utils/SignalScopeGuards.h>
 #include <FEXCore/fextl/memory.h>
 
@@ -44,25 +45,55 @@ using namespace FEXCore;
 // handler (the app's crash reporter).
 struct FaultInfo {
   int Signal {};
+  int Code {};
   uint64_t PC {};
   uint64_t Addr {};
+  bool InJIT {};
 };
 
 thread_local bool t_GuardActive = false;
 thread_local sigjmp_buf t_Jmp;
 thread_local FaultInfo t_Fault;
+thread_local Core::InternalThreadState* t_GuardThread = nullptr; // the FEX thread running under the guard
+std::atomic<uint64_t> g_UnalignedFixups {0};
 constexpr int GuardSignals[] = {SIGSEGV, SIGBUS, SIGILL, SIGTRAP, SIGFPE};
 struct sigaction g_Prev[NSIG] {};
 bool g_GuardInstalled = false;
 
 void GuardHandler(int Sig, siginfo_t* SI, void* UC) {
   if (t_GuardActive) {
-    t_Fault.Signal = Sig;
-    t_Fault.Addr = SI ? reinterpret_cast<uint64_t>(SI->si_addr) : 0;
-#if defined(__aarch64__) || defined(__arm64__)
     auto* U = static_cast<ucontext_t*>(UC);
-    t_Fault.PC = (U && U->uc_mcontext) ? static_cast<uint64_t>(__darwin_arm_thread_state64_get_pc(U->uc_mcontext->__ss)) : 0;
+    uint64_t PC = 0;
+#if defined(__aarch64__) || defined(__arm64__)
+    if (U && U->uc_mcontext) {
+      PC = static_cast<uint64_t>(__darwin_arm_thread_state64_get_pc(U->uc_mcontext->__ss));
+    }
 #endif
+    Core::InternalThreadState* Thread = t_GuardThread;
+    const bool InJIT = Thread && PC && Thread->CTX->IsAddressInCodeBuffer(Thread, PC);
+#if defined(__aarch64__) || defined(__arm64__)
+    if (Sig == SIGBUS && InJIT && U && U->uc_mcontext) {
+      // FEX's TSO loads/stores (ldapur/stlur) fault when an access crosses a
+      // 16-byte boundary; Darwin reports that as SIGBUS. FEX back-patches the
+      // instruction (plain access + half barrier, written through the pool's
+      // RW alias) and tells us how far to move the pc — the same thing its
+      // Linux frontend does in its SIGBUS handler. x0..x30 are contiguous in
+      // the Darwin thread state (x[29], fp, lr).
+      uint64_t* GPRs = reinterpret_cast<uint64_t*>(&U->uc_mcontext->__ss.__x[0]);
+      const auto Result = FEXCore::ArchHelpers::Arm64::HandleUnalignedAccess(
+        Thread, FEXCore::ArchHelpers::Arm64::UnalignedHandlerType::HalfBarrier, PC, GPRs);
+      if (Result.has_value()) {
+        g_UnalignedFixups.fetch_add(1, std::memory_order_relaxed);
+        __darwin_arm_thread_state64_set_pc_fptr(U->uc_mcontext->__ss, reinterpret_cast<void*>(PC + *Result));
+        return;
+      }
+    }
+#endif
+    t_Fault.Signal = Sig;
+    t_Fault.Code = SI ? SI->si_code : 0;
+    t_Fault.Addr = SI ? reinterpret_cast<uint64_t>(SI->si_addr) : 0;
+    t_Fault.PC = PC;
+    t_Fault.InJIT = InJIT;
     t_GuardActive = false;
     siglongjmp(t_Jmp, 1);
   }
@@ -301,6 +332,7 @@ RunResult RunBareLocked(const uint8_t* Code, size_t Len, uint64_t RDI, uint64_t 
   InvalidateRange(Thread, reinterpret_cast<uint64_t>(CodePage.Ptr), CodeBytes);
 
   const double T0 = NowMs();
+  t_GuardThread = Thread;
   if (sigsetjmp(t_Jmp, 1) == 0) {
     t_GuardActive = true;
     g_Ctx->ExecuteThread(Thread);
@@ -310,9 +342,10 @@ RunResult RunBareLocked(const uint8_t* Code, size_t Len, uint64_t RDI, uint64_t 
     R.ReachedHlt = false;
     R.Fault = t_Fault;
     g_Poisoned = true;
-    rlfex::Log("rlfex: guest FAULT signal=%d pc=0x%llx addr=0x%llx", R.Fault.Signal, (unsigned long long)R.Fault.PC,
-               (unsigned long long)R.Fault.Addr);
+    rlfex::Log("rlfex: guest FAULT signal=%d code=%d pc=0x%llx%s addr=0x%llx", R.Fault.Signal, R.Fault.Code,
+               (unsigned long long)R.Fault.PC, R.Fault.InJIT ? " (in JIT code)" : "", (unsigned long long)R.Fault.Addr);
   }
+  t_GuardThread = nullptr;
   R.Ms = NowMs() - T0;
   R.RAX = Thread->CurrentFrame->State.gregs[X86State::REG_RAX];
   R.RIP = Thread->CurrentFrame->State.rip;
@@ -435,21 +468,27 @@ const FEXCore::HostFeatures& rlfex_host_features() {
   return g_Features;
 }
 
-int rlfex_run_guarded(void (*Fn)(void*), void* Arg, rlfex_fault_info* Out) {
+int rlfex_run_guarded(void (*Fn)(void*), void* Arg, FEXCore::Core::InternalThreadState* Thread, rlfex_fault_info* Out) {
   if (!g_GuardInstalled) {
     rlfex::Log("rlfex: run_guarded before platform init (no fault guard)");
   }
+  t_GuardThread = Thread;
   if (sigsetjmp(t_Jmp, 1) == 0) {
     t_GuardActive = true;
     Fn(Arg);
     t_GuardActive = false;
+    t_GuardThread = nullptr;
     return 0;
   }
   t_GuardActive = false;
+  t_GuardThread = nullptr;
   if (Out) {
     Out->signal = t_Fault.Signal;
+    Out->code = t_Fault.Code;
     Out->pc = t_Fault.PC;
     Out->addr = t_Fault.Addr;
+    Out->in_jit = t_Fault.InJIT;
+    Out->unaligned_fixups = g_UnalignedFixups.load(std::memory_order_relaxed);
   }
   return 1;
 }
@@ -526,9 +565,11 @@ int rlfex_init(char* Out, size_t Cap) {
 }
 
 void rlfex_status_json(char* Out, size_t Cap) {
-  snprintf(Out, Cap, "{\"initialised\":%s,\"runs\":%llu,\"poisoned\":%s,\"syscalls\":%llu,\"last_error\":\"%s\"}",
+  snprintf(Out, Cap,
+           "{\"initialised\":%s,\"runs\":%llu,\"poisoned\":%s,\"syscalls\":%llu,\"unaligned_fixups\":%llu,\"last_error\":\"%s\"}",
            g_Init ? "true" : "false", (unsigned long long)g_Runs, g_Poisoned ? "true" : "false",
-           (unsigned long long)(g_Syscalls ? g_Syscalls->Calls.load() : 0), g_LastError);
+           (unsigned long long)(g_Syscalls ? g_Syscalls->Calls.load() : 0),
+           (unsigned long long)g_UnalignedFixups.load(std::memory_order_relaxed), g_LastError);
 }
 
 int rlfex_run_bare(const uint8_t* Code, size_t CodeLen, uint64_t RDI, uint64_t RSI, uint64_t RDX, char* Out, size_t Cap) {

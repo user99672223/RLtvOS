@@ -227,6 +227,11 @@ void FdTable::close_on_exec() {
     }
 }
 
+void FdTable::clear() {
+    std::lock_guard<std::mutex> lk(mu_);
+    fds_.clear();
+}
+
 size_t FdTable::count() const {
     std::lock_guard<std::mutex> lk(mu_);
     size_t n = 0;

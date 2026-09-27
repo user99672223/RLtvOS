@@ -115,6 +115,7 @@ public:
     int set_cloexec(int fd, bool on);
     int get_cloexec(int fd) const;  // 0/1 or -EBADF
     void close_on_exec();
+    void clear();   // process exit: drop every open file
     size_t count() const;
     std::vector<std::pair<int, std::string>> list() const;
     static constexpr int kMaxFds = 4096;

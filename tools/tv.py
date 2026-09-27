@@ -845,6 +845,14 @@ def do_launch(fresh=False, timeout=60):
         time.sleep(1)
     launch_cmd = cfg("LAUNCH_CMD")
     app_id = resolve_app_id() or cfg("APP_BUNDLE_ID", "dev.rltvos.app")
+    # A sleeping TV accepts launch_app (rc 0) and starts nothing: wake it first
+    # (LAPTOP, result 002). TV_TURN_ON=0 disables, TV_TURN_ON_SETTLE_S is the wait.
+    if cfg("TV_TURN_ON", "1") == "1" and not launch_cmd:
+        ps = atvremote("power_state", timeout=30)
+        res["power_state"] = (ps["out"] or ps["err"]).strip()[-40:]
+        if "Off" in ps["out"]:
+            res["turned_on"] = atvremote("turn_on", timeout=30)["rc"] == 0
+            time.sleep(float(cfg("TV_TURN_ON_SETTLE_S", "3")))
     if launch_cmd:
         r = sh(fmt(launch_cmd, **placeholders(bundle_id=app_id)), timeout=120)
     else:
