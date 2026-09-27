@@ -301,6 +301,9 @@ int Kernel::spawn(const std::vector<std::string>& argv, const std::vector<std::s
         reply = "{\"ok\":false,\"error\":\"empty argv\"}";
         return -lx::einval;
     }
+    // The caller is an app (HTTP) thread: FEX's allocator wants per-thread init
+    // before CreateThread allocates through it. Idempotent.
+    FEXCore::Allocator::InitializeThread();
     if (!vfs_) {
         reply = "{\"ok\":false,\"error\":\"guest filesystem not mounted (vfs-mount first)\"}";
         return -lx::enoent;

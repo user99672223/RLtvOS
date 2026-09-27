@@ -1,0 +1,7 @@
+# generated / local
+__pycache__/
+*.pyc
+build/
+.DS_Store
+app/RLtvOS.xcodeproj/
+app/build/

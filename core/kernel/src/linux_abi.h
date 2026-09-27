@@ -172,7 +172,7 @@ struct stat {  // 144 bytes
     timespec st_atim;
     timespec st_mtim;
     timespec st_ctim;
-    int64_t __unused[3];
+    int64_t unused_[3];
 };
 static_assert(sizeof(stat) == 144, "linux stat layout");
 struct iovec {
